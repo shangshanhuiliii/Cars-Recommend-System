@@ -1,0 +1,16 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: cars-recommend-backend
+  jackson:
+    time-zone: Asia/Shanghai
+    date-format: yyyy-MM-dd HH:mm:ss
+
+debug: false
+
+logging:
+  level:
+    root: INFO
+    org.springframework: INFO

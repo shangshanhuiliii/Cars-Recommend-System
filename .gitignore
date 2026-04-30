@@ -1,0 +1,26 @@
+# Local sensitive configuration
+backend/src/main/resources/application-local.yml
+application-local.yml
+.env
+.env.*
+!.env.example
+
+# Backend build output
+backend/target/
+*.class
+
+# Frontend dependencies and build output
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Logs
+*.log
+logs/
+
+# IDE and OS files
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
