@@ -102,11 +102,11 @@ GET /api/health
 ### 2.2 车型基础信息
 
 ```text
-GET    /api/admin/car/page
-GET    /api/admin/car/{id}
-POST   /api/admin/car
-PUT    /api/admin/car/{id}
-DELETE /api/admin/car/{id}
+GET    /api/admin/cars
+GET    /api/admin/cars/{id}
+POST   /api/admin/cars
+PUT    /api/admin/cars/{id}
+DELETE /api/admin/cars/{id}
 GET    /api/car/{id}
 ```
 
@@ -144,9 +144,8 @@ GET    /api/car/{id}
 ### 2.3 车型参数
 
 ```text
-GET  /api/admin/car-param/{carId}
-POST /api/admin/car-param
-PUT  /api/admin/car-param/{id}
+GET /api/admin/cars/{id}/param
+PUT /api/admin/cars/{id}/param
 ```
 
 参数保存请求核心字段：
