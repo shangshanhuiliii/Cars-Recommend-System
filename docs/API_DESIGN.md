@@ -278,18 +278,24 @@ GET  /api/recommend/history
 ```json
 {
   "recordId": 100,
+  "demandId": 10,
+  "userId": 1,
   "profileText": "家庭实用型用户，预算10-15万，偏好插混SUV，关注空间和安全。",
-  "fallbackMessage": "未找到足够的完全匹配车型，系统已适度放宽预算上限。",
-  "recommendStatus": "FALLBACK",
+  "fallbackMessage": "已为您找到完全匹配车型",
+  "recommendStatus": "SUCCESS",
   "items": [
     {
       "rankNo": 1,
       "carId": 1,
       "brand": "比亚迪",
+      "series": "宋PLUS",
       "modelName": "宋PLUS DM-i",
       "guidePrice": 159800,
+      "bodyType": "SUV",
+      "energyType": "插混",
+      "seats": 5,
       "totalScore": 88.6,
-      "priceScore": 73.5,
+      "priceScore": 92.5,
       "spaceScore": 88,
       "safetyScore": 92,
       "energyScore": 95,
@@ -298,16 +304,19 @@ GET  /api/recommend/history
       "powerScore": 78,
       "reputationScore": 92,
       "popularityScore": 86,
-      "matchLevel": "RELAX_BUDGET",
+      "matchLevel": "STRICT",
       "tags": ["空间优秀", "安全配置高", "能耗表现好"],
       "reasonText": "该车型空间表现和安全配置得分较高，符合家庭出行场景。",
-      "weaknessText": "该车型价格略高于预算，系统已适度放宽预算。"
+      "weaknessText": "当前结果为严格匹配推荐，可结合维度评分继续对比车型差异。"
     }
-  ]
+  ],
+  "createTime": "2026-05-01T10:30:00"
 }
 ```
 
 其中 `tags` 由推荐算法按高分维度生成，并保存为 `recommend_item.tags` 快照。推荐历史查询时应返回保存的标签快照，不应每次查询时重新生成。标签只用于前端卡片快速展示，不替代 `reasonText` 和 `weaknessText`。
+
+阶段 5 仅实现 `STRICT` 推荐基础闭环：有严格匹配结果时 `recommendStatus = SUCCESS`、`matchLevel = STRICT`；无严格匹配结果时 `recommendStatus = EMPTY` 且 `items` 为空。`FALLBACK` 和非 `STRICT` 的 `matchLevel` 在阶段 6 推荐解释与降级中实现。
 
 `recommendStatus` 生成规则：
 
