@@ -46,8 +46,8 @@
 
 第二类是用户侧数据：
 
-- 硬性条件：预算、车型类型、动力类型、座位数、排除品牌等。
-- 偏好条件：使用场景、关注因素。
+- 硬性条件：预算、可接受车型类型集合、可接受动力类型集合、座位数、排除品牌等。
+- 偏好条件：多个使用场景和 0-10 显式偏好权重滑块。
 - 用户画像权重：价格、空间、安全、能耗、智能、舒适、动力、口碑、热度等权重。
 
 ### 2.2 算法输出
@@ -70,7 +70,7 @@
 
 ```text
 1. 读取用户购车需求。
-2. 根据使用场景和关注因素生成用户偏好权重。
+2. 根据多个使用场景和显式 `factorWeights` 生成用户偏好权重。
 3. 读取车型基础信息、车型参数和车型特征评分。
 4. 按预算上限、车型类型、动力类型、座位数等条件执行严格过滤。
 5. 对候选车型动态计算价格匹配分。
@@ -127,12 +127,8 @@ function generateRecommendation(userId, demandId, topK):
                 break
 
     finalItems = first topK resultItems
-    if finalItems.isEmpty():
-        fallbackMessage = buildEmptyRecommendationMessage()
-    else:
-        fallbackMessage = buildFallbackMessage(maxMatchLevel(finalItems))
-
     recommendStatus = buildRecommendStatus(finalItems)
+    fallbackMessage = buildFallbackMessage(recommendStatus, strictCount(finalItems))
     record = saveRecommendRecord(demand, weights, fallbackMessage, recommendStatus)
     saveRecommendItems(record.id, finalItems)
     return finalItems
@@ -143,7 +139,7 @@ function generateRecommendation(userId, demandId, topK):
 本算法可以在论文中表述为：
 
 ```text
-本文设计了一种基于车型内容特征与用户多维偏好的可解释推荐算法。该算法首先依据车型客观参数构建车型特征评分向量，再根据用户预算、使用场景和关注因素构建用户偏好权重向量，随后通过多维加权匹配计算车型与用户需求之间的综合匹配度，并结合规则模板生成推荐理由和不足提醒。针对严格条件下无匹配结果的问题，算法进一步设计了分级降级匹配策略，以提升推荐结果的可用性和用户体验。
+本文设计了一种基于车型内容特征与用户多维偏好的可解释推荐算法。该算法首先依据车型客观参数构建车型特征评分向量，再根据用户预算、可接受车型/动力集合、多个使用场景和显式偏好权重构建用户画像向量，随后通过多维加权匹配计算车型与用户需求之间的综合匹配度，并结合规则模板生成推荐理由和不足提醒。针对严格条件下匹配不足的问题，算法进一步设计了分级降级匹配策略，以提升推荐结果的可用性和用户体验。
 ```
 
 ### 2.5 与普通条件筛选的区别
@@ -331,13 +327,15 @@ comfortScore = spaceScore * 0.5 + intelligenceScore * 0.2 + reputationScore * 0.
 
 - 预算下限 `budgetMin`
 - 预算上限 `budgetMax`
-- 车型类型 `bodyType`
-- 动力类型 `energyType`
+- 可接受车型类型 `bodyTypes`
+- 可接受动力类型 `energyTypes`
 - 座位数 `seats`
-- 使用场景 `scene`
-- 关注因素 `focusFactors`
+- 使用场景 `scenes`
+- 显式偏好权重 `factorWeights`
 - 排除品牌 `excludedBrands`
 - 排除车型 `excludedCarIds`
+
+需求模型重构后，用户端标准字段只保留 `bodyTypes`、`energyTypes`、`scenes`、`factorWeights`。旧字段 `bodyType`、`energyType`、`scene`、`focusFactors` 删除，不做长期兼容，避免推荐过滤和画像权重产生双重语义。
 
 ### 4.1 场景权重模板
 
@@ -350,41 +348,52 @@ comfortScore = spaceScore * 0.5 + intelligenceScore * 0.2 + reputationScore * 0.
 | 商务接待 | 0.05 | 0.15 | 0.12 | 0.05 | 0.15 | 0.25 | 0.05 | 0.15 | 0.03 |
 | 综合需求 | 0.15 | 0.13 | 0.15 | 0.13 | 0.12 | 0.12 | 0.08 | 0.07 | 0.05 |
 
-### 4.2 关注因素增强
+### 4.2 多场景默认权重
 
-关注因素会提高对应维度权重，然后重新归一化。
-
-| 关注因素 | 对应权重 |
-| --- | --- |
-| 价格、性价比、不贵 | `weightPrice` |
-| 空间大 | `weightSpace` |
-| 安全 | `weightSafety` |
-| 省油、续航、用车成本 | `weightEnergy` |
-| 智能、科技、辅助驾驶 | `weightIntelligence` |
-| 舒适 | `weightComfort` |
-| 动力强 | `weightPower` |
-| 口碑、品牌可靠 | `weightReputation` |
-| 热门、销量 | `weightPopularity` |
-
-固定增强规则：
+`scenes` 支持多选。用户选择多个使用场景时，后端按场景模板逐维求平均，得到默认权重，再统一归一化使权重总和为 1。
 
 ```text
-每个关注因素使对应维度权重增加 0.08。
-若多个关注因素映射到同一维度，最多累计增加 0.16。
-单个维度归一化前权重最高不超过 0.35。
-权重调整后统一归一化，使所有维度权重之和为 1。
+defaultWeight[dimension] = average(sceneTemplate[dimension] for scene in scenes)
 ```
 
-该规则可以避免某个维度过度主导推荐结果，也便于后端稳定实现。
+规则：
 
-### 4.3 画像文本
+- `scenes` 为空时，按 `综合需求` 模板处理。
+- 多个场景只影响默认权重，不作为车型硬过滤条件。
+- 未识别场景不得参与计算，应由接口参数校验拦截。
+
+### 4.3 显式偏好权重
+
+`factorWeights` 是用户在需求表单中通过 0-10 滑块表达的显式偏好，维度固定为：
+
+```text
+price / space / safety / energy / intelligence / comfort / power / reputation / popularity
+```
+
+生成最终权重规则：
+
+```text
+如果 factorWeights 至少一个维度 > 0：
+  使用 factorWeights 归一化后的结果作为最终权重。
+如果 factorWeights 全部为 0：
+  使用 scenes 多场景平均后的默认权重作为最终权重。
+```
+
+说明：
+
+- 缺失维度按 0 处理。
+- 所有最终权重字段必须归一化，保证总和为 1。
+- `factorWeights` 替代旧 `focusFactors` 增强规则，不再执行“每个关注因素 +0.08”的旧逻辑。
+- 显式偏好权重只影响排序和解释，不应被转换为硬过滤条件。
+
+### 4.4 画像文本
 
 画像文本用于展示和记录，不参与复杂 NLP。
 
 示例：
 
 ```text
-家庭实用型用户，预算10-15万，偏好插混SUV，关注空间和安全。
+家庭和长途出行用户，预算10-15万，可接受SUV或MPV，偏好插混或新能源车型，重点关注安全、空间和舒适。
 ```
 
 ## 5. 匹配计算
@@ -397,10 +406,10 @@ comfortScore = spaceScore * 0.5 + intelligenceScore * 0.2 + reputationScore * 0.
 - 用户排除品牌或车型
 - 座位数不满足最低要求
 - 价格高于预算上限 `budgetMax`
-- 车型类型不匹配
-- 动力类型不匹配
+- 车型类型不在 `bodyTypes` 中
+- 动力类型不在 `energyTypes` 展开后的集合中
 
-其中 `budgetMax`、车型类型、动力类型可在降级阶段放宽；排除品牌、排除车型、最低座位数原则上不放宽。
+其中 `budgetMax`、车型类型、动力类型可在降级阶段放宽；排除品牌、排除车型、最低座位数原则上不放宽。`bodyTypes` 或 `energyTypes` 为空时，对应维度不作为严格硬过滤条件。
 
 预算下限 `budgetMin` 是软偏好，不作为严格过滤条件。价格低于 `budgetMin` 的车型仍可进入严格候选集，但会在动态价格分中降低匹配分。
 
@@ -415,15 +424,15 @@ comfortScore = spaceScore * 0.5 + intelligenceScore * 0.2 + reputationScore * 0.
 增程
 ```
 
-`新能源` 不是车型表中的真实动力类型，而是用户侧宽泛偏好。用户选择 `新能源` 时，严格阶段匹配：
+`新能源` 不是车型表中的真实动力类型，而是用户侧宽泛偏好。`energyTypes` 支持多选，用户选择 `新能源` 时，严格阶段展开匹配：
 
 ```text
 纯电 / 插混 / 增程
 ```
 
-用户选择具体动力类型时，严格阶段只匹配该具体类型。
+用户同时选择多个具体动力类型时，严格阶段匹配任一具体类型。若 `energyTypes` 同时包含 `新能源` 和具体动力类型，应先展开并去重。
 
-车型类型严格匹配只使用数据库中存在的类型：
+`bodyTypes` 支持多选。车型类型严格匹配只使用数据库中存在的类型，匹配任一选中类型即可：
 
 ```text
 SUV / 轿车 / MPV
@@ -549,7 +558,7 @@ totalScore =
 
 ## 8. 降级推荐
 
-当严格匹配结果少于 `min(5, topK)` 条时触发降级，避免 `topK < 5` 时阈值不合理。最终推荐默认返回 Top 10。
+当严格匹配结果少于 `min(5, topK)` 条时触发降级，避免 `topK < 5` 时阈值不合理。用户端不展示推荐数量输入，`topK` 由后端默认值或内部调用控制，最终推荐默认返回 Top 10。
 
 | 阶段 | 匹配状态 | 处理方式 | 提示 |
 | --- | --- | --- | --- |
@@ -565,8 +574,8 @@ totalScore =
 
 - `STRICT`：使用全部硬性条件；`price > budgetMax` 时过滤，`budgetMin` 不过滤。
 - `RELAX_BUDGET`：仅放宽预算上限。若存在 `budgetMax`，允许 `price <= budgetMax * 1.10`；若没有 `budgetMax`，该阶段不产生额外预算放宽候选。
-- `RELAX_BODY_TYPE`：仅放宽车型类型到映射类型，其余硬性条件仍按严格阶段执行。
-- `RELAX_ENERGY_TYPE`：仅放宽动力类型到映射类型，其余硬性条件仍按严格阶段执行。
+- `RELAX_BODY_TYPE`：仅放宽车型类型到 `bodyTypes` 对应映射类型的并集，其余硬性条件仍按严格阶段执行；若 `bodyTypes` 为空，该阶段通常不产生额外车型类型放宽候选。
+- `RELAX_ENERGY_TYPE`：仅放宽动力类型到 `energyTypes` 对应映射类型的并集，其余硬性条件仍按严格阶段执行；若 `energyTypes` 为空，该阶段通常不产生额外动力类型放宽候选。
 - `SIMILAR_RECOMMEND`：保留审核状态、排除品牌、排除车型、最低座位数等不可放宽条件，预算、车型类型和动力类型可不再作为硬过滤，但仍参与价格分和综合排序。
 
 降级推荐采用分阶段候选集补充策略，而不是用后续阶段覆盖前一阶段结果。
@@ -598,6 +607,8 @@ MPV -> SUV
 轿车 -> SUV
 ```
 
+当用户选择多个 `bodyTypes` 时，放宽车型类型取每个已选类型映射结果的并集，并排除严格阶段已经覆盖的车型类型。例如 `["SUV", "轿车"]` 可扩展出 `MPV`，但 `SUV` 已属于严格匹配集合，不应作为新的降级类型重复加入。
+
 ### 8.2 动力类型降级映射
 
 动力类型放宽规则：
@@ -613,19 +624,21 @@ MPV -> SUV
 说明：
 
 - 用户选择 `新能源` 时，严格阶段已经匹配 `纯电 / 插混 / 增程`，通常不需要额外动力放宽。
+- 当用户选择多个 `energyTypes` 时，放宽动力类型取每个已选类型映射结果的并集，并排除严格阶段已经覆盖的动力类型。
 - 排除品牌、排除车型、最低座位数不参与降级放宽。
 
 ### 8.3 降级提示生成
 
-`fallbackMessage` 根据最终返回并保存的推荐结果中出现的最高放宽阶段生成：
+`fallbackMessage` 根据 `recommendStatus` 和最终返回结果中的严格匹配数量 `strictCount` 生成，避免顶部提示与单条 `matchLevel` 状态产生语义冲突。
 
-| 最高放宽阶段 | 推荐提示 |
+| 条件 | 推荐提示 |
 | --- | --- |
-| `STRICT` | 空字符串或“已为您找到完全匹配车型” |
-| `RELAX_BUDGET` | “未找到足够的完全匹配车型，系统已适度放宽预算上限。” |
-| `RELAX_BODY_TYPE` | “未找到足够的完全匹配车型，系统已扩展相近车型类型。” |
-| `RELAX_ENERGY_TYPE` | “未找到足够的完全匹配车型，系统已扩展相近动力类型。” |
-| `SIMILAR_RECOMMEND` | “未找到完全匹配车型，以下车型并非完全满足条件，但在核心偏好上较接近。” |
+| `recommendStatus = SUCCESS` | 空字符串或“已为您找到完全匹配车型” |
+| `recommendStatus = FALLBACK` 且 `strictCount > 0` | “完全匹配车型数量不足，系统已补充部分降级推荐车型，并在每条结果中标明匹配状态。” |
+| `recommendStatus = FALLBACK` 且 `strictCount = 0` | “未找到完全匹配车型，系统已根据您的核心偏好提供相近推荐。” |
+| `recommendStatus = EMPTY` | “暂未找到合适车型，请调整预算、车型类型或动力类型后重试。” |
+
+如需按最高放宽阶段细化文案，也必须先区分 `strictCount > 0` 和 `strictCount = 0`。只要最终结果中仍存在 `STRICT` 明细，顶部文案就不应表达为“未找到完全匹配车型”。
 
 ### 8.4 推荐状态生成
 
@@ -639,7 +652,7 @@ FALLBACK：最终推荐结果不为空，且至少存在一个推荐项的 match
 EMPTY：所有阶段都没有候选结果，最终推荐结果为空。
 ```
 
-`fallbackMessage` 根据最终推荐结果中出现的最高放宽阶段生成。如果 `recommendStatus = EMPTY`，建议提示“暂未找到合适车型，请调整预算、车型类型或动力类型后重试。”
+`fallbackMessage` 根据 `recommendStatus` 和 `strictCount` 生成。如果 `recommendStatus = EMPTY`，提示“暂未找到合适车型，请调整预算、车型类型或动力类型后重试。”
 
 ## 9. 推荐追溯要求
 
@@ -673,10 +686,10 @@ EMPTY：所有阶段都没有候选结果，最终推荐结果为空。
 
 ```text
 xx万以内、xx到xx万
-SUV、轿车、MPV
-燃油、纯电、插混、增程、新能源
-家用、通勤、长途、新手
-省油、空间大、安全、智能、舒适、动力强
+一个或多个车型类型：SUV、轿车、MPV
+一个或多个动力类型：燃油、纯电、插混、增程、新能源
+一个或多个使用场景：家用、通勤、长途、新手、商务
+偏好词映射为 factorWeights 初始值：省油、空间大、安全、智能、舒适、动力强、口碑、热门、性价比
 ```
 
 增强支持：
@@ -691,27 +704,27 @@ SUV、轿车、MPV
 家庭出行：
 
 ```text
-预算 10-15 万，SUV，插混，关注空间和安全。
+预算 10-15 万，可接受 SUV 或 MPV，可接受插混或新能源，场景为家庭出行和长途自驾，空间和安全滑块较高。
 期望：推荐空间分和安全分较高的车型。
 ```
 
 城市通勤：
 
 ```text
-预算 8-12 万，轿车或小型 SUV，关注省油和性价比。
+预算 8-12 万，可接受轿车或 SUV，动力类型可接受燃油或纯电，场景为城市通勤，价格和能耗滑块较高。
 期望：推荐价格分和能耗分较高的车型。
 ```
 
 极端条件：
 
 ```text
-预算 5 万，7 座纯电 SUV，空间大，安全高。
+预算 5 万，7 座，车型只接受 SUV，动力只接受纯电，空间和安全滑块较高。
 期望：触发降级推荐，不返回空白。
 ```
 
 自然语言：
 
 ```text
-我想买15万以内的SUV，家用，最好省油安全。
-期望：识别预算、SUV、家庭出行、能耗和安全。
+我想买15万以内的SUV或MPV，家用也要能长途，最好省油安全。
+期望：识别预算、多个车型类型、多个使用场景，并生成能耗和安全相关 factorWeights。
 ```

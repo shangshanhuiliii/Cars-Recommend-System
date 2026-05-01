@@ -196,11 +196,11 @@ REJECTED：审核拒绝，不进入推荐候选
 | `raw_text` | 自然语言原始输入，可空 |
 | `budget_min` | 预算下限 |
 | `budget_max` | 预算上限 |
-| `body_type` | 车型类型偏好 |
-| `energy_type` | 动力类型偏好 |
+| `body_types` | 车型类型偏好，JSON 数组 |
+| `energy_types` | 动力类型偏好，JSON 数组 |
 | `seats` | 最低座位数 |
-| `scene` | 使用场景 |
-| `focus_factors` | 关注因素，JSON 或文本 JSON |
+| `scenes` | 使用场景，JSON 数组 |
+| `factor_weights` | 用户显式偏好权重滑块，JSON 对象，值域 0-10 |
 | `excluded_brands` | 排除品牌，JSON 或文本 JSON |
 | `excluded_car_ids` | 排除车型 ID，JSON 或文本 JSON |
 | `profile_text` | 用户画像文本 |
@@ -217,7 +217,38 @@ REJECTED：审核拒绝，不进入推荐候选
 | `create_time` | 创建时间 |
 | `update_time` | 更新时间 |
 
-需求侧 `energy_type` 可保存宽泛偏好 `新能源`；车型表 `car_model.energy_type` 不保存 `新能源`，只保存具体动力类型 `燃油 / 纯电 / 插混 / 增程`。
+需求侧 `energy_types` 可保存宽泛偏好 `新能源`；车型表 `car_model.energy_type` 不保存 `新能源`，只保存具体动力类型 `燃油 / 纯电 / 插混 / 增程`。
+
+### 5.2 需求模型重构字段处理
+
+本次需求模型重构后，`user_demand` 以多选和显式权重字段为准：
+
+| 新字段 | 类型建议 | 示例 |
+| --- | --- | --- |
+| `body_types` | JSON 数组 | `["SUV", "MPV"]` |
+| `energy_types` | JSON 数组 | `["插混", "新能源"]` |
+| `scenes` | JSON 数组 | `["家庭出行", "长途自驾"]` |
+| `factor_weights` | JSON 对象 | `{"price":0,"space":8,"safety":9,"energy":6,"intelligence":3,"comfort":7,"power":0,"reputation":4,"popularity":0}` |
+
+如果当前数据库为兼容已有实现临时使用 TEXT 保存 JSON 字符串，字段语义仍必须按 JSON 数组或 JSON 对象处理；API 层返回数组或对象，不返回 JSON 字符串。
+
+旧字段处理决策：
+
+| 旧字段 | 新字段 | 处理建议 |
+| --- | --- | --- |
+| `body_type` | `body_types` | 本地库重建后删除旧列，不做长期兼容 |
+| `energy_type` | `energy_types` | 本地库重建后删除旧列，不做长期兼容 |
+| `scene` | `scenes` | 本地库重建后删除旧列，不做长期兼容 |
+| `focus_factors` | `factor_weights` | 本地库重建后删除旧列，不做长期兼容；旧关注因素不再转换为新权重 |
+
+不能长期同时维护新旧两套字段语义，否则会导致推荐过滤、画像文本和历史追溯出现歧义。已确认采用重建本地库方案，实施顺序：
+
+1. 调整 `user_demand` 表结构，只保留 `body_types`、`energy_types`、`scenes`、`factor_weights`。
+2. 更新初始化脚本和种子数据，旧列 `body_type`、`energy_type`、`scene`、`focus_factors` 不再创建。
+3. 后端和前端全部切换到新字段，不实现新旧字段双写、双读或自动兼容。
+4. 重建本地数据库前仍需在执行操作时再次确认，因为该操作会清空本地联调数据。
+
+如果本地 MySQL 中已有联调数据，重建库、删除表或清空表会丢失现有需求和推荐记录；执行前必须向用户说明影响并获得操作确认。推荐记录和推荐明细已有快照，不应通过重新计算方式迁移覆盖。
 
 ## 6. 推荐追溯表
 
@@ -355,6 +386,7 @@ car_model 1 - n favorite
 - 动力类型：燃油、纯电、插混、增程。
 - 价格区间：8 万以内、8-12 万、10-15 万、15-25 万、25 万以上。
 - 场景适配：家庭出行、城市通勤、长途自驾、新手代步、商务接待。
+- 需求样例应覆盖多个 `body_types`、多个 `energy_types`、多个 `scenes` 和显式 `factor_weights`。
 
 测试数据编写原则：
 
@@ -376,6 +408,7 @@ car_model 1 - n favorite
 - `car_param(car_id)` 唯一索引
 - `car_feature_score(car_id)` 唯一索引
 - `user_demand(user_id)`
+- 如使用 MySQL 8 JSON 字段，可根据实际查询方式评估 `body_types`、`energy_types`、`scenes` 的生成列或函数索引；第一版可以先依赖应用层解析和候选过滤。
 - `recommend_record(user_id)`
 - `recommend_record(demand_id)`
 - `recommend_item(record_id)`

@@ -35,20 +35,21 @@
 
 | 字段 | 可选值 |
 | --- | --- |
-| `bodyType` | `SUV` / `轿车` / `MPV` |
+| `bodyTypes[]` | `SUV` / `轿车` / `MPV` |
 | `carModel.energyType` | `燃油` / `纯电` / `插混` / `增程` |
-| `userDemand.energyType` | `燃油` / `纯电` / `插混` / `增程` / `新能源` |
-| `scene` | `城市通勤` / `家庭出行` / `长途自驾` / `新手代步` / `商务接待` / `综合需求` |
-| `focusFactors` | `价格` / `空间` / `安全` / `能耗` / `智能` / `舒适` / `动力` / `口碑` / `热度` |
+| `userDemand.energyTypes[]` | `燃油` / `纯电` / `插混` / `增程` / `新能源` |
+| `scenes[]` | `城市通勤` / `家庭出行` / `长途自驾` / `新手代步` / `商务接待` / `综合需求` |
+| `factorWeights` keys | `price` / `space` / `safety` / `energy` / `intelligence` / `comfort` / `power` / `reputation` / `popularity` |
 | `auditStatus` | `APPROVED` / `PENDING` / `REJECTED` |
 | `recommendStatus` | `SUCCESS` / `FALLBACK` / `EMPTY` |
 | `matchLevel` | `STRICT` / `RELAX_BUDGET` / `RELAX_BODY_TYPE` / `RELAX_ENERGY_TYPE` / `SIMILAR_RECOMMEND` |
 
 说明：
 
-- `新能源` 只作为用户需求中的宽泛动力偏好，不作为车型表真实动力类型。
+- `新能源` 只作为用户需求中的宽泛动力偏好，不作为车型表真实动力类型；需求中包含 `新能源` 时实际匹配 `纯电 / 插混 / 增程`。
 - `matchLevel` 是单条推荐明细的匹配状态。
 - `recommendStatus` 是一次推荐记录的总体状态。
+- 需求模型重构后，用户端 API 只使用 `bodyTypes`、`energyTypes`、`scenes`、`factorWeights`。旧字段 `bodyType`、`energyType`、`scene`、`focusFactors` 不再作为请求或响应字段保留，不做长期兼容。
 
 ### 1.5 演示用户策略
 
@@ -108,6 +109,8 @@ POST   /api/admin/cars
 PUT    /api/admin/cars/{id}
 DELETE /api/admin/cars/{id}
 GET    /api/car/{id}
+GET    /api/car/brands
+GET    /api/car/options
 ```
 
 `GET /api/car/{id}` 是用户端车型详情只读接口，只返回未删除车型。车型不存在或已删除时返回 404；参数或评分尚不存在时对应字段返回 `null`，接口不触发评分重算。
@@ -184,6 +187,45 @@ GET    /api/car/{id}
 | `energyType` | 动力类型 |
 | `minPrice` | 最低价 |
 | `maxPrice` | 最高价 |
+
+用户端需求页排除品牌和排除车型不允许手动输入，必须通过数据库已有数据搜索选择。
+
+`GET /api/car/brands` 查询可用品牌：
+
+| 参数 | 说明 |
+| --- | --- |
+| `keyword` | 品牌关键词，可选 |
+
+响应示例：
+
+```json
+["比亚迪", "吉利", "丰田"]
+```
+
+`GET /api/car/options` 查询可选车型：
+
+| 参数 | 说明 |
+| --- | --- |
+| `keyword` | 品牌、车系、车型名称关键词，可选 |
+| `brand` | 品牌过滤，可选 |
+| `bodyTypes` | 车型类型过滤，可选，逗号分隔或数组参数 |
+| `energyTypes` | 动力类型过滤，可选，逗号分隔或数组参数；包含 `新能源` 时展开为 `纯电 / 插混 / 增程` |
+
+响应示例：
+
+```json
+[
+  {
+    "id": 1,
+    "brand": "比亚迪",
+    "series": "宋PLUS",
+    "modelName": "宋PLUS DM-i",
+    "guidePrice": 159800,
+    "bodyType": "SUV",
+    "energyType": "插混"
+  }
+]
+```
 
 车型保存请求核心字段：
 
@@ -283,15 +325,36 @@ GET  /api/user/demand/{id}
   "rawText": "",
   "budgetMin": 100000,
   "budgetMax": 150000,
-  "bodyType": "SUV",
-  "energyType": "插混",
+  "bodyTypes": ["SUV", "MPV"],
+  "energyTypes": ["插混", "新能源"],
   "seats": 5,
-  "scene": "家庭出行",
-  "focusFactors": ["空间", "安全"],
-  "excludedBrands": [],
-  "excludedCarIds": []
+  "scenes": ["家庭出行", "长途自驾"],
+  "factorWeights": {
+    "price": 0,
+    "space": 8,
+    "safety": 9,
+    "energy": 6,
+    "intelligence": 3,
+    "comfort": 7,
+    "power": 0,
+    "reputation": 4,
+    "popularity": 0
+  },
+  "excludedBrands": ["特斯拉"],
+  "excludedCarIds": [12]
 }
 ```
+
+请求字段说明：
+
+| 字段 | 说明 |
+| --- | --- |
+| `bodyTypes` | 可接受的车型类型，多选；为空表示不以车型类型作为硬过滤 |
+| `energyTypes` | 可接受的动力类型，多选；包含 `新能源` 时展开为 `纯电 / 插混 / 增程` |
+| `scenes` | 使用场景，多选；为空时按 `综合需求` 处理 |
+| `factorWeights` | 用户显式偏好权重滑块，0-10；后端负责归一化 |
+| `excludedBrands` | 通过 `GET /api/car/brands` 搜索选择，不手动输入 |
+| `excludedCarIds` | 通过 `GET /api/car/options` 搜索选择，不手动输入 |
 
 预算约定：
 
@@ -303,20 +366,40 @@ GET  /api/user/demand/{id}
 ```json
 {
   "id": 10,
-  "profileText": "家庭实用型用户，预算10-15万，偏好插混SUV，关注空间和安全。",
+  "bodyTypes": ["SUV", "MPV"],
+  "energyTypes": ["插混", "新能源"],
+  "scenes": ["家庭出行", "长途自驾"],
+  "factorWeights": {
+    "price": 0,
+    "space": 8,
+    "safety": 9,
+    "energy": 6,
+    "intelligence": 3,
+    "comfort": 7,
+    "power": 0,
+    "reputation": 4,
+    "popularity": 0
+  },
+  "profileText": "家庭和长途出行用户，预算10-15万，可接受SUV或MPV，偏好插混或新能源车型，重点关注安全、空间和舒适。",
   "weights": {
-    "price": 0.09,
-    "space": 0.28,
-    "safety": 0.28,
-    "energy": 0.09,
-    "intelligence": 0.07,
-    "comfort": 0.12,
-    "power": 0.03,
-    "reputation": 0.03,
-    "popularity": 0.01
+    "price": 0.00,
+    "space": 0.22,
+    "safety": 0.24,
+    "energy": 0.16,
+    "intelligence": 0.08,
+    "comfort": 0.19,
+    "power": 0.00,
+    "reputation": 0.11,
+    "popularity": 0.00
   }
 }
 ```
+
+权重生成规则见 `RECOMMENDATION_DESIGN.md`。简要约定：
+
+- `factorWeights` 至少一个值大于 0 时，后端直接归一化 `factorWeights` 作为最终 `weights`。
+- `factorWeights` 全部为 0 时，后端根据 `scenes` 多场景模板平均值生成默认 `weights`。
+- 旧请求字段 `bodyType`、`energyType`、`scene`、`focusFactors` 在需求模型重构后不再作为用户端标准请求字段。
 
 ### 2.6 推荐生成与追溯
 
@@ -331,10 +414,11 @@ GET  /api/recommend/history
 ```json
 {
   "userId": 1,
-  "demandId": 10,
-  "topK": 10
+  "demandId": 10
 }
 ```
+
+说明：用户端不展示“推荐数量”输入，也不主动传 `topK`。后端推荐生成使用默认 Top 10；如保留 `topK` 参数，只能作为内部调试或管理端能力，不能成为用户需求表单字段。
 
 推荐响应核心结构：
 
@@ -343,7 +427,7 @@ GET  /api/recommend/history
   "recordId": 100,
   "demandId": 10,
   "userId": 1,
-  "profileText": "家庭实用型用户，预算10-15万，偏好插混SUV，关注空间和安全。",
+  "profileText": "家庭和长途出行用户，预算10-15万，可接受SUV或MPV，偏好插混或新能源车型，重点关注安全、空间和舒适。",
   "fallbackMessage": "已为您找到完全匹配车型",
   "recommendStatus": "SUCCESS",
   "items": [
@@ -369,7 +453,7 @@ GET  /api/recommend/history
       "popularityScore": 86,
       "matchLevel": "STRICT",
       "tags": ["空间优秀", "安全配置高", "能耗表现好"],
-      "reasonText": "该车型空间表现和安全配置得分较高，符合家庭出行场景。",
+      "reasonText": "该车型空间表现和安全配置得分较高，符合家庭和长途出行场景。",
       "weaknessText": "当前结果为严格匹配推荐，可结合维度评分继续对比车型差异。"
     }
   ],
@@ -389,11 +473,9 @@ GET  /api/recommend/history
 
 `fallbackMessage` 生成规则：
 
-- `STRICT`：空字符串或“已为您找到完全匹配车型”。
-- `RELAX_BUDGET`：“未找到足够的完全匹配车型，系统已适度放宽预算上限。”
-- `RELAX_BODY_TYPE`：“未找到足够的完全匹配车型，系统已扩展相近车型类型。”
-- `RELAX_ENERGY_TYPE`：“未找到足够的完全匹配车型，系统已扩展相近动力类型。”
-- `SIMILAR_RECOMMEND`：“未找到完全匹配车型，以下车型并非完全满足条件，但在核心偏好上较接近。”
+- `SUCCESS`：空字符串或“已为您找到完全匹配车型”。
+- `FALLBACK` 且最终结果中存在 `STRICT`：使用“完全匹配车型数量不足，系统已补充部分推荐车型”类文案。
+- `FALLBACK` 且最终结果中不存在 `STRICT`：使用“未找到完全匹配车型，系统已根据核心偏好提供相近推荐”类文案。
 - `EMPTY`：“暂未找到合适车型，请调整预算、车型类型或动力类型后重试。”
 
 推荐历史详情必须返回：
@@ -423,7 +505,7 @@ GET  /api/recommend/history
     {
       "recordId": 100,
       "createTime": "2026-04-30 20:00:00",
-      "profileText": "家庭实用型用户，预算10-15万，偏好插混SUV，关注空间和安全。",
+      "profileText": "家庭和长途出行用户，预算10-15万，可接受SUV或MPV，偏好插混或新能源车型，重点关注安全、空间和舒适。",
       "recommendStatus": "SUCCESS",
       "fallbackMessage": "",
       "topCarNames": ["宋PLUS DM-i", "银河L7"],
@@ -465,11 +547,21 @@ POST /api/demand/parse-text
   "rawText": "我想买15万以内的SUV，家用，最好省油安全",
   "budgetMin": null,
   "budgetMax": 150000,
-  "bodyType": "SUV",
-  "energyType": null,
+  "bodyTypes": ["SUV"],
+  "energyTypes": [],
   "seats": null,
-  "scene": "家庭出行",
-  "focusFactors": ["能耗", "安全"],
+  "scenes": ["家庭出行"],
+  "factorWeights": {
+    "price": 0,
+    "space": 0,
+    "safety": 8,
+    "energy": 8,
+    "intelligence": 0,
+    "comfort": 0,
+    "power": 0,
+    "reputation": 0,
+    "popularity": 0
+  },
   "excludedBrands": [],
   "excludedCarIds": [],
   "profileText": "家庭实用型用户，预算15万以内，偏好SUV，关注能耗和安全。",
@@ -536,7 +628,7 @@ GET /api/admin/stat/feedback
 
 - 预算区间分布
 - 使用场景分布
-- 关注因素分布
+- 显式偏好权重分布
 - 热门推荐车型
 - 推荐状态分布
 - 动力类型偏好分布
@@ -550,7 +642,7 @@ GET /api/admin/stat/feedback
 {
   "budgetDistribution": [{ "name": "10-15万", "value": 12 }],
   "sceneDistribution": [{ "name": "家庭出行", "value": 8 }],
-  "focusFactorDistribution": [{ "name": "安全", "value": 10 }],
+  "factorWeightDistribution": [{ "name": "安全", "value": 10 }],
   "popularCars": [{ "name": "宋PLUS DM-i", "value": 6 }],
   "recommendStatusDistribution": [{ "name": "FALLBACK", "value": 3 }],
   "energyTypeDistribution": [{ "name": "插混", "value": 5 }],
