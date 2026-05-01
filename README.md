@@ -42,6 +42,57 @@ backend/src/main/resources/application-local.yml
 
 并通过 `.gitignore` 忽略。文档和示例配置中只能使用 `your_mysql_password` 等占位符。
 
+## 本地 MySQL 初始化
+
+后端本地联调建议使用 MySQL 8。初始化流程只需要在本机创建数据库、执行表结构脚本和种子数据脚本，不要把真实账号密码提交到仓库。
+
+1. 创建空数据库：
+
+```sql
+CREATE DATABASE IF NOT EXISTS cars_recommend_system
+  DEFAULT CHARACTER SET utf8mb4
+  DEFAULT COLLATE utf8mb4_unicode_ci;
+```
+
+2. 在 MySQL 客户端中执行初始化脚本：
+
+```sql
+USE cars_recommend_system;
+SOURCE backend/src/main/resources/db/schema.sql;
+SOURCE backend/src/main/resources/db/seed-data.sql;
+```
+
+如果从 `backend` 目录启动 MySQL 客户端，也可以使用：
+
+```sql
+USE cars_recommend_system;
+SOURCE src/main/resources/db/schema.sql;
+SOURCE src/main/resources/db/seed-data.sql;
+```
+
+`schema.sql` 使用 `CREATE TABLE IF NOT EXISTS`，可重复检查表结构；`seed-data.sql` 面向空库初始化，包含固定 ID 的演示用户、管理员和 20 条车型数据，不建议在已有同 ID 数据的库中重复执行。
+
+3. 创建本地真实配置文件：
+
+```text
+backend/src/main/resources/application-local.yml
+```
+
+内容参考 `backend/src/main/resources/application-local.example.yml`，将 `your_mysql_password` 替换为本机密码。该文件已被 `.gitignore` 忽略，不能提交。
+
+4. 使用 local profile 启动后端：
+
+```bash
+cd backend
+mvn spring-boot:run -Dspring-boot.run.profiles=local
+```
+
+健康检查：
+
+```text
+GET http://localhost:8080/api/health
+```
+
 ## 阶段 0 工程启动
 
 后端：
