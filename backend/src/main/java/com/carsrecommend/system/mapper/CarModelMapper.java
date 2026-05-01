@@ -82,6 +82,12 @@ public class CarModelMapper {
         return cars.stream().findFirst();
     }
 
+    public List<CarModel> findAllActive() {
+        return jdbcTemplate.query(
+                "SELECT " + SELECT_COLUMNS + " FROM car_model WHERE deleted = FALSE ORDER BY id ASC",
+                ROW_MAPPER);
+    }
+
     public boolean existsActiveById(Long id) {
         Long count = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM car_model WHERE id = ? AND deleted = FALSE",
@@ -95,6 +101,13 @@ public class CarModelMapper {
                 "SELECT " + SELECT_COLUMNS
                         + " FROM car_model WHERE audit_status = 'APPROVED' AND deleted = FALSE ORDER BY id ASC",
                 ROW_MAPPER);
+    }
+
+    public int findMaxSalesVolume() {
+        Integer maxSales = jdbcTemplate.queryForObject(
+                "SELECT COALESCE(MAX(sales_volume), 0) FROM car_model WHERE deleted = FALSE",
+                Integer.class);
+        return maxSales == null ? 0 : maxSales;
     }
 
     public CarModel insert(CarModel carModel) {

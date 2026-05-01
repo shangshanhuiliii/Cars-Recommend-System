@@ -27,3 +27,15 @@ export function fetchAdminCarParam(id) {
 export function saveAdminCarParam(id, data) {
   return http.put(`/admin/cars/${id}/param`, data)
 }
+
+export function fetchAdminCarScore(id) {
+  return http.get(`/admin/cars/${id}/score`)
+}
+
+export function recalculateAdminCarScore(id) {
+  return http.post(`/admin/cars/${id}/score/recalculate`)
+}
+
+export function recalculateAllAdminCarScores() {
+  return http.post('/admin/cars/scores/recalculate')
+}

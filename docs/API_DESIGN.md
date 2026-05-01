@@ -181,9 +181,9 @@ PUT /api/admin/cars/{id}/param
 ### 2.4 车型评分
 
 ```text
-POST /api/admin/car-score/recalculate/{carId}
-POST /api/admin/car-score/recalculate-all
-GET  /api/admin/car-score/{carId}
+GET  /api/admin/cars/{id}/score
+POST /api/admin/cars/{id}/score/recalculate
+POST /api/admin/cars/scores/recalculate
 ```
 
 评分响应核心字段：
