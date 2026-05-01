@@ -43,10 +43,10 @@ public class RecommendationServiceImpl implements RecommendationService {
 
     private static final long DEFAULT_DEMO_USER_ID = 1L;
     private static final String STRICT_SUCCESS_MESSAGE = "已为您找到完全匹配车型";
-    private static final String RELAX_BUDGET_MESSAGE = "未找到足够的完全匹配车型，系统已适度放宽预算上限。";
-    private static final String RELAX_BODY_TYPE_MESSAGE = "未找到足够的完全匹配车型，系统已扩展相近车型类型。";
-    private static final String RELAX_ENERGY_TYPE_MESSAGE = "未找到足够的完全匹配车型，系统已扩展相近动力类型。";
-    private static final String SIMILAR_RECOMMEND_MESSAGE = "未找到完全匹配车型，以下车型并非完全满足条件，但在核心偏好上较接近。";
+    private static final String PARTIAL_FALLBACK_MESSAGE =
+            "完全匹配车型数量不足，系统已补充部分降级推荐车型，并在每条结果中标明匹配状态。";
+    private static final String NO_STRICT_FALLBACK_MESSAGE =
+            "未找到完全匹配车型，系统已根据您的核心偏好提供相近推荐。";
     private static final String EMPTY_RECOMMEND_MESSAGE = "暂未找到合适车型，请调整预算、车型类型或动力类型后重试。";
     private static final String DEFAULT_REASON_TEXT = "该车型在多个维度上与您的需求较为接近，可作为备选车型进一步对比。";
     private static final String DEFAULT_WEAKNESS_TEXT = "该车型整体匹配较均衡，暂无明显短板。";
@@ -547,27 +547,13 @@ public class RecommendationServiceImpl implements RecommendationService {
         if (RecommendStatus.EMPTY.getCode().equals(recommendStatus)) {
             return EMPTY_RECOMMEND_MESSAGE;
         }
-        MatchLevel highestLevel = items.stream()
-                .map(ScoredRecommendation::matchLevel)
-                .max(Comparator.comparing(this::matchLevelOrder))
-                .orElse(MatchLevel.STRICT);
-        return switch (highestLevel) {
-            case STRICT -> STRICT_SUCCESS_MESSAGE;
-            case RELAX_BUDGET -> RELAX_BUDGET_MESSAGE;
-            case RELAX_BODY_TYPE -> RELAX_BODY_TYPE_MESSAGE;
-            case RELAX_ENERGY_TYPE -> RELAX_ENERGY_TYPE_MESSAGE;
-            case SIMILAR_RECOMMEND -> SIMILAR_RECOMMEND_MESSAGE;
-        };
-    }
-
-    private int matchLevelOrder(MatchLevel matchLevel) {
-        return switch (matchLevel) {
-            case STRICT -> 0;
-            case RELAX_BUDGET -> 1;
-            case RELAX_BODY_TYPE -> 2;
-            case RELAX_ENERGY_TYPE -> 3;
-            case SIMILAR_RECOMMEND -> 4;
-        };
+        if (RecommendStatus.SUCCESS.getCode().equals(recommendStatus)) {
+            return STRICT_SUCCESS_MESSAGE;
+        }
+        long strictCount = items.stream()
+                .filter(item -> item.matchLevel() == MatchLevel.STRICT)
+                .count();
+        return strictCount > 0 ? PARTIAL_FALLBACK_MESSAGE : NO_STRICT_FALLBACK_MESSAGE;
     }
 
     private RecommendItem toRecommendItem(Long recordId, int rankNo, ScoredRecommendation scoredItem) {

@@ -79,11 +79,7 @@
       <div v-else class="result-list">
         <article v-for="item in detail.items" :key="`${detail.recordId}-${item.rankNo}`" class="recommend-card">
           <div class="car-visual">
-            <img v-if="item.imageUrl" :src="item.imageUrl" :alt="item.modelName" />
-            <div v-else class="car-visual__fallback">
-              <span>{{ item.brand }}</span>
-              <strong>{{ item.energyType }}</strong>
-            </div>
+            <img :src="carImageSrc(item.imageUrl)" :alt="item.modelName" @error="fallbackCarImage" />
           </div>
 
           <div class="recommend-main">
@@ -99,9 +95,15 @@
               </div>
             </div>
 
-            <div class="tag-line">
-              <el-tag v-for="tag in item.tags" :key="tag" effect="light">{{ tag }}</el-tag>
-              <el-tag :type="matchTagType(item.matchLevel)" effect="dark">{{ matchLabel(item.matchLevel) }}</el-tag>
+            <div class="recommend-meta">
+              <div class="tag-line">
+                <span class="meta-label">推荐标签</span>
+                <el-tag v-for="tag in displayTags(item.tags)" :key="tag" effect="light">{{ tag }}</el-tag>
+              </div>
+              <div class="match-line">
+                <span class="meta-label">匹配状态</span>
+                <el-tag :type="matchTagType(item.matchLevel)" effect="dark">{{ matchLabel(item.matchLevel) }}</el-tag>
+              </div>
               <span class="price-text">{{ formatWan(item.guidePrice) }}</span>
             </div>
 
@@ -144,6 +146,8 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { fetchRecommendationDetail } from '@/api/recommend'
+import { carImageSrc, fallbackCarImage } from '@/utils/carImage'
+import { displayTags, matchLabel, matchTagType } from '@/utils/recommendPresentation'
 
 const route = useRoute()
 const router = useRouter()
@@ -230,24 +234,6 @@ function statusType(value) {
   if (value === 'SUCCESS') return 'success'
   if (value === 'FALLBACK') return 'warning'
   if (value === 'EMPTY') return 'danger'
-  return 'info'
-}
-
-function matchLabel(value) {
-  const labels = {
-    STRICT: '完全匹配',
-    RELAX_BUDGET: '放宽预算',
-    RELAX_BODY_TYPE: '放宽车型',
-    RELAX_ENERGY_TYPE: '放宽动力',
-    SIMILAR_RECOMMEND: '相似推荐',
-  }
-  return labels[value] || value
-}
-
-function matchTagType(value) {
-  if (value === 'STRICT') return 'success'
-  if (value === 'RELAX_BUDGET') return 'warning'
-  if (value === 'RELAX_ENERGY_TYPE') return 'primary'
   return 'info'
 }
 
@@ -398,27 +384,6 @@ function formatDate(value) {
   object-fit: cover;
 }
 
-.car-visual__fallback {
-  display: grid;
-  height: 100%;
-  min-height: 180px;
-  place-items: center;
-  padding: 18px;
-  text-align: center;
-  color: #fff;
-  background: linear-gradient(135deg, #0f172a, #2563eb 58%, #0891b2);
-}
-
-.car-visual__fallback span,
-.car-visual__fallback strong {
-  display: block;
-}
-
-.car-visual__fallback strong {
-  margin-top: 10px;
-  font-size: 26px;
-}
-
 .car-title-row {
   display: flex;
   justify-content: space-between;
@@ -486,12 +451,30 @@ function formatDate(value) {
   color: var(--color-muted);
 }
 
-.tag-line {
+.recommend-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   margin-top: 14px;
+}
+
+.tag-line,
+.match-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.match-line {
+  padding-left: 10px;
+  border-left: 1px solid var(--color-border);
+}
+
+.meta-label {
+  color: var(--color-muted);
+  font-size: 12px;
 }
 
 .price-text {
@@ -550,6 +533,11 @@ function formatDate(value) {
 
   .price-text {
     margin-left: 0;
+  }
+
+  .match-line {
+    padding-left: 0;
+    border-left: 0;
   }
 }
 </style>

@@ -76,6 +76,7 @@ class RecommendationControllerTest {
         JsonNode familyItem = familyRecommend.path("items").get(0);
         assertEquals(8L, familyItem.path("carId").asLong());
         assertEquals("STRICT", familyItem.path("matchLevel").asText());
+        assertNoTag(familyItem, "完全匹配");
         assertEquals("SUV", familyItem.path("bodyType").asText());
         assertEquals("插混", familyItem.path("energyType").asText());
         assertTrue(familyItem.path("guidePrice").decimalValue().compareTo(new BigDecimal("150000")) <= 0);
@@ -85,6 +86,16 @@ class RecommendationControllerTest {
         assertTextPresent(familyItem.path("reasonText").asText());
         assertTextPresent(familyItem.path("weaknessText").asText());
         assertRecordAndItemSnapshotsSaved(familyRecommend, familyItem, "SUCCESS");
+
+        JsonNode partialFallbackRecommend = generate(familyDemand.path("id").asLong(), 5);
+        assertEquals("FALLBACK", partialFallbackRecommend.path("recommendStatus").asText());
+        assertTrue(partialFallbackRecommend.path("fallbackMessage").asText()
+                .contains("完全匹配车型数量不足"));
+        assertFalse(partialFallbackRecommend.path("fallbackMessage").asText()
+                .contains("未找到完全匹配车型"));
+        assertTrue(countMatchLevel(partialFallbackRecommend.path("items"), "STRICT") > 0);
+        assertTrue(containsNonStrictMatchLevel(partialFallbackRecommend.path("items")));
+        assertNoTag(partialFallbackRecommend.path("items"), "完全匹配");
 
         JsonNode cityDemand = postDemand("""
                 {
@@ -173,8 +184,9 @@ class RecommendationControllerTest {
                 """);
         JsonNode budgetRelaxRecommend = generate(budgetRelaxDemand.path("id").asLong(), 1);
         assertEquals("FALLBACK", budgetRelaxRecommend.path("recommendStatus").asText());
-        assertEquals("未找到足够的完全匹配车型，系统已适度放宽预算上限。",
-                budgetRelaxRecommend.path("fallbackMessage").asText());
+        assertTrue(budgetRelaxRecommend.path("fallbackMessage").asText()
+                .contains("未找到完全匹配车型"));
+        assertEquals(0, countMatchLevel(budgetRelaxRecommend.path("items"), "STRICT"));
         assertEquals("RELAX_BUDGET", budgetRelaxRecommend.path("items").get(0).path("matchLevel").asText());
         assertEquals(2L, budgetRelaxRecommend.path("items").get(0).path("carId").asLong());
 
@@ -192,8 +204,9 @@ class RecommendationControllerTest {
                 """);
         JsonNode bodyRelaxRecommend = generate(bodyRelaxDemand.path("id").asLong(), 1);
         assertEquals("FALLBACK", bodyRelaxRecommend.path("recommendStatus").asText());
-        assertEquals("未找到足够的完全匹配车型，系统已扩展相近车型类型。",
-                bodyRelaxRecommend.path("fallbackMessage").asText());
+        assertTrue(bodyRelaxRecommend.path("fallbackMessage").asText()
+                .contains("未找到完全匹配车型"));
+        assertEquals(0, countMatchLevel(bodyRelaxRecommend.path("items"), "STRICT"));
         assertEquals("RELAX_BODY_TYPE", bodyRelaxRecommend.path("items").get(0).path("matchLevel").asText());
         assertEquals("MPV", bodyRelaxRecommend.path("items").get(0).path("bodyType").asText());
 
@@ -211,8 +224,9 @@ class RecommendationControllerTest {
                 """);
         JsonNode energyRelaxRecommend = generate(energyRelaxDemand.path("id").asLong(), 1);
         assertEquals("FALLBACK", energyRelaxRecommend.path("recommendStatus").asText());
-        assertEquals("未找到足够的完全匹配车型，系统已扩展相近动力类型。",
-                energyRelaxRecommend.path("fallbackMessage").asText());
+        assertTrue(energyRelaxRecommend.path("fallbackMessage").asText()
+                .contains("未找到完全匹配车型"));
+        assertEquals(0, countMatchLevel(energyRelaxRecommend.path("items"), "STRICT"));
         assertEquals("RELAX_ENERGY_TYPE", energyRelaxRecommend.path("items").get(0).path("matchLevel").asText());
         assertEquals("插混", energyRelaxRecommend.path("items").get(0).path("energyType").asText());
 
@@ -230,8 +244,9 @@ class RecommendationControllerTest {
                 """);
         JsonNode similarRecommend = generate(similarDemand.path("id").asLong(), 1);
         assertEquals("FALLBACK", similarRecommend.path("recommendStatus").asText());
-        assertEquals("未找到完全匹配车型，以下车型并非完全满足条件，但在核心偏好上较接近。",
-                similarRecommend.path("fallbackMessage").asText());
+        assertTrue(similarRecommend.path("fallbackMessage").asText()
+                .contains("未找到完全匹配车型"));
+        assertEquals(0, countMatchLevel(similarRecommend.path("items"), "STRICT"));
         JsonNode similarItem = similarRecommend.path("items").get(0);
         assertEquals("SIMILAR_RECOMMEND", similarItem.path("matchLevel").asText());
         assertTrue(similarItem.path("seats").asInt() >= 7);
@@ -564,6 +579,35 @@ class RecommendationControllerTest {
     private boolean containsTag(JsonNode item, String tag) {
         for (JsonNode value : item.path("tags")) {
             if (tag.equals(value.asText())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void assertNoTag(JsonNode itemsOrItem, String tag) {
+        if (itemsOrItem.isArray()) {
+            for (JsonNode item : itemsOrItem) {
+                assertNoTag(item, tag);
+            }
+            return;
+        }
+        assertFalse(containsTag(itemsOrItem, tag));
+    }
+
+    private int countMatchLevel(JsonNode items, String matchLevel) {
+        int total = 0;
+        for (JsonNode item : items) {
+            if (matchLevel.equals(item.path("matchLevel").asText())) {
+                total++;
+            }
+        }
+        return total;
+    }
+
+    private boolean containsNonStrictMatchLevel(JsonNode items) {
+        for (JsonNode item : items) {
+            if (!"STRICT".equals(item.path("matchLevel").asText())) {
                 return true;
             }
         }

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" role="img" aria-label="Default car image">
+  <defs>
+    <linearGradient id="road" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#f8fafc"/>
+      <stop offset="1" stop-color="#e2e8f0"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#1d4ed8"/>
+      <stop offset="0.55" stop-color="#0891b2"/>
+      <stop offset="1" stop-color="#0f172a"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="420" rx="28" fill="url(#road)"/>
+  <path d="M72 286h496" stroke="#cbd5e1" stroke-width="8" stroke-linecap="round"/>
+  <path d="M118 253c12-46 42-78 86-86l39-47c14-17 35-27 57-27h92c21 0 41 9 55 25l48 51c39 9 65 38 76 84l-31 23H150z" fill="url(#body)"/>
+  <path d="M254 147h83v61H204l37-45c4-5 8-10 13-16z" fill="#dbeafe" opacity="0.92"/>
+  <path d="M357 147h35c10 0 19 4 26 12l45 49H357z" fill="#dbeafe" opacity="0.92"/>
+  <path d="M129 251h426" stroke="#172554" stroke-width="10" stroke-linecap="round" opacity="0.28"/>
+  <circle cx="207" cy="276" r="45" fill="#0f172a"/>
+  <circle cx="207" cy="276" r="22" fill="#e2e8f0"/>
+  <circle cx="441" cy="276" r="45" fill="#0f172a"/>
+  <circle cx="441" cy="276" r="22" fill="#e2e8f0"/>
+  <path d="M127 237h54" stroke="#facc15" stroke-width="12" stroke-linecap="round"/>
+  <path d="M506 237h43" stroke="#f97316" stroke-width="12" stroke-linecap="round"/>
+  <text x="320" y="354" fill="#475569" font-family="Arial, Helvetica, sans-serif" font-size="22" text-anchor="middle">Car recommendation system</text>
+</svg>

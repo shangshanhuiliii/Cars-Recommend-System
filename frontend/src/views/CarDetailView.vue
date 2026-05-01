@@ -25,11 +25,7 @@
     <template v-else-if="detail">
       <div class="detail-hero">
         <div class="detail-visual">
-          <img v-if="car.imageUrl" :src="car.imageUrl" :alt="car.modelName" />
-          <div v-else class="detail-visual__fallback">
-            <span>{{ car.brand }}</span>
-            <strong>{{ car.energyType }}</strong>
-          </div>
+          <img :src="carImageSrc(car.imageUrl)" :alt="car.modelName" @error="fallbackCarImage" />
         </div>
         <div class="panel detail-summary">
           <div class="panel__body">
@@ -132,6 +128,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { fetchCarDetail } from '@/api/cars'
+import { carImageSrc, fallbackCarImage } from '@/utils/carImage'
 
 const route = useRoute()
 const loading = ref(false)
@@ -270,30 +267,6 @@ function formatDate(value) {
   width: 100%;
   height: 100%;
   object-fit: cover;
-}
-
-.detail-visual__fallback {
-  display: grid;
-  height: 100%;
-  min-height: 260px;
-  place-items: center;
-  text-align: center;
-  color: #fff;
-  background: linear-gradient(135deg, #0f172a, #2563eb 58%, #0891b2);
-}
-
-.detail-visual__fallback span,
-.detail-visual__fallback strong {
-  display: block;
-}
-
-.detail-visual__fallback span {
-  font-size: 18px;
-}
-
-.detail-visual__fallback strong {
-  margin-top: 10px;
-  font-size: 34px;
 }
 
 .detail-summary h2 {
