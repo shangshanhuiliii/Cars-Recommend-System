@@ -532,14 +532,17 @@ GET /api/admin/stat/recommend
 GET /api/admin/stat/feedback
 ```
 
-统计指标至少包括：
+阶段 9 先实现 `GET /api/admin/stat/overview` 只读总览接口，统计数据必须来自当前数据库，不使用随机数据或前端假数据。统计指标至少包括：
 
 - 预算区间分布
 - 使用场景分布
 - 关注因素分布
 - 热门推荐车型
-- 满意度分布
-- 不满意原因分布
+- 推荐状态分布
+- 动力类型偏好分布
+- 车型类型偏好分布
+- 满意度分布，反馈表未实现前返回空数组
+- 不满意原因分布，反馈表未实现前返回空数组
 
 统计图表统一使用 `{ "name": "...", "value": 0 }` 结构，便于前端 ECharts 直接渲染：
 
@@ -549,8 +552,11 @@ GET /api/admin/stat/feedback
   "sceneDistribution": [{ "name": "家庭出行", "value": 8 }],
   "focusFactorDistribution": [{ "name": "安全", "value": 10 }],
   "popularCars": [{ "name": "宋PLUS DM-i", "value": 6 }],
-  "satisfactionDistribution": [{ "name": "5分", "value": 7 }],
-  "feedbackReasonDistribution": [{ "name": "价格偏高", "value": 3 }]
+  "recommendStatusDistribution": [{ "name": "FALLBACK", "value": 3 }],
+  "energyTypeDistribution": [{ "name": "插混", "value": 5 }],
+  "bodyTypeDistribution": [{ "name": "SUV", "value": 7 }],
+  "satisfactionDistribution": [],
+  "feedbackReasonDistribution": []
 }
 ```
 

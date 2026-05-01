@@ -3,9 +3,12 @@
     <div class="page-header">
       <div>
         <h1 class="page-title">车型管理</h1>
-        <p class="page-subtitle">维护车型基础信息与评分所需参数，确保后续特征评分服务可以读取完整车型数据。</p>
+        <p class="page-subtitle">维护车型基础信息、参数和特征评分，确保推荐算法读取到可信的数据基础。</p>
       </div>
-      <el-button type="primary" :icon="Plus" @click="openCreateDialog">新增车型</el-button>
+      <div class="header-actions">
+        <el-button :icon="Refresh" :loading="recalculatingAll" @click="recalculateAllScores">全部评分重算</el-button>
+        <el-button type="primary" :icon="Plus" @click="openCreateDialog">新增车型</el-button>
+      </div>
     </div>
 
     <div class="panel admin-car-panel">
@@ -45,10 +48,21 @@
               <el-tag :type="auditTagType(row.auditStatus)" effect="light">{{ row.auditStatus }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="维护" width="220" fixed="right">
+          <el-table-column label="评分状态" width="150">
+            <template #default="{ row }">
+              <div class="score-cell">
+                <el-tag v-if="scoreMap[row.id]" type="success" effect="light">已评分</el-tag>
+                <el-tag v-else type="warning" effect="light">待评分</el-tag>
+                <span v-if="scoreMap[row.id]">空间 {{ formatScore(scoreMap[row.id].spaceScore) }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="维护" width="330" fixed="right">
             <template #default="{ row }">
               <el-button size="small" :icon="Edit" @click="openEditDialog(row)">基础信息</el-button>
               <el-button size="small" :icon="Setting" @click="openParamDialog(row)">参数</el-button>
+              <el-button size="small" @click="openScoreDialog(row)">评分</el-button>
+              <el-button size="small" :loading="recalculatingCarId === row.id" @click="recalculateCarScore(row)">重算</el-button>
               <el-button size="small" type="danger" :icon="Delete" @click="confirmDelete(row)">删除</el-button>
             </template>
           </el-table-column>
@@ -184,6 +198,38 @@
         <el-button type="primary" :loading="savingParam" @click="submitParam">保存参数</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="scoreDialogVisible" :title="scoreDialogTitle" width="720px">
+      <div v-loading="scoreLoading">
+        <template v-if="currentScore">
+          <div class="score-overview">
+            <div v-for="row in scoreRows" :key="row.key" class="score-row">
+              <span>{{ row.label }}</span>
+              <el-progress
+                :percentage="scorePercent(row.value)"
+                :status="scoreStatus(row.value)"
+                :stroke-width="9"
+                :show-text="false"
+              />
+              <strong>{{ formatScore(row.value) }}</strong>
+            </div>
+          </div>
+          <p class="score-meta">
+            评分版本：{{ currentScore.scoreVersion }} · 计算时间：{{ formatDate(currentScore.calculatedTime) }}
+          </p>
+        </template>
+        <el-empty v-else description="该车型暂无评分">
+          <el-button
+            v-if="currentScoreCar"
+            type="primary"
+            :loading="recalculatingCarId === currentScoreCar.id"
+            @click="recalculateCarScore(currentScoreCar)"
+          >
+            立即重算评分
+          </el-button>
+        </el-empty>
+      </div>
+    </el-dialog>
   </section>
 </template>
 
@@ -197,6 +243,9 @@ import {
   deleteAdminCar,
   fetchAdminCarParam,
   fetchAdminCars,
+  fetchAdminCarScore,
+  recalculateAdminCarScore,
+  recalculateAllAdminCarScores,
   saveAdminCarParam,
   updateAdminCar,
 } from '@/api/adminCars'
@@ -207,6 +256,9 @@ const auditStatuses = ['APPROVED', 'PENDING', 'REJECTED']
 const loading = ref(false)
 const cars = ref([])
 const total = ref(0)
+const scoreMap = ref({})
+const recalculatingAll = ref(false)
+const recalculatingCarId = ref(null)
 const query = reactive({
   page: 1,
   size: 10,
@@ -227,8 +279,27 @@ const savingParam = ref(false)
 const currentParamCar = ref(null)
 const paramForm = reactive(defaultParamForm())
 
+const scoreDialogVisible = ref(false)
+const scoreLoading = ref(false)
+const currentScoreCar = ref(null)
+const currentScore = ref(null)
+
 const carDialogTitle = computed(() => (editingCarId.value ? '编辑车型基础信息' : '新增车型'))
 const paramDialogTitle = computed(() => (currentParamCar.value ? `${currentParamCar.value.modelName} 参数维护` : '参数维护'))
+const scoreDialogTitle = computed(() => (currentScoreCar.value ? `${currentScoreCar.value.modelName} 特征评分` : '特征评分'))
+const scoreRows = computed(() => {
+  const score = currentScore.value || {}
+  return [
+    ['spaceScore', '空间'],
+    ['safetyScore', '安全'],
+    ['energyScore', '能耗'],
+    ['intelligenceScore', '智能'],
+    ['comfortScore', '舒适'],
+    ['powerScore', '动力'],
+    ['reputationScore', '口碑'],
+    ['popularityScore', '热度'],
+  ].map(([key, label]) => ({ key, label, value: Number(score[key] || 0) }))
+})
 
 const carRules = {
   brand: [{ required: true, message: '请输入品牌', trigger: 'blur' }],
@@ -265,9 +336,27 @@ async function loadCars() {
     })
     cars.value = response.data.records
     total.value = response.data.total
+    await loadScoresForCurrentPage()
   } finally {
     loading.value = false
   }
+}
+
+async function loadScoresForCurrentPage() {
+  const entries = await Promise.all(
+    cars.value.map(async (car) => {
+      try {
+        const response = await fetchAdminCarScore(car.id)
+        return [car.id, response.data]
+      } catch (error) {
+        if (error?.response?.status !== 404) {
+          console.warn('load car score failed', car.id, error)
+        }
+        return [car.id, null]
+      }
+    }),
+  )
+  scoreMap.value = Object.fromEntries(entries)
 }
 
 function searchCars() {
@@ -361,6 +450,48 @@ async function submitParam() {
   }
 }
 
+async function openScoreDialog(row) {
+  currentScoreCar.value = row
+  scoreDialogVisible.value = true
+  scoreLoading.value = true
+  try {
+    const response = await fetchAdminCarScore(row.id)
+    currentScore.value = response.data
+  } catch (error) {
+    if (error?.response?.status !== 404) {
+      throw error
+    }
+    currentScore.value = null
+  } finally {
+    scoreLoading.value = false
+  }
+}
+
+async function recalculateCarScore(row) {
+  recalculatingCarId.value = row.id
+  try {
+    const response = await recalculateAdminCarScore(row.id)
+    scoreMap.value = { ...scoreMap.value, [row.id]: response.data }
+    if (currentScoreCar.value?.id === row.id) {
+      currentScore.value = response.data
+    }
+    ElMessage.success('单车评分已重算')
+  } finally {
+    recalculatingCarId.value = null
+  }
+}
+
+async function recalculateAllScores() {
+  recalculatingAll.value = true
+  try {
+    const response = await recalculateAllAdminCarScores()
+    ElMessage.success(`已重算 ${response.data.recalculatedCount} 台车型评分`)
+    await loadScoresForCurrentPage()
+  } finally {
+    recalculatingAll.value = false
+  }
+}
+
 function defaultCarForm() {
   return {
     brand: '',
@@ -426,6 +557,26 @@ function formatPrice(value) {
   return `${Number(value || 0).toLocaleString('zh-CN')} 元`
 }
 
+function formatScore(value) {
+  return Number(value || 0).toFixed(2)
+}
+
+function scorePercent(value) {
+  return Math.max(0, Math.min(100, Number(value || 0)))
+}
+
+function scoreStatus(value) {
+  const score = Number(value || 0)
+  if (score >= 85) return 'success'
+  if (score < 60) return 'exception'
+  return undefined
+}
+
+function formatDate(value) {
+  if (!value) return '时间未知'
+  return value.replace('T', ' ').slice(0, 16)
+}
+
 function auditTagType(value) {
   if (value === 'APPROVED') return 'success'
   if (value === 'REJECTED') return 'danger'
@@ -436,6 +587,13 @@ function auditTagType(value) {
 <style scoped>
 .admin-car-panel {
   overflow: hidden;
+}
+
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 .car-filter {
@@ -453,6 +611,16 @@ function auditTagType(value) {
   display: flex;
   justify-content: flex-end;
   margin-top: 18px;
+}
+
+.score-cell {
+  display: grid;
+  gap: 5px;
+}
+
+.score-cell span {
+  color: var(--color-muted);
+  font-size: 12px;
 }
 
 .form-grid {
@@ -485,9 +653,34 @@ function auditTagType(value) {
   background: #f9fafb;
 }
 
+.score-overview {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 20px;
+}
+
+.score-row {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) 58px;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.score-row strong {
+  text-align: right;
+}
+
+.score-meta {
+  margin: 18px 0 0;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
 @media (max-width: 760px) {
   .form-grid,
-  .feature-switches {
+  .feature-switches,
+  .score-overview {
     grid-template-columns: 1fr;
   }
 
