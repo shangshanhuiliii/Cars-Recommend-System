@@ -110,6 +110,69 @@ DELETE /api/admin/cars/{id}
 GET    /api/car/{id}
 ```
 
+`GET /api/car/{id}` 是用户端车型详情只读接口，只返回未删除车型。车型不存在或已删除时返回 404；参数或评分尚不存在时对应字段返回 `null`，接口不触发评分重算。
+
+响应示例：
+
+```json
+{
+  "carModel": {
+    "id": 1,
+    "brand": "比亚迪",
+    "series": "宋PLUS",
+    "modelName": "宋PLUS DM-i",
+    "guidePrice": 159800,
+    "bodyType": "SUV",
+    "energyType": "插混",
+    "seats": 5,
+    "launchYear": 2025,
+    "imageUrl": "",
+    "salesVolume": 10000,
+    "userRating": 4.6,
+    "auditStatus": "APPROVED"
+  },
+  "carParam": {
+    "carId": 1,
+    "lengthMm": 4775,
+    "widthMm": 1890,
+    "heightMm": 1670,
+    "wheelbaseMm": 2765,
+    "fuelConsumption": 5.3,
+    "electricConsumption": null,
+    "electricRangeKm": 110,
+    "totalRangeKm": 1050,
+    "acceleration100": 7.9,
+    "airbagCount": 6,
+    "hasAbs": true,
+    "hasEsp": true,
+    "hasActiveBrake": true,
+    "hasLaneKeep": true,
+    "hasAdaptiveCruise": true,
+    "hasBlindSpot": true,
+    "hasReverseCamera": true,
+    "has360Camera": true,
+    "hasOta": true,
+    "hasVoiceControl": true,
+    "hasAutoParking": false,
+    "screenSize": 15.6,
+    "assistDriveLevel": "L2"
+  },
+  "carFeatureScore": {
+    "carId": 1,
+    "spaceScore": 88,
+    "safetyScore": 92,
+    "energyScore": 95,
+    "intelligenceScore": 80,
+    "comfortScore": 84,
+    "powerScore": 78,
+    "reputationScore": 92,
+    "popularityScore": 86,
+    "scoreVersion": "feature-score-v1",
+    "calculatedTime": "2026-05-01T10:30:00"
+  }
+}
+```
+
 分页查询参数：
 
 | 参数 | 说明 |
