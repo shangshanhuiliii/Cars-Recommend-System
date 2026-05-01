@@ -139,10 +139,12 @@ Cars-Recommend-System/
 ├── docs/
 │   ├── PROJECT_SPEC.md
 │   ├── RECOMMENDATION_DESIGN.md
+│   ├── RECOMMENDATION_ALGORITHM.md
 │   ├── DATABASE_DESIGN.md
 │   ├── API_DESIGN.md
 │   ├── FRONTEND_DESIGN.md
-│   └── IMPLEMENTATION_TASKS.md
+│   ├── IMPLEMENTATION_TASKS.md
+│   └── COMPLETED_PHASES.md
 ├── AGENTS.md
 └── README.md
 ```
@@ -163,11 +165,13 @@ util         评分、解析、权重工具
 
 ## 7. 文档分工
 
-- 推荐算法细节只维护在 `RECOMMENDATION_DESIGN.md`。
+- 推荐闭环概要和模块边界维护在 `RECOMMENDATION_DESIGN.md`。
+- 推荐算法公式、流程、伪代码和示例维护在 `RECOMMENDATION_ALGORITHM.md`。
 - 数据库表设计只维护在 `DATABASE_DESIGN.md`。
 - 接口设计只维护在 `API_DESIGN.md`。
 - 前端页面展示、交互和样式规范只维护在 `FRONTEND_DESIGN.md`。
 - 阶段任务和验收标准只维护在 `IMPLEMENTATION_TASKS.md`。
+- 已完成阶段、验证结果和当前 MVP 状态维护在 `COMPLETED_PHASES.md`。
 - 本文档只保留项目级规格和范围说明，避免与其他文档重复。
 
 ## 8. 最低验收标准

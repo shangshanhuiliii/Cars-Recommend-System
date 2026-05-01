@@ -1,6 +1,6 @@
 ﻿# API 设计
 
-本文档只描述接口分组、请求响应约定和核心字段。数据库字段见 `DATABASE_DESIGN.md`，推荐算法见 `RECOMMENDATION_DESIGN.md`，阶段任务见 `IMPLEMENTATION_TASKS.md`。
+本文档只描述接口分组、请求响应约定和核心字段。数据库字段见 `DATABASE_DESIGN.md`，推荐闭环概要见 `RECOMMENDATION_DESIGN.md`，推荐算法细节见 `RECOMMENDATION_ALGORITHM.md`，阶段任务见 `IMPLEMENTATION_TASKS.md`。
 
 ## 1. 通用约定
 
@@ -387,7 +387,7 @@ GET  /api/user/demand/{id}
 }
 ```
 
-权重生成规则见 `RECOMMENDATION_DESIGN.md`。简要约定：
+权重生成规则见 `RECOMMENDATION_ALGORITHM.md`。简要约定：
 
 - `factorWeights` 至少一个值大于 0 时，后端直接归一化 `factorWeights` 作为最终 `weights`。
 - `factorWeights` 全部为 0 时，后端根据 `scenes` 多场景模板平均值生成默认 `weights`。

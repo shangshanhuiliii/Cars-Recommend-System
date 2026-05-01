@@ -1,6 +1,6 @@
 ﻿# 实施任务清单
 
-本文档只描述实施阶段、任务拆分、验收标准和里程碑。项目规格见 `PROJECT_SPEC.md`，推荐算法见 `RECOMMENDATION_DESIGN.md`，数据库设计见 `DATABASE_DESIGN.md`，接口设计见 `API_DESIGN.md`，前端展示和样式规则见 `FRONTEND_DESIGN.md`。
+本文档只描述实施阶段、任务拆分、验收标准和里程碑。项目规格见 `PROJECT_SPEC.md`，推荐闭环概要见 `RECOMMENDATION_DESIGN.md`，推荐算法细节见 `RECOMMENDATION_ALGORITHM.md`，数据库设计见 `DATABASE_DESIGN.md`，接口设计见 `API_DESIGN.md`，前端展示和样式规则见 `FRONTEND_DESIGN.md`。
 
 当前阶段只做规划；进入实现阶段后，应按本文档顺序推进。
 
@@ -181,7 +181,7 @@
 
 ### 任务
 
-- 按 `RECOMMENDATION_DESIGN.md` 实现空间、安全、能耗、智能、舒适、动力、口碑、热度评分。
+- 按 `RECOMMENDATION_ALGORITHM.md` 实现空间、安全、能耗、智能、舒适、动力、口碑、热度评分。
 - 支持单车评分重算。
 - 支持全部车型评分重算。
 - 保存评分版本和计算时间。

@@ -817,7 +817,7 @@ ECharts 图表建议使用固定色板：
 
 ### 17.2 数据展示验收
 
-- 推荐结果页展示 `tags`、`matchLevel`、`reasonText`、`weaknessText`、维度分数。
+- 推荐结果页展示 `tags`、`reasonText`、`weaknessText`、维度分数，并通过“完全匹配车型”和“推荐”分组体现 `matchLevel` 语义；管理端和历史详情可展示原始 `matchLevel`。
 - 历史页展示推荐发生时的标签、理由、不足和匹配状态快照。
 - 管理端推荐记录页能复现历史推荐依据。
 - 图表来自接口数据或明确测试数据。

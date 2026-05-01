@@ -11,11 +11,13 @@
 ## 文档导航
 
 - `docs/PROJECT_SPEC.md`：项目总览、范围边界、技术栈、功能优先级和验收口径。
-- `docs/RECOMMENDATION_DESIGN.md`：推荐算法详细设计，包括车型评分、用户画像、匹配计算、解释生成和降级策略。
+- `docs/RECOMMENDATION_DESIGN.md`：推荐闭环概要设计、模块职责和边界。
+- `docs/RECOMMENDATION_ALGORITHM.md`：当前推荐算法的公式、流程、字段、伪代码和示例场景。
 - `docs/DATABASE_DESIGN.md`：数据库表职责、关键字段和推荐追溯数据设计。
 - `docs/API_DESIGN.md`：前后端接口分组、请求响应约定和核心接口字段。
 - `docs/FRONTEND_DESIGN.md`：前端页面展示、交互规则、状态展示和样式规范。
 - `docs/IMPLEMENTATION_TASKS.md`：分阶段任务清单、最低完成标准、增强标准和里程碑。
+- `docs/COMPLETED_PHASES.md`：已完成阶段、验证结果、当前 MVP 状态和遗留事项。
 - `AGENTS.md`：AI 编程代理和协作者必须遵守的项目级规则。
 
 ## 不纳入核心实现

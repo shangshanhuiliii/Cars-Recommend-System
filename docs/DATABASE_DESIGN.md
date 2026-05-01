@@ -1,6 +1,6 @@
 ﻿# 数据库设计
 
-本文档只描述数据库表职责、关键字段和数据追溯关系。推荐算法规则见 `RECOMMENDATION_DESIGN.md`，接口设计见 `API_DESIGN.md`，实施计划见 `IMPLEMENTATION_TASKS.md`。
+本文档只描述数据库表职责、关键字段和数据追溯关系。推荐闭环概要见 `RECOMMENDATION_DESIGN.md`，推荐算法细节见 `RECOMMENDATION_ALGORITHM.md`，接口设计见 `API_DESIGN.md`，实施计划见 `IMPLEMENTATION_TASKS.md`。
 
 ## 1. 设计原则
 
@@ -177,7 +177,7 @@ REJECTED：审核拒绝，不进入推荐候选
 
 注意：`price_score` 不存储在该表中，因为价格匹配分依赖用户预算，必须在推荐阶段动态计算。
 
-当前版本不额外维护座椅材质、悬架类型、隔音、空调分区等舒适性参数，因此 `comfort_score` 由空间分、智能分和口碑分组合估算。具体公式见 `RECOMMENDATION_DESIGN.md`。
+当前版本不额外维护座椅材质、悬架类型、隔音、空调分区等舒适性参数，因此 `comfort_score` 由空间分、智能分和口碑分组合估算。具体公式见 `RECOMMENDATION_ALGORITHM.md`。
 
 `popularity_score` 依赖全局销量最大值。单车重算可以更新参数类评分，但不保证全局热度归一化完全准确；当 `sales_volume` 发生变化时，建议执行全部车型评分重算。
 
