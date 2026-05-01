@@ -2,7 +2,9 @@ package com.carsrecommend.system.vo;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public class UserDemandVO {
 
@@ -11,11 +13,11 @@ public class UserDemandVO {
     private String rawText;
     private BigDecimal budgetMin;
     private BigDecimal budgetMax;
-    private String bodyType;
-    private String energyType;
-    private Integer seats;
-    private String scene;
-    private List<String> focusFactors;
+    private List<String> bodyTypes;
+    private List<String> energyTypes;
+    private Integer minSeats;
+    private List<String> scenes;
+    private Map<String, Integer> factorWeights = new LinkedHashMap<>();
     private List<String> excludedBrands;
     private List<Long> excludedCarIds;
     private String profileText;
@@ -63,44 +65,44 @@ public class UserDemandVO {
         this.budgetMax = budgetMax;
     }
 
-    public String getBodyType() {
-        return bodyType;
+    public List<String> getBodyTypes() {
+        return bodyTypes;
     }
 
-    public void setBodyType(String bodyType) {
-        this.bodyType = bodyType;
+    public void setBodyTypes(List<String> bodyTypes) {
+        this.bodyTypes = bodyTypes;
     }
 
-    public String getEnergyType() {
-        return energyType;
+    public List<String> getEnergyTypes() {
+        return energyTypes;
     }
 
-    public void setEnergyType(String energyType) {
-        this.energyType = energyType;
+    public void setEnergyTypes(List<String> energyTypes) {
+        this.energyTypes = energyTypes;
     }
 
-    public Integer getSeats() {
-        return seats;
+    public Integer getMinSeats() {
+        return minSeats;
     }
 
-    public void setSeats(Integer seats) {
-        this.seats = seats;
+    public void setMinSeats(Integer minSeats) {
+        this.minSeats = minSeats;
     }
 
-    public String getScene() {
-        return scene;
+    public List<String> getScenes() {
+        return scenes;
     }
 
-    public void setScene(String scene) {
-        this.scene = scene;
+    public void setScenes(List<String> scenes) {
+        this.scenes = scenes;
     }
 
-    public List<String> getFocusFactors() {
-        return focusFactors;
+    public Map<String, Integer> getFactorWeights() {
+        return factorWeights;
     }
 
-    public void setFocusFactors(List<String> focusFactors) {
-        this.focusFactors = focusFactors;
+    public void setFactorWeights(Map<String, Integer> factorWeights) {
+        this.factorWeights = factorWeights;
     }
 
     public List<String> getExcludedBrands() {

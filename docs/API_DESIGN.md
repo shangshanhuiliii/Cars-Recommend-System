@@ -192,10 +192,6 @@ GET    /api/car/options
 
 `GET /api/car/brands` 查询可用品牌：
 
-| 参数 | 说明 |
-| --- | --- |
-| `keyword` | 品牌关键词，可选 |
-
 响应示例：
 
 ```json
@@ -207,9 +203,7 @@ GET    /api/car/options
 | 参数 | 说明 |
 | --- | --- |
 | `keyword` | 品牌、车系、车型名称关键词，可选 |
-| `brand` | 品牌过滤，可选 |
-| `bodyTypes` | 车型类型过滤，可选，逗号分隔或数组参数 |
-| `energyTypes` | 动力类型过滤，可选，逗号分隔或数组参数；包含 `新能源` 时展开为 `纯电 / 插混 / 增程` |
+| `limit` | 返回数量限制，可选，默认 20 |
 
 响应示例：
 
@@ -218,11 +212,8 @@ GET    /api/car/options
   {
     "id": 1,
     "brand": "比亚迪",
-    "series": "宋PLUS",
     "modelName": "宋PLUS DM-i",
-    "guidePrice": 159800,
-    "bodyType": "SUV",
-    "energyType": "插混"
+    "displayName": "比亚迪 宋PLUS DM-i"
   }
 ]
 ```
@@ -327,7 +318,7 @@ GET  /api/user/demand/{id}
   "budgetMax": 150000,
   "bodyTypes": ["SUV", "MPV"],
   "energyTypes": ["插混", "新能源"],
-  "seats": 5,
+  "minSeats": 5,
   "scenes": ["家庭出行", "长途自驾"],
   "factorWeights": {
     "price": 0,
@@ -351,6 +342,7 @@ GET  /api/user/demand/{id}
 | --- | --- |
 | `bodyTypes` | 可接受的车型类型，多选；为空表示不以车型类型作为硬过滤 |
 | `energyTypes` | 可接受的动力类型，多选；包含 `新能源` 时展开为 `纯电 / 插混 / 增程` |
+| `minSeats` | 最低座位数；作为硬约束，不参与降级放宽 |
 | `scenes` | 使用场景，多选；为空时按 `综合需求` 处理 |
 | `factorWeights` | 用户显式偏好权重滑块，0-10；后端负责归一化 |
 | `excludedBrands` | 通过 `GET /api/car/brands` 搜索选择，不手动输入 |
@@ -418,7 +410,7 @@ GET  /api/recommend/history
 }
 ```
 
-说明：用户端不展示“推荐数量”输入，也不主动传 `topK`。后端推荐生成使用默认 Top 10；如保留 `topK` 参数，只能作为内部调试或管理端能力，不能成为用户需求表单字段。
+说明：用户端不展示“推荐数量”输入，也不传 `topK`。阶段 9.5 后推荐生成不再按固定 TopK 截断结果，而是返回全部符合当前推荐分组规则的候选。
 
 推荐响应核心结构：
 
@@ -463,7 +455,7 @@ GET  /api/recommend/history
 
 其中 `tags` 由推荐算法按高分维度生成，并保存为 `recommend_item.tags` 快照。推荐历史查询时应返回保存的标签快照，不应每次查询时重新生成。标签只用于前端卡片快速展示，不替代 `reasonText` 和 `weaknessText`。
 
-阶段 6 起推荐生成支持 `STRICT`、`RELAX_BUDGET`、`RELAX_BODY_TYPE`、`RELAX_ENERGY_TYPE`、`SIMILAR_RECOMMEND` 分级匹配。若严格匹配结果少于 `min(5, topK)`，系统会按阶段补充候选，并在每条推荐明细中保存对应 `matchLevel`，不覆盖已进入推荐集的严格匹配结果。
+阶段 6 起推荐生成支持 `STRICT`、`RELAX_BUDGET`、`RELAX_BODY_TYPE`、`RELAX_ENERGY_TYPE`、`SIMILAR_RECOMMEND` 分级匹配。阶段 9.5 后系统不再按固定 TopK 截断结果：`STRICT` 组返回全部完全匹配候选，非 `STRICT` 组按放宽阶段补充全部推荐候选，并在每条推荐明细中保存对应 `matchLevel`，不覆盖已进入推荐集的严格匹配结果。
 
 `recommendStatus` 生成规则：
 
@@ -549,7 +541,7 @@ POST /api/demand/parse-text
   "budgetMax": 150000,
   "bodyTypes": ["SUV"],
   "energyTypes": [],
-  "seats": null,
+  "minSeats": null,
   "scenes": ["家庭出行"],
   "factorWeights": {
     "price": 0,

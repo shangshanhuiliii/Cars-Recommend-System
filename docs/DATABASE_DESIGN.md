@@ -198,7 +198,7 @@ REJECTED：审核拒绝，不进入推荐候选
 | `budget_max` | 预算上限 |
 | `body_types` | 车型类型偏好，JSON 数组 |
 | `energy_types` | 动力类型偏好，JSON 数组 |
-| `seats` | 最低座位数 |
+| `min_seats` | 最低座位数 |
 | `scenes` | 使用场景，JSON 数组 |
 | `factor_weights` | 用户显式偏好权重滑块，JSON 对象，值域 0-10 |
 | `excluded_brands` | 排除品牌，JSON 或文本 JSON |

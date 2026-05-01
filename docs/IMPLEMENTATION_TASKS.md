@@ -45,6 +45,8 @@
 - 用户需求字段从单选 `bodyType`、`energyType`、`scene` 调整为多选 `bodyTypes`、`energyTypes`、`scenes`。
 - 旧 `focusFactors` 多选标签调整为 `factorWeights` 0-10 滑块，维度固定为 `price / space / safety / energy / intelligence / comfort / power / reputation / popularity`。
 - 用户端需求页删除“推荐数量”输入，不让用户填写 `topK`。
+- 阶段 9.5 后废弃固定 TopK、`min(5, topK)` 和默认 Top 10 截断规则，推荐生成返回全部符合分组规则的候选。
+- 用户需求座位字段统一为 `minSeats` / `min_seats`，不再保留 `seats` 作为用户需求字段。
 - 排除品牌和排除车型从手动输入改为基于数据库已有品牌、车型的搜索选择。
 - 已确认采用重建本地库方案，旧字段 `body_type`、`energy_type`、`scene`、`focus_factors` 删除，不做长期兼容。
 - 后续所有实现以 `bodyTypes`、`energyTypes`、`scenes`、`factorWeights` 为准，不实现新旧字段双写、双读或自动兼容。
@@ -238,7 +240,7 @@
 - 动态计算价格匹配分。
 - 计算多维加权综合分。
 - 生成推荐标签。
-- 返回 Top 10 推荐结果。
+- 返回全部符合当前推荐分组规则的候选，不按固定 TopK 截断。
 - 保存推荐记录和推荐明细。
 - 验证 `budgetMax` 是严格阶段预算硬约束。
 - 验证 `budgetMin` 是软偏好，只参与价格分计算，不过滤候选。
@@ -273,10 +275,10 @@
 - 车型类型降级基于 `bodyTypes` 的映射并集补充候选。
 - 动力类型降级基于 `energyTypes` 的映射并集补充候选。
 - 生成 `recommendStatus`：`SUCCESS`、`FALLBACK`、`EMPTY`。
-- 按最终推荐结果中的 `recommendStatus` 和 `strictCount` 生成 `fallbackMessage`。
+- 按最终推荐结果中的 `recommendStatus` 和 `strictCount` 生成 `fallbackMessage` 追溯字段。
 - 验证降级候选按车型去重，不覆盖严格匹配候选。
-- 验证 `topK < 5` 时使用 `min(5, topK)` 判断降级阈值。
-- 前端展示匹配状态和降级提示。
+- 验证不再使用 `topK` 和 `min(5, topK)` 截断推荐结果。
+- 前端按“完全匹配车型”和“推荐”分组展示。
 
 ### 最低完成标准
 
@@ -287,8 +289,8 @@
 
 ### 增强完成标准
 
-- 页面有明显降级提示横幅。
-- 推荐记录保存降级提示。
+- 用户端弱化降级技术提示，不展示 fallbackMessage 顶部强提示。
+- 推荐记录保存降级提示追溯字段。
 
 ### 风险点
 

@@ -92,7 +92,7 @@ const chartCards = computed(() => [
   {
     key: 'scene',
     title: '使用场景分布',
-    source: 'user_demand.scene',
+    source: 'user_demand.scenes',
     items: overview.value.sceneDistribution,
   },
   {
@@ -103,8 +103,8 @@ const chartCards = computed(() => [
   },
   {
     key: 'focus',
-    title: '关注因素分布',
-    source: 'user_demand.focus_factors',
+    title: '显式偏好权重分布',
+    source: 'user_demand.factor_weights',
     items: overview.value.focusFactorDistribution,
   },
   {
@@ -116,13 +116,13 @@ const chartCards = computed(() => [
   {
     key: 'energy',
     title: '动力偏好分布',
-    source: 'user_demand.energy_type',
+    source: 'user_demand.energy_types',
     items: overview.value.energyTypeDistribution,
   },
   {
     key: 'body',
     title: '车型偏好分布',
-    source: 'user_demand.body_type',
+    source: 'user_demand.body_types',
     items: overview.value.bodyTypeDistribution,
   },
 ])

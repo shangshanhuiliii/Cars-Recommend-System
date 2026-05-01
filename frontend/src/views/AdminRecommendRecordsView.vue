@@ -109,15 +109,15 @@
                   <p class="section-title">用户需求</p>
                   <div class="demand-tags">
                     <span>{{ formatWan(detail.demand?.budgetMin) }} - {{ formatWan(detail.demand?.budgetMax) }}</span>
-                    <span>{{ detail.demand?.bodyType || '未指定车型' }}</span>
-                    <span>{{ detail.demand?.energyType || '未指定动力' }}</span>
-                    <span>{{ detail.demand?.scene || '未指定场景' }}</span>
-                    <span>{{ detail.demand?.seats || '未指定' }} 座</span>
+                    <span>{{ arrayText(detail.demand?.bodyTypes, '未指定车型') }}</span>
+                    <span>{{ arrayText(detail.demand?.energyTypes, '未指定动力') }}</span>
+                    <span>{{ arrayText(detail.demand?.scenes, '未指定场景') }}</span>
+                    <span>{{ detail.demand?.minSeats || '未指定' }} 座以上</span>
                   </div>
                   <p class="raw-text">{{ detail.demand?.rawText || '无自然语言原文' }}</p>
                   <div class="factor-line">
-                    <el-tag v-for="factor in detail.demand?.focusFactors || []" :key="factor" effect="light">
-                      {{ factor }}
+                    <el-tag v-for="factor in demandFactorRows" :key="factor.key" effect="light">
+                      {{ factor.label }} {{ factor.value }}
                     </el-tag>
                   </div>
                 </div>
@@ -242,6 +242,17 @@ const weightRows = computed(() =>
   })),
 )
 
+const demandFactorRows = computed(() =>
+  weightConfig
+    .map(([key, label]) => ({
+      key,
+      label,
+      value: Number(detail.value?.demand?.factorWeights?.[key] || 0),
+    }))
+    .filter((item) => item.value > 0)
+    .sort((a, b) => b.value - a.value),
+)
+
 onMounted(loadRecords)
 
 async function loadRecords() {
@@ -351,6 +362,10 @@ function formatScore(value) {
 function formatWan(value) {
   if (value === null || value === undefined || value === '') return '未填'
   return `${(Number(value) / 10000).toFixed(1).replace(/\.0$/, '')} 万`
+}
+
+function arrayText(values, fallback) {
+  return Array.isArray(values) && values.length ? values.join(' / ') : fallback
 }
 
 function formatDate(value) {

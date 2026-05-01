@@ -45,104 +45,123 @@ class UserDemandControllerTest {
     private JdbcTemplate jdbcTemplate;
 
     @Test
-    void demandEndpointsPersistProfileWeightsAndReturnArrayFields() throws Exception {
+    void demandEndpointsPersistNewDemandModelAndProfileWeights() throws Exception {
         JsonNode family = postDemand("""
                 {
                   "rawText": "家庭出行，想要空间和安全都好一些",
                   "budgetMin": 100000,
                   "budgetMax": 150000,
-                  "bodyType": "SUV",
-                  "energyType": "插混",
-                  "seats": 5,
-                  "scene": "家庭出行",
-                  "focusFactors": ["空间", "安全"],
+                  "bodyTypes": ["SUV", "MPV"],
+                  "energyTypes": ["插混", "新能源"],
+                  "minSeats": 5,
+                  "scenes": ["家庭出行", "长途自驾"],
+                  "factorWeights": {
+                    "price": 5,
+                    "space": 8,
+                    "safety": 8,
+                    "energy": 6,
+                    "intelligence": 3,
+                    "comfort": 7,
+                    "power": 2,
+                    "reputation": 4,
+                    "popularity": 1
+                  },
                   "excludedBrands": ["特斯拉"],
                   "excludedCarIds": [4, 9]
                 }
                 """);
         long familyId = family.path("id").asLong();
         assertEquals(1L, family.path("userId").asLong());
-        assertEquals("家庭实用型用户，预算10-15万，偏好插混SUV，关注空间和安全。",
-                family.path("profileText").asText());
-        assertEquals("空间", family.path("focusFactors").get(0).asText());
+        assertEquals("SUV", family.path("bodyTypes").get(0).asText());
+        assertEquals("MPV", family.path("bodyTypes").get(1).asText());
+        assertEquals("插混", family.path("energyTypes").get(0).asText());
+        assertEquals("新能源", family.path("energyTypes").get(1).asText());
+        assertEquals(5, family.path("minSeats").asInt());
+        assertEquals("家庭出行", family.path("scenes").get(0).asText());
+        assertEquals(8, family.path("factorWeights").path("space").asInt());
         assertEquals(4L, family.path("excludedCarIds").get(0).asLong());
+        assertTrue(family.path("profileText").asText().contains("可接受SUV和MPV"));
+        assertTrue(family.path("profileText").asText().contains("可接受插混和新能源动力"));
+        assertTrue(family.path("profileText").asText().contains("重点关注空间、安全、舒适和能耗"));
         assertWeightSumIsOne(family);
-        assertTrue(weight(family, "space").compareTo(weight(family, "price")) > 0);
-        assertTrue(weight(family, "safety").compareTo(weight(family, "energy")) > 0);
-        assertTrue(weight(family, "comfort").compareTo(weight(family, "intelligence")) > 0);
+        assertDecimalEquals("0.1818", weight(family, "space"));
+        assertDecimalEquals("0.1818", weight(family, "safety"));
+        assertDecimalEquals("0.1591", weight(family, "comfort"));
 
-        JsonNode city = postDemand("""
+        JsonNode sceneDefault = postDemand("""
                 {
                   "userId": 1,
                   "budgetMin": 80000,
                   "budgetMax": 120000,
-                  "bodyType": "轿车",
-                  "energyType": "燃油",
-                  "seats": 5,
-                  "scene": "城市通勤",
-                  "focusFactors": ["价格", "能耗", "智能"],
+                  "bodyTypes": ["轿车", "SUV"],
+                  "energyTypes": ["燃油"],
+                  "minSeats": 5,
+                  "scenes": ["城市通勤", "家庭出行"],
+                  "factorWeights": {
+                    "price": 0,
+                    "space": 0,
+                    "safety": 0,
+                    "energy": 0,
+                    "intelligence": 0,
+                    "comfort": 0,
+                    "power": 0,
+                    "reputation": 0,
+                    "popularity": 0
+                  },
                   "excludedBrands": [],
                   "excludedCarIds": []
                 }
                 """);
-        assertWeightSumIsOne(city);
-        assertTrue(weight(city, "price").compareTo(weight(city, "safety")) > 0);
-        assertTrue(weight(city, "energy").compareTo(weight(city, "space")) > 0);
-        assertTrue(weight(city, "intelligence").compareTo(weight(city, "comfort")) > 0);
+        assertWeightSumIsOne(sceneDefault);
+        assertDecimalEquals("0.1750", weight(sceneDefault, "price"));
+        assertDecimalEquals("0.1850", weight(sceneDefault, "safety"));
+        assertDecimalEquals("0.1750", weight(sceneDefault, "energy"));
+        assertTrue(weight(sceneDefault, "safety").compareTo(weight(sceneDefault, "comfort")) > 0);
 
-        JsonNode sameDimensionCap = postDemand("""
+        JsonNode defaultScene = postDemand("""
                 {
-                  "scene": "综合需求",
-                  "focusFactors": ["能耗", "省油", "续航"],
+                  "factorWeights": {},
                   "excludedBrands": [],
                   "excludedCarIds": []
                 }
                 """);
-        assertWeightSumIsOne(sameDimensionCap);
-        assertDecimalEquals("0.2500", weight(sameDimensionCap, "energy"));
-
-        JsonNode rawWeightCap = postDemand("""
-                {
-                  "scene": "城市通勤",
-                  "focusFactors": ["价格", "性价比", "不贵"],
-                  "excludedBrands": [],
-                  "excludedCarIds": []
-                }
-                """);
-        assertWeightSumIsOne(rawWeightCap);
-        assertDecimalEquals("0.3182", weight(rawWeightCap, "price"));
+        assertWeightSumIsOne(defaultScene);
+        assertEquals("综合需求", defaultScene.path("scenes").get(0).asText());
+        assertDecimalEquals("0.1500", weight(defaultScene, "price"));
 
         JsonNode newEnergy = postDemand("""
                 {
                   "budgetMax": 180000,
-                  "bodyType": "SUV",
-                  "energyType": "新能源",
-                  "seats": 5,
-                  "scene": "综合需求",
-                  "focusFactors": ["热度"],
+                  "bodyTypes": ["SUV"],
+                  "energyTypes": ["新能源"],
+                  "minSeats": 5,
+                  "scenes": ["综合需求"],
+                  "factorWeights": { "popularity": 10 },
                   "excludedBrands": ["丰田"],
                   "excludedCarIds": [2, 3]
                 }
                 """);
         long latestId = newEnergy.path("id").asLong();
-        assertEquals("新能源", newEnergy.path("energyType").asText());
+        assertEquals("新能源", newEnergy.path("energyTypes").get(0).asText());
         assertEquals(2L, newEnergy.path("excludedCarIds").get(0).asLong());
         assertEquals(1, count("SELECT COUNT(*) FROM user_demand WHERE id = " + latestId
-                + " AND user_id = 1 AND energy_type = '新能源'"));
+                + " AND user_id = 1 AND energy_types LIKE '%新能源%'"));
 
         mockMvc.perform(get("/api/user/demand/latest"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.id").value(latestId))
-                .andExpect(jsonPath("$.data.energyType").value("新能源"))
+                .andExpect(jsonPath("$.data.energyTypes[0]").value("新能源"))
                 .andExpect(jsonPath("$.data.excludedCarIds[1]").value(3));
 
         mockMvc.perform(get("/api/user/demand/{id}", familyId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.profileText").value("家庭实用型用户，预算10-15万，偏好插混SUV，关注空间和安全。"))
-                .andExpect(jsonPath("$.data.weights.space").value(0.2845))
-                .andExpect(jsonPath("$.data.focusFactors[1]").value("安全"));
+                .andExpect(jsonPath("$.data.bodyTypes[1]").value("MPV"))
+                .andExpect(jsonPath("$.data.energyTypes[1]").value("新能源"))
+                .andExpect(jsonPath("$.data.minSeats").value(5))
+                .andExpect(jsonPath("$.data.weights.space").value(0.1818))
+                .andExpect(jsonPath("$.data.factorWeights.safety").value(8));
     }
 
     private JsonNode postDemand(String payload) throws Exception {

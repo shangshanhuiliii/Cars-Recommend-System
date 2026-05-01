@@ -3,7 +3,7 @@
     <div class="page-header">
       <div>
         <h1 class="page-title">购车需求</h1>
-        <p class="page-subtitle">填写结构化需求后，系统会生成用户画像与权重，并立即基于真实车型评分生成推荐结果。</p>
+        <p class="page-subtitle">填写结构化偏好后，系统会生成画像权重，并基于真实车型评分生成推荐结果。</p>
       </div>
     </div>
 
@@ -37,17 +37,20 @@
               <el-form-item label="预算上限（万元）" prop="budgetMaxWan">
                 <el-input-number v-model="form.budgetMaxWan" :min="0" :step="1" controls-position="right" />
               </el-form-item>
-              <el-form-item label="车型类型" prop="bodyType">
-                <el-segmented v-model="form.bodyType" :options="bodyTypes" />
+              <el-form-item label="最低座位数" prop="minSeats">
+                <el-input-number v-model="form.minSeats" :min="2" :max="9" controls-position="right" />
               </el-form-item>
-              <el-form-item label="动力类型" prop="energyType">
-                <el-segmented v-model="form.energyType" :options="demandEnergyTypes" />
-              </el-form-item>
-              <el-form-item label="最低座位数" prop="seats">
-                <el-input-number v-model="form.seats" :min="2" :max="9" controls-position="right" />
-              </el-form-item>
-              <el-form-item label="推荐数量" prop="topK">
-                <el-input-number v-model="form.topK" :min="1" :max="20" controls-position="right" />
+              <el-form-item label="排除品牌">
+                <el-select
+                  v-model="form.excludedBrands"
+                  multiple
+                  filterable
+                  clearable
+                  :loading="brandLoading"
+                  placeholder="搜索并选择已有品牌"
+                >
+                  <el-option v-for="brand in brandOptions" :key="brand" :label="brand" :value="brand" />
+                </el-select>
               </el-form-item>
               <el-form-item class="grid-span-2" label="自然语言原文（可选）">
                 <el-input
@@ -59,37 +62,91 @@
                   placeholder="例如：家庭用车，预算 10-15 万，想要安全、空间大、能耗低。"
                 />
               </el-form-item>
-              <el-form-item class="grid-span-2" label="排除品牌（可选，逗号分隔）">
-                <el-input v-model="form.excludedBrandsText" placeholder="例如：品牌A, 品牌B" />
-              </el-form-item>
-              <el-form-item class="grid-span-2" label="排除车型 ID（可选，逗号分隔）">
-                <el-input v-model="form.excludedCarIdsText" placeholder="例如：3, 8, 12" />
-              </el-form-item>
             </div>
 
-            <el-form-item label="使用场景" prop="scene">
+            <section class="choice-section">
+              <div class="section-head">
+                <h2>可接受车型类型</h2>
+                <span>可多选，留空表示不限车型类型</span>
+              </div>
+              <el-checkbox-group v-model="form.bodyTypes" class="button-grid">
+                <el-checkbox-button v-for="item in bodyTypes" :key="item" :label="item">
+                  {{ item }}
+                </el-checkbox-button>
+              </el-checkbox-group>
+            </section>
+
+            <section class="choice-section">
+              <div class="section-head">
+                <h2>可接受动力类型</h2>
+                <span>“新能源”会在后端展开为纯电、插混和增程</span>
+              </div>
+              <el-checkbox-group v-model="form.energyTypes" class="button-grid">
+                <el-checkbox-button v-for="item in demandEnergyTypes" :key="item" :label="item">
+                  {{ item }}
+                </el-checkbox-button>
+              </el-checkbox-group>
+            </section>
+
+            <section class="choice-section">
+              <div class="section-head">
+                <h2>使用场景</h2>
+                <span>可多选；全部滑块为 0 时，系统按场景模板生成默认权重</span>
+              </div>
               <div class="scene-grid">
                 <button
                   v-for="scene in sceneOptions"
                   :key="scene.value"
                   class="scene-card"
-                  :class="{ 'scene-card--active': form.scene === scene.value }"
+                  :class="{ 'scene-card--active': form.scenes.includes(scene.value) }"
                   type="button"
-                  @click="form.scene = scene.value"
+                  @click="toggleScene(scene.value)"
                 >
                   <span>{{ scene.value }}</span>
                   <small>{{ scene.description }}</small>
                 </button>
               </div>
-            </el-form-item>
+            </section>
 
-            <el-form-item label="关注因素" prop="focusFactors">
-              <el-checkbox-group v-model="form.focusFactors" class="focus-grid">
-                <el-checkbox-button v-for="item in focusOptions" :key="item.value" :label="item.value">
-                  {{ item.value }}
-                </el-checkbox-button>
-              </el-checkbox-group>
-            </el-form-item>
+            <section class="choice-section">
+              <div class="section-head">
+                <h2>偏好权重</h2>
+                <span>滑块越高表示越重视该因素，最终权重以后端归一化结果为准</span>
+              </div>
+              <div class="factor-grid">
+                <div v-for="item in factorOptions" :key="item.key" class="factor-row">
+                  <span>{{ item.label }}</span>
+                  <el-slider v-model="form.factorWeights[item.key]" :min="0" :max="10" :step="1" />
+                  <strong>{{ form.factorWeights[item.key] }}</strong>
+                </div>
+              </div>
+            </section>
+
+            <section class="choice-section">
+              <div class="section-head">
+                <h2>排除车型</h2>
+                <span>仅能从数据库已有车型中搜索选择</span>
+              </div>
+              <el-select
+                v-model="form.excludedCarIds"
+                class="car-option-select"
+                multiple
+                filterable
+                remote
+                clearable
+                reserve-keyword
+                :remote-method="searchCarOptions"
+                :loading="carOptionLoading"
+                placeholder="输入品牌或车型名称搜索"
+              >
+                <el-option
+                  v-for="car in carOptions"
+                  :key="car.id"
+                  :label="car.displayName"
+                  :value="car.id"
+                />
+              </el-select>
+            </section>
 
             <div class="form-actions">
               <el-button :icon="Refresh" @click="resetForm">重置</el-button>
@@ -104,17 +161,17 @@
       <aside class="panel">
         <div class="panel__body demand-aside">
           <p class="aside-label">当前画像方向</p>
-          <h2>{{ selectedScene?.value }}</h2>
-          <p>{{ selectedScene?.description }}</p>
+          <h2>{{ sceneSummary }}</h2>
+          <p>{{ bodyEnergySummary }}</p>
           <div class="focus-summary">
-            <span v-for="item in form.focusFactors" :key="item">{{ item }}</span>
+            <span v-for="item in highWeightFactors" :key="item.key">{{ item.label }} {{ item.value }}</span>
           </div>
           <el-divider />
           <p class="aside-label">推荐规则提示</p>
           <ul class="rule-list">
-            <li>预算上限、车型、动力和最低座位数会影响候选范围。</li>
+            <li>预算上限、车型类型、动力类型和最低座位数会影响候选范围。</li>
             <li>预算下限只影响价格匹配分，不会过滤车型。</li>
-            <li>关注因素只调整权重，不会变成硬性过滤条件。</li>
+            <li>偏好滑块只影响权重和排序，不会变成硬性过滤条件。</li>
           </ul>
         </div>
       </aside>
@@ -123,11 +180,12 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowRight, Refresh } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
+import { fetchCarBrands, fetchCarOptions } from '@/api/cars'
 import { createUserDemand, generateRecommendation } from '@/api/recommend'
 import { bodyTypes, demandEnergyTypes } from '@/constants/enums'
 
@@ -136,6 +194,10 @@ const formRef = ref()
 const submitting = ref(false)
 const submitStep = ref(0)
 const submitError = ref('')
+const brandLoading = ref(false)
+const carOptionLoading = ref(false)
+const brandOptions = ref([])
+const carOptions = ref([])
 
 const sceneOptions = [
   { value: '城市通勤', description: '更关注价格、能耗和日常便利性' },
@@ -146,38 +208,103 @@ const sceneOptions = [
   { value: '综合需求', description: '各维度较均衡' },
 ]
 
-const focusOptions = ['价格', '空间', '安全', '能耗', '智能', '舒适', '动力', '口碑', '热度'].map((value) => ({
-  value,
-}))
+const factorOptions = [
+  ['price', '价格'],
+  ['space', '空间'],
+  ['safety', '安全'],
+  ['energy', '能耗'],
+  ['intelligence', '智能'],
+  ['comfort', '舒适'],
+  ['power', '动力'],
+  ['reputation', '口碑'],
+  ['popularity', '热度'],
+].map(([key, label]) => ({ key, label }))
 
 const form = reactive(defaultForm())
 
-const selectedScene = computed(() => sceneOptions.find((item) => item.value === form.scene))
+const sceneSummary = computed(() => (form.scenes.length ? form.scenes.join(' / ') : '综合需求'))
+
+const bodyEnergySummary = computed(() => {
+  const body = form.bodyTypes.length ? form.bodyTypes.join(' / ') : '车型不限'
+  const energy = form.energyTypes.length ? form.energyTypes.join(' / ') : '动力不限'
+  return `${body} · ${energy} · 最低 ${form.minSeats || '-'} 座`
+})
+
+const highWeightFactors = computed(() =>
+  factorOptions
+    .map((item) => ({ ...item, value: Number(form.factorWeights[item.key] || 0) }))
+    .filter((item) => item.value > 0)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 5),
+)
 
 const rules = {
   budgetMinWan: [{ validator: validateBudget, trigger: 'change' }],
   budgetMaxWan: [{ validator: validateBudget, trigger: 'change' }],
-  bodyType: [{ required: true, message: '请选择车型类型', trigger: 'change' }],
-  energyType: [{ required: true, message: '请选择动力类型', trigger: 'change' }],
-  seats: [{ required: true, message: '请输入最低座位数', trigger: 'change' }],
-  scene: [{ required: true, message: '请选择使用场景', trigger: 'change' }],
-  focusFactors: [{ type: 'array', min: 1, message: '请至少选择一个关注因素', trigger: 'change' }],
+  minSeats: [{ required: true, message: '请输入最低座位数', trigger: 'change' }],
 }
+
+onMounted(() => {
+  loadBrands()
+  searchCarOptions('')
+})
 
 function defaultForm() {
   return {
     rawText: '',
     budgetMinWan: 10,
     budgetMaxWan: 15,
-    bodyType: 'SUV',
-    energyType: '插混',
-    seats: 5,
-    scene: '家庭出行',
-    focusFactors: ['空间', '安全'],
-    excludedBrandsText: '',
-    excludedCarIdsText: '',
-    topK: 10,
+    bodyTypes: ['SUV'],
+    energyTypes: ['插混', '新能源'],
+    minSeats: 5,
+    scenes: ['家庭出行'],
+    factorWeights: {
+      price: 0,
+      space: 8,
+      safety: 8,
+      energy: 0,
+      intelligence: 0,
+      comfort: 6,
+      power: 0,
+      reputation: 0,
+      popularity: 0,
+    },
+    excludedBrands: [],
+    excludedCarIds: [],
   }
+}
+
+async function loadBrands() {
+  brandLoading.value = true
+  try {
+    const response = await fetchCarBrands()
+    brandOptions.value = response.data || []
+  } catch (error) {
+    ElMessage.error(error?.response?.data?.message || error?.message || '品牌列表加载失败')
+  } finally {
+    brandLoading.value = false
+  }
+}
+
+async function searchCarOptions(keyword) {
+  carOptionLoading.value = true
+  try {
+    const response = await fetchCarOptions({ keyword, limit: 50 })
+    carOptions.value = response.data || []
+  } catch (error) {
+    ElMessage.error(error?.response?.data?.message || error?.message || '车型选项加载失败')
+  } finally {
+    carOptionLoading.value = false
+  }
+}
+
+function toggleScene(value) {
+  const index = form.scenes.indexOf(value)
+  if (index >= 0) {
+    form.scenes.splice(index, 1)
+    return
+  }
+  form.scenes.push(value)
 }
 
 function validateBudget(rule, value, callback) {
@@ -206,7 +333,6 @@ async function submitDemand() {
     submitStep.value = 2
     const recommendResponse = await generateRecommendation({
       demandId: demand.id,
-      topK: form.topK,
     })
 
     submitStep.value = 3
@@ -223,13 +349,13 @@ function toDemandPayload() {
     rawText: form.rawText?.trim() || null,
     budgetMin: toYuan(form.budgetMinWan),
     budgetMax: toYuan(form.budgetMaxWan),
-    bodyType: form.bodyType,
-    energyType: form.energyType,
-    seats: form.seats,
-    scene: form.scene,
-    focusFactors: [...form.focusFactors],
-    excludedBrands: splitText(form.excludedBrandsText),
-    excludedCarIds: splitIds(form.excludedCarIdsText),
+    bodyTypes: [...form.bodyTypes],
+    energyTypes: [...form.energyTypes],
+    minSeats: form.minSeats,
+    scenes: [...form.scenes],
+    factorWeights: { ...form.factorWeights },
+    excludedBrands: [...form.excludedBrands],
+    excludedCarIds: [...form.excludedCarIds],
   }
 }
 
@@ -238,20 +364,6 @@ function toYuan(value) {
     return null
   }
   return Number(value) * 10000
-}
-
-function splitText(value) {
-  if (!value) return []
-  return value
-    .split(/[,，]/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-}
-
-function splitIds(value) {
-  return splitText(value)
-    .map((item) => Number(item))
-    .filter((item) => Number.isInteger(item) && item > 0)
 }
 
 function resetForm() {
@@ -284,8 +396,38 @@ function resetForm() {
 }
 
 .form-grid :deep(.el-input-number),
-.form-grid :deep(.el-segmented) {
+.form-grid :deep(.el-select),
+.car-option-select {
   width: 100%;
+}
+
+.choice-section {
+  margin-top: 20px;
+}
+
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.section-head h2 {
+  margin: 0;
+  color: var(--color-primary-dark);
+  font-size: 16px;
+}
+
+.section-head span {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.button-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .scene-grid {
@@ -329,17 +471,39 @@ function resetForm() {
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
-.focus-grid {
-  display: flex;
-  flex-wrap: wrap;
+.factor-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px 18px;
+}
+
+.factor-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 24px;
+  align-items: center;
   gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: #f9fafb;
+}
+
+.factor-row span {
+  color: var(--color-primary-dark);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.factor-row strong {
+  text-align: right;
+  color: var(--color-accent);
 }
 
 .form-actions {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  margin-top: 10px;
+  margin-top: 20px;
 }
 
 .demand-aside h2 {
@@ -386,12 +550,17 @@ function resetForm() {
 @media (max-width: 980px) {
   .demand-layout,
   .form-grid,
-  .scene-grid {
+  .scene-grid,
+  .factor-grid {
     grid-template-columns: 1fr;
   }
 
   .grid-span-2 {
     grid-column: span 1;
+  }
+
+  .section-head {
+    display: block;
   }
 }
 </style>

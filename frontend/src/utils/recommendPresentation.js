@@ -21,5 +21,6 @@ export function displayTags(tags) {
   if (!Array.isArray(tags)) {
     return []
   }
-  return tags.filter((tag) => tag !== '完全匹配')
+  const technicalTags = new Set(['完全匹配', '降级推荐', '放宽预算', '放宽车型', '放宽动力', '相似推荐'])
+  return tags.filter((tag) => !technicalTags.has(tag))
 }

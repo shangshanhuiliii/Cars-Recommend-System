@@ -41,7 +41,6 @@
                   </el-tag>
                 </div>
                 <p>{{ record.profileText || '暂无画像文本' }}</p>
-                <p v-if="record.fallbackMessage" class="fallback-line">{{ record.fallbackMessage }}</p>
                 <div class="top-cars">
                   <span v-for="name in record.topCarNames" :key="name">{{ name }}</span>
                   <span v-if="!record.topCarNames?.length">暂无推荐车型</span>
@@ -120,7 +119,7 @@ function goDetail(recordId) {
 
 function statusLabel(value) {
   if (value === 'SUCCESS') return '完全匹配'
-  if (value === 'FALLBACK') return '降级推荐'
+  if (value === 'FALLBACK') return '含补充推荐'
   if (value === 'EMPTY') return '暂无结果'
   return value || '未知'
 }
@@ -180,10 +179,6 @@ function formatDate(value) {
   color: var(--color-muted);
   font-size: 13px;
   line-height: 1.7;
-}
-
-.fallback-line {
-  color: #92400e !important;
 }
 
 .top-cars {

@@ -12,7 +12,9 @@ import com.carsrecommend.system.service.CarDetailService;
 import com.carsrecommend.system.vo.CarDetailVO;
 import com.carsrecommend.system.vo.CarFeatureScoreVO;
 import com.carsrecommend.system.vo.CarModelVO;
+import com.carsrecommend.system.vo.CarOptionVO;
 import com.carsrecommend.system.vo.CarParamVO;
+import java.util.List;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +22,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @ConditionalOnProperty(prefix = "spring.datasource", name = "url")
 public class CarDetailServiceImpl implements CarDetailService {
+
+    private static final int DEFAULT_OPTION_LIMIT = 20;
+    private static final int MAX_OPTION_LIMIT = 100;
 
     private final CarModelMapper carModelMapper;
     private final CarParamMapper carParamMapper;
@@ -44,6 +49,35 @@ public class CarDetailServiceImpl implements CarDetailService {
         vo.setCarParam(carParamMapper.findByCarId(carId).map(this::toCarParamVO).orElse(null));
         vo.setCarFeatureScore(carFeatureScoreMapper.findByCarId(carId).map(this::toCarFeatureScoreVO).orElse(null));
         return vo;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<String> getActiveBrands() {
+        return carModelMapper.findActiveBrands();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CarOptionVO> getCarOptions(String keyword, Integer limit) {
+        int normalizedLimit = normalizeLimit(limit);
+        return carModelMapper.findActiveOptions(keyword, normalizedLimit).stream()
+                .map(car -> new CarOptionVO(
+                        car.getId(),
+                        car.getBrand(),
+                        car.getModelName(),
+                        car.getBrand() + " " + car.getModelName()))
+                .toList();
+    }
+
+    private int normalizeLimit(Integer limit) {
+        if (limit == null) {
+            return DEFAULT_OPTION_LIMIT;
+        }
+        if (limit < 1 || limit > MAX_OPTION_LIMIT) {
+            throw new BusinessException("limit must be between 1 and 100");
+        }
+        return limit;
     }
 
     private CarModelVO toCarModelVO(CarModel carModel) {

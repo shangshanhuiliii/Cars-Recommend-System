@@ -28,15 +28,6 @@
     </el-alert>
 
     <template v-else-if="detail">
-      <el-alert
-        v-if="detail.recommendStatus === 'FALLBACK'"
-        class="fallback-alert"
-        type="warning"
-        :closable="false"
-        :title="detail.fallbackMessage || '未找到足够的完全匹配车型，系统已放宽部分条件。'"
-        show-icon
-      />
-
       <div class="result-summary">
         <div class="panel profile-panel">
           <div class="panel__body">
@@ -45,9 +36,10 @@
                 <p class="eyebrow">用户画像</p>
                 <h2>{{ detail.profileText || '暂无画像文本' }}</h2>
               </div>
-              <el-tag :type="statusType(detail.recommendStatus)" size="large">{{ statusLabel(detail.recommendStatus) }}</el-tag>
+              <el-tag :type="statusType(detail.recommendStatus)" size="large">
+                {{ statusLabel(detail.recommendStatus) }}
+              </el-tag>
             </div>
-            <p v-if="detail.fallbackMessage" class="fallback-text">{{ detail.fallbackMessage }}</p>
             <div class="record-meta">
               <span>记录 #{{ detail.recordId }}</span>
               <span>需求 #{{ detail.demandId }}</span>
@@ -77,85 +69,157 @@
       </div>
 
       <div v-else class="result-list">
-        <article v-for="item in detail.items" :key="`${detail.recordId}-${item.rankNo}`" class="recommend-card">
-          <div class="car-visual">
-            <img :src="carImageSrc(item.imageUrl)" :alt="item.modelName" @error="fallbackCarImage" />
+        <section v-for="group in itemGroups" :key="group.key" class="result-group">
+          <div class="group-head">
+            <h2>{{ group.title }}</h2>
+            <span>{{ group.items.length }} 款车型</span>
           </div>
 
-          <div class="recommend-main">
-            <div class="car-title-row">
-              <div>
-                <span class="rank-badge">TOP {{ item.rankNo }}</span>
-                <h2>{{ item.brand }} {{ item.modelName }}</h2>
-                <p>{{ item.series }} · {{ item.bodyType }} · {{ item.energyType }} · {{ item.seats }} 座</p>
-              </div>
-              <div class="score-box" :class="scoreClass(item.totalScore)">
-                <strong>{{ formatScore(item.totalScore) }}</strong>
-                <span>综合匹配度</span>
-              </div>
+          <article v-for="item in group.items" :key="`${detail.recordId}-${item.rankNo}`" class="recommend-card">
+            <div class="car-visual">
+              <img :src="carImageSrc(item.imageUrl)" :alt="item.modelName" @error="fallbackCarImage" />
             </div>
 
-            <div class="recommend-meta">
-              <div class="tag-line">
-                <span class="meta-label">推荐标签</span>
-                <el-tag v-for="tag in displayTags(item.tags)" :key="tag" effect="light">{{ tag }}</el-tag>
+            <div class="recommend-main">
+              <div class="car-title-row">
+                <div>
+                  <span class="rank-badge">#{{ item.rankNo }}</span>
+                  <h2>{{ item.brand }} {{ item.modelName }}</h2>
+                  <p>{{ item.series }} · {{ item.bodyType }} · {{ item.energyType }} · {{ item.seats }} 座</p>
+                </div>
+                <div class="score-box" :class="scoreClass(item.totalScore)">
+                  <strong>{{ formatScore(item.totalScore) }}</strong>
+                  <span>综合匹配度</span>
+                </div>
               </div>
-              <div class="match-line">
-                <span class="meta-label">匹配状态</span>
-                <el-tag :type="matchTagType(item.matchLevel)" effect="dark">{{ matchLabel(item.matchLevel) }}</el-tag>
-              </div>
-              <span class="price-text">{{ formatWan(item.guidePrice) }}</span>
-            </div>
 
-            <div class="explain-grid">
-              <div>
-                <p class="explain-label">推荐理由</p>
-                <p>{{ item.reasonText }}</p>
+              <div class="recommend-meta">
+                <div class="tag-line">
+                  <span class="meta-label">推荐标签</span>
+                  <el-tag v-for="tag in displayTags(item.tags)" :key="tag" effect="light">{{ tag }}</el-tag>
+                </div>
+                <span class="price-text">{{ formatWan(item.guidePrice) }}</span>
               </div>
-              <div>
-                <p class="explain-label">不足提醒</p>
-                <p>{{ item.weaknessText }}</p>
-              </div>
-            </div>
 
-            <div class="score-grid">
-              <div v-for="row in scoreRows(item)" :key="row.key" class="score-row">
-                <span>{{ row.label }}</span>
-                <el-progress
-                  :percentage="scorePercent(row.value)"
-                  :status="scoreStatus(row.value)"
-                  :stroke-width="8"
-                  :show-text="false"
-                />
-                <strong>{{ formatScore(row.value) }}</strong>
+              <div class="explain-grid">
+                <div>
+                  <p class="explain-label">推荐理由</p>
+                  <p>{{ item.reasonText }}</p>
+                </div>
+                <div>
+                  <p class="explain-label">不足提醒</p>
+                  <p>{{ item.weaknessText }}</p>
+                </div>
+              </div>
+
+              <div class="score-grid">
+                <div v-for="row in scoreRows(item)" :key="row.key" class="score-row">
+                  <span>{{ row.label }}</span>
+                  <el-progress
+                    :percentage="scorePercent(row.value)"
+                    :status="scoreStatus(row.value)"
+                    :stroke-width="8"
+                    :show-text="false"
+                  />
+                  <strong>{{ formatScore(row.value) }}</strong>
+                </div>
+              </div>
+
+              <div class="card-actions">
+                <el-button type="primary" plain @click="openCarDetail(item.carId)">查看车型详情</el-button>
               </div>
             </div>
-
-            <div class="card-actions">
-              <el-button type="primary" plain @click="goCarDetail(item.carId)">查看车型详情</el-button>
-            </div>
-          </div>
-        </article>
+          </article>
+        </section>
       </div>
     </template>
+
+    <el-drawer v-model="carDrawerVisible" size="560px" destroy-on-close title="车型详情">
+      <div v-if="carDetailLoading" class="drawer-state">
+        <el-skeleton :rows="8" animated />
+      </div>
+      <el-alert
+        v-else-if="carDetailError"
+        type="error"
+        :closable="false"
+        :title="carDetailError"
+        show-icon
+      />
+      <div v-else-if="selectedCarDetail" class="drawer-detail">
+        <div class="drawer-visual">
+          <img :src="carImageSrc(selectedCar.imageUrl)" :alt="selectedCar.modelName" @error="fallbackCarImage" />
+        </div>
+        <h2>{{ selectedCar.brand }} {{ selectedCar.modelName }}</h2>
+        <p class="drawer-subtitle">
+          {{ selectedCar.series }} · {{ selectedCar.bodyType }} · {{ selectedCar.energyType }} · {{ selectedCar.seats }} 座
+        </p>
+        <div class="drawer-metrics">
+          <div>
+            <span>指导价</span>
+            <strong>{{ formatWan(selectedCar.guidePrice) }}</strong>
+          </div>
+          <div>
+            <span>上市年份</span>
+            <strong>{{ selectedCar.launchYear || '未知' }}</strong>
+          </div>
+          <div>
+            <span>口碑评分</span>
+            <strong>{{ selectedCar.userRating || '暂无' }}</strong>
+          </div>
+        </div>
+
+        <h3>特征评分</h3>
+        <template v-if="selectedScore">
+          <div v-for="row in detailScoreRows" :key="row.key" class="score-row drawer-score-row">
+            <span>{{ row.label }}</span>
+            <el-progress
+              :percentage="scorePercent(row.value)"
+              :status="scoreStatus(row.value)"
+              :stroke-width="8"
+              :show-text="false"
+            />
+            <strong>{{ formatScore(row.value) }}</strong>
+          </div>
+        </template>
+        <el-empty v-else description="该车型暂无特征评分" />
+
+        <h3>车型参数</h3>
+        <template v-if="selectedParam">
+          <div class="drawer-param-grid">
+            <div v-for="row in detailParamRows" :key="row.label">
+              <span>{{ row.label }}</span>
+              <strong>{{ row.value }}</strong>
+            </div>
+          </div>
+        </template>
+        <el-empty v-else description="该车型暂无参数信息" />
+      </div>
+    </el-drawer>
   </section>
 </template>
 
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 
+import { fetchCarDetail } from '@/api/cars'
 import { fetchRecommendationDetail } from '@/api/recommend'
 import { carImageSrc, fallbackCarImage } from '@/utils/carImage'
-import { displayTags, matchLabel, matchTagType } from '@/utils/recommendPresentation'
+import { displayTags } from '@/utils/recommendPresentation'
 
 const route = useRoute()
-const router = useRouter()
 const loading = ref(false)
 const error = ref('')
 const detail = ref(null)
+const carDrawerVisible = ref(false)
+const carDetailLoading = ref(false)
+const carDetailError = ref('')
+const selectedCarDetail = ref(null)
 
 const recordId = computed(() => route.params.recordId)
+const selectedCar = computed(() => selectedCarDetail.value?.carModel || {})
+const selectedParam = computed(() => selectedCarDetail.value?.carParam || null)
+const selectedScore = computed(() => selectedCarDetail.value?.carFeatureScore || null)
 
 const weightConfig = [
   ['price', '价格'],
@@ -181,6 +245,17 @@ const scoreConfig = [
   ['popularityScore', '热度'],
 ]
 
+const featureScoreConfig = [
+  ['spaceScore', '空间'],
+  ['safetyScore', '安全'],
+  ['energyScore', '能耗'],
+  ['intelligenceScore', '智能'],
+  ['comfortScore', '舒适'],
+  ['powerScore', '动力'],
+  ['reputationScore', '口碑'],
+  ['popularityScore', '热度'],
+]
+
 const weightRows = computed(() =>
   weightConfig.map(([key, label]) => ({
     key,
@@ -188,6 +263,47 @@ const weightRows = computed(() =>
     value: Number(detail.value?.weights?.[key] || 0),
   })),
 )
+
+const strictItems = computed(() => sortedItems((detail.value?.items || []).filter((item) => item.matchLevel === 'STRICT')))
+const recommendationItems = computed(() =>
+  sortedItems((detail.value?.items || []).filter((item) => item.matchLevel !== 'STRICT')),
+)
+
+const itemGroups = computed(() => {
+  const groups = []
+  if (strictItems.value.length) {
+    groups.push({ key: 'strict', title: '完全匹配车型', items: strictItems.value })
+  }
+  if (recommendationItems.value.length) {
+    groups.push({ key: 'recommendation', title: '推荐', items: recommendationItems.value })
+  }
+  return groups
+})
+
+const detailScoreRows = computed(() =>
+  featureScoreConfig.map(([key, label]) => ({
+    key,
+    label,
+    value: Number(selectedScore.value?.[key] || 0),
+  })),
+)
+
+const detailParamRows = computed(() => {
+  const value = selectedParam.value
+  if (!value) return []
+  return [
+    ['车身尺寸', `${value.lengthMm} / ${value.widthMm} / ${value.heightMm} mm`],
+    ['轴距', `${value.wheelbaseMm} mm`],
+    ['燃油油耗', value.fuelConsumption ? `${value.fuelConsumption} L/100km` : '不适用'],
+    ['电耗', value.electricConsumption ? `${value.electricConsumption} kWh/100km` : '不适用'],
+    ['纯电续航', value.electricRangeKm ? `${value.electricRangeKm} km` : '不适用'],
+    ['综合续航', value.totalRangeKm ? `${value.totalRangeKm} km` : '不适用'],
+    ['百公里加速', value.acceleration100 ? `${value.acceleration100} s` : '暂无'],
+    ['气囊数量', `${value.airbagCount || 0} 个`],
+    ['屏幕尺寸', value.screenSize ? `${value.screenSize} 英寸` : '暂无'],
+    ['辅助驾驶', value.assistDriveLevel || '暂无'],
+  ].map(([label, rowValue]) => ({ label, value: rowValue }))
+})
 
 onMounted(loadDetail)
 watch(recordId, loadDetail)
@@ -211,6 +327,31 @@ async function loadDetail() {
   }
 }
 
+async function openCarDetail(carId) {
+  carDrawerVisible.value = true
+  carDetailLoading.value = true
+  carDetailError.value = ''
+  selectedCarDetail.value = null
+  try {
+    const response = await fetchCarDetail(carId)
+    selectedCarDetail.value = response.data
+  } catch (requestError) {
+    carDetailError.value = requestError?.response?.data?.message || requestError?.message || '车型详情加载失败。'
+  } finally {
+    carDetailLoading.value = false
+  }
+}
+
+function sortedItems(items) {
+  return [...items].sort((a, b) => {
+    const total = Number(b.totalScore || 0) - Number(a.totalScore || 0)
+    if (total !== 0) return total
+    const reputation = Number(b.reputationScore || 0) - Number(a.reputationScore || 0)
+    if (reputation !== 0) return reputation
+    return Number(b.popularityScore || 0) - Number(a.popularityScore || 0)
+  })
+}
+
 function scoreRows(item) {
   return scoreConfig.map(([key, label]) => ({
     key,
@@ -219,13 +360,9 @@ function scoreRows(item) {
   }))
 }
 
-function goCarDetail(carId) {
-  router.push({ path: `/car/${carId}`, query: { recordId: detail.value.recordId } })
-}
-
 function statusLabel(value) {
-  if (value === 'SUCCESS') return '完全匹配'
-  if (value === 'FALLBACK') return '降级推荐'
+  if (value === 'SUCCESS') return '全部完全匹配'
+  if (value === 'FALLBACK') return '含补充推荐'
   if (value === 'EMPTY') return '暂无结果'
   return value || '未知'
 }
@@ -279,8 +416,7 @@ function formatDate(value) {
 </script>
 
 <style scoped>
-.state-alert,
-.fallback-alert {
+.state-alert {
   margin-bottom: 18px;
 }
 
@@ -313,12 +449,6 @@ function formatDate(value) {
   margin: 0;
   color: var(--color-muted);
   font-size: 12px;
-}
-
-.fallback-text {
-  margin: 16px 0 0;
-  color: var(--color-muted);
-  line-height: 1.7;
 }
 
 .record-meta {
@@ -355,9 +485,32 @@ function formatDate(value) {
   margin-top: 20px;
 }
 
-.result-list {
+.result-list,
+.result-group {
   display: grid;
   gap: 18px;
+}
+
+.result-group + .result-group {
+  margin-top: 10px;
+}
+
+.group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 4px;
+}
+
+.group-head h2 {
+  margin: 0;
+  color: var(--color-primary-dark);
+  font-size: 20px;
+}
+
+.group-head span {
+  color: var(--color-muted);
+  font-size: 13px;
 }
 
 .recommend-card {
@@ -378,7 +531,8 @@ function formatDate(value) {
   background: #eef2f7;
 }
 
-.car-visual img {
+.car-visual img,
+.drawer-visual img {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -459,17 +613,11 @@ function formatDate(value) {
   margin-top: 14px;
 }
 
-.tag-line,
-.match-line {
+.tag-line {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-}
-
-.match-line {
-  padding-left: 10px;
-  border-left: 1px solid var(--color-border);
 }
 
 .meta-label {
@@ -523,21 +671,85 @@ function formatDate(value) {
   margin-top: 16px;
 }
 
+.drawer-state {
+  padding: 12px 0;
+}
+
+.drawer-detail h2 {
+  margin: 16px 0 8px;
+  color: var(--color-primary-dark);
+  font-size: 22px;
+}
+
+.drawer-detail h3 {
+  margin: 22px 0 12px;
+  color: var(--color-primary-dark);
+  font-size: 16px;
+}
+
+.drawer-subtitle {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.drawer-visual {
+  height: 220px;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: #eef2f7;
+}
+
+.drawer-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.drawer-metrics div,
+.drawer-param-grid div {
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: #f9fafb;
+}
+
+.drawer-metrics span,
+.drawer-param-grid span {
+  display: block;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.drawer-metrics strong,
+.drawer-param-grid strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--color-primary-dark);
+}
+
+.drawer-param-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.drawer-score-row {
+  grid-template-columns: 64px minmax(0, 1fr) 56px;
+}
+
 @media (max-width: 980px) {
   .result-summary,
   .recommend-card,
   .explain-grid,
-  .score-grid {
+  .score-grid,
+  .drawer-metrics,
+  .drawer-param-grid {
     grid-template-columns: 1fr;
   }
 
   .price-text {
     margin-left: 0;
-  }
-
-  .match-line {
-    padding-left: 0;
-    border-left: 0;
   }
 }
 </style>

@@ -24,6 +24,16 @@ public class AdminStatServiceImpl implements AdminStatService {
 
     private static final List<String> BUDGET_BUCKETS = List.of(
             "8万以内", "8-12万", "10-15万", "15-25万", "25万以上", "未填写预算");
+    private static final Map<String, String> FACTOR_LABELS = Map.of(
+            "price", "价格",
+            "space", "空间",
+            "safety", "安全",
+            "energy", "能耗",
+            "intelligence", "智能",
+            "comfort", "舒适",
+            "power", "动力",
+            "reputation", "口碑",
+            "popularity", "热度");
 
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
@@ -38,12 +48,12 @@ public class AdminStatServiceImpl implements AdminStatService {
     public AdminStatOverviewVO overview() {
         AdminStatOverviewVO vo = new AdminStatOverviewVO();
         vo.setBudgetDistribution(budgetDistribution());
-        vo.setSceneDistribution(groupDemandColumn("scene", "未填写场景"));
-        vo.setFocusFactorDistribution(focusFactorDistribution());
+        vo.setSceneDistribution(groupDemandArrayColumn("scenes"));
+        vo.setFocusFactorDistribution(factorWeightDistribution());
         vo.setPopularCars(popularCars());
         vo.setRecommendStatusDistribution(groupRecommendStatus());
-        vo.setEnergyTypeDistribution(groupDemandColumn("energy_type", "未填写动力"));
-        vo.setBodyTypeDistribution(groupDemandColumn("body_type", "未填写车型"));
+        vo.setEnergyTypeDistribution(groupDemandArrayColumn("energy_types"));
+        vo.setBodyTypeDistribution(groupDemandArrayColumn("body_types"));
         vo.setSatisfactionDistribution(List.of());
         vo.setFeedbackReasonDistribution(List.of());
         return vo;
@@ -96,19 +106,17 @@ public class AdminStatServiceImpl implements AdminStatService {
         return "25万以上";
     }
 
-    private List<StatItemVO> groupDemandColumn(String column, String emptyLabel) {
-        String sql = """
-                SELECT %s AS name, COUNT(*) AS item_count
-                FROM user_demand
-                WHERE deleted = FALSE
-                GROUP BY %s
-                """.formatted(column, column);
-        List<StatItemVO> rawItems = jdbcTemplate.query(
-                sql,
-                (resultSet, rowNum) -> new StatItemVO(
-                        normalizeStatName(resultSet.getString("name"), emptyLabel),
-                        resultSet.getLong("item_count")));
-        return mergeAndSort(rawItems);
+    private List<StatItemVO> groupDemandArrayColumn(String column) {
+        List<String> jsonValues = jdbcTemplate.queryForList(
+                "SELECT " + column + " FROM user_demand WHERE deleted = FALSE",
+                String.class);
+        Map<String, Long> counts = new LinkedHashMap<>();
+        for (String json : jsonValues) {
+            for (String value : readStringList(json)) {
+                counts.put(value, counts.getOrDefault(value, 0L) + 1);
+            }
+        }
+        return sortedStatItems(counts);
     }
 
     private List<StatItemVO> groupRecommendStatus() {
@@ -137,36 +145,29 @@ public class AdminStatServiceImpl implements AdminStatService {
                 (resultSet, rowNum) -> new StatItemVO(resultSet.getString("name"), resultSet.getLong("item_count")));
     }
 
-    private String normalizeStatName(String name, String emptyLabel) {
-        if (StringUtils.hasText(name)) {
-            return name;
-        }
-        return emptyLabel;
-    }
-
-    private List<StatItemVO> mergeAndSort(List<StatItemVO> items) {
-        Map<String, Long> counts = new LinkedHashMap<>();
-        for (StatItemVO item : items) {
-            counts.put(item.getName(), counts.getOrDefault(item.getName(), 0L) + item.getValue());
-        }
-        return counts.entrySet().stream()
-                .sorted(Map.Entry.<String, Long>comparingByValue(Comparator.reverseOrder())
-                        .thenComparing(Map.Entry.comparingByKey()))
-                .map(entry -> new StatItemVO(entry.getKey(), entry.getValue()))
-                .toList();
-    }
-
-    private List<StatItemVO> focusFactorDistribution() {
+    private List<StatItemVO> factorWeightDistribution() {
         List<String> jsonValues = jdbcTemplate.queryForList(
-                "SELECT focus_factors FROM user_demand WHERE deleted = FALSE",
+                "SELECT factor_weights FROM user_demand WHERE deleted = FALSE",
                 String.class);
         Map<String, Long> counts = new LinkedHashMap<>();
         for (String json : jsonValues) {
-            for (String value : readStringList(json)) {
-                counts.put(value, counts.getOrDefault(value, 0L) + 1);
+            JsonNode node = readJsonNode(json);
+            if (!node.isObject()) {
+                continue;
             }
+            node.fields().forEachRemaining(entry -> {
+                if (entry.getValue().asInt(0) > 0) {
+                    String label = FACTOR_LABELS.getOrDefault(entry.getKey(), entry.getKey());
+                    counts.put(label, counts.getOrDefault(label, 0L) + 1);
+                }
+            });
         }
+        return sortedStatItems(counts);
+    }
+
+    private List<StatItemVO> sortedStatItems(Map<String, Long> counts) {
         return counts.entrySet().stream()
+                .filter(entry -> StringUtils.hasText(entry.getKey()) && entry.getValue() > 0)
                 .sorted(Map.Entry.<String, Long>comparingByValue(Comparator.reverseOrder())
                         .thenComparing(Map.Entry.comparingByKey()))
                 .map(entry -> new StatItemVO(entry.getKey(), entry.getValue()))

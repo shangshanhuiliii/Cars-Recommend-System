@@ -103,6 +103,28 @@ public class CarModelMapper {
                 ROW_MAPPER);
     }
 
+    public List<String> findActiveBrands() {
+        return jdbcTemplate.queryForList(
+                "SELECT DISTINCT brand FROM car_model WHERE deleted = FALSE ORDER BY brand ASC",
+                String.class);
+    }
+
+    public List<CarModel> findActiveOptions(String keyword, int limit) {
+        StringBuilder sql = new StringBuilder("SELECT ");
+        sql.append(SELECT_COLUMNS).append(" FROM car_model WHERE deleted = FALSE");
+        List<Object> params = new ArrayList<>();
+        if (StringUtils.hasText(keyword)) {
+            String value = "%" + keyword.trim() + "%";
+            sql.append(" AND (brand LIKE ? OR series LIKE ? OR model_name LIKE ?)");
+            params.add(value);
+            params.add(value);
+            params.add(value);
+        }
+        sql.append(" ORDER BY id ASC LIMIT ?");
+        params.add(limit);
+        return jdbcTemplate.query(sql.toString(), ROW_MAPPER, params.toArray());
+    }
+
     public int findMaxSalesVolume() {
         Integer maxSales = jdbcTemplate.queryForObject(
                 "SELECT COALESCE(MAX(sales_volume), 0) FROM car_model WHERE deleted = FALSE",

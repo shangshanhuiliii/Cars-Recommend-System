@@ -16,7 +16,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -33,9 +35,6 @@ public class UserProfileServiceImpl implements UserProfileService {
 
     private static final String DEFAULT_SCENE = "综合需求";
     private static final BigDecimal ONE = new BigDecimal("1.0000");
-    private static final BigDecimal FOCUS_INCREMENT = new BigDecimal("0.08");
-    private static final BigDecimal MAX_FOCUS_INCREMENT_PER_DIMENSION = new BigDecimal("0.16");
-    private static final BigDecimal MAX_RAW_WEIGHT_PER_DIMENSION = new BigDecimal("0.35");
 
     private static final List<WeightDimension> WEIGHT_ORDER = List.of(
             WeightDimension.PRICE,
@@ -56,37 +55,6 @@ public class UserProfileServiceImpl implements UserProfileService {
             "商务接待", template("0.05", "0.15", "0.12", "0.05", "0.15", "0.25", "0.05", "0.15", "0.03"),
             DEFAULT_SCENE, template("0.15", "0.13", "0.15", "0.13", "0.12", "0.12", "0.08", "0.07", "0.05"));
 
-    private static final Map<String, String> SCENE_PROFILE_NAMES = Map.of(
-            "城市通勤", "城市通勤型用户",
-            "家庭出行", "家庭实用型用户",
-            "长途自驾", "长途自驾型用户",
-            "新手代步", "新手代步型用户",
-            "商务接待", "商务接待型用户",
-            DEFAULT_SCENE, "综合均衡型用户");
-
-    private static final Map<String, WeightDimension> FOCUS_DIMENSIONS = Map.ofEntries(
-            Map.entry("价格", WeightDimension.PRICE),
-            Map.entry("性价比", WeightDimension.PRICE),
-            Map.entry("不贵", WeightDimension.PRICE),
-            Map.entry("空间", WeightDimension.SPACE),
-            Map.entry("空间大", WeightDimension.SPACE),
-            Map.entry("安全", WeightDimension.SAFETY),
-            Map.entry("能耗", WeightDimension.ENERGY),
-            Map.entry("省油", WeightDimension.ENERGY),
-            Map.entry("续航", WeightDimension.ENERGY),
-            Map.entry("用车成本", WeightDimension.ENERGY),
-            Map.entry("智能", WeightDimension.INTELLIGENCE),
-            Map.entry("科技", WeightDimension.INTELLIGENCE),
-            Map.entry("辅助驾驶", WeightDimension.INTELLIGENCE),
-            Map.entry("舒适", WeightDimension.COMFORT),
-            Map.entry("动力", WeightDimension.POWER),
-            Map.entry("动力强", WeightDimension.POWER),
-            Map.entry("口碑", WeightDimension.REPUTATION),
-            Map.entry("品牌可靠", WeightDimension.REPUTATION),
-            Map.entry("热度", WeightDimension.POPULARITY),
-            Map.entry("热门", WeightDimension.POPULARITY),
-            Map.entry("销量", WeightDimension.POPULARITY));
-
     private final UserDemandMapper userDemandMapper;
     private final ObjectMapper objectMapper;
 
@@ -98,29 +66,36 @@ public class UserProfileServiceImpl implements UserProfileService {
     @Override
     public UserDemandVO saveDemand(UserDemandSaveRequest request) {
         Long userId = resolveUserId(request.getUserId());
-        String bodyType = normalizeBodyType(request.getBodyType());
-        String energyType = normalizeDemandEnergyType(request.getEnergyType());
-        String scene = normalizeScene(request.getScene());
-        List<String> focusFactors = normalizeFocusFactors(request.getFocusFactors());
+        List<String> bodyTypes = normalizeBodyTypes(request.getBodyTypes());
+        List<String> energyTypes = normalizeDemandEnergyTypes(request.getEnergyTypes());
+        List<String> scenes = normalizeScenes(request.getScenes());
+        Map<String, Integer> factorWeights = normalizeFactorWeights(request.getFactorWeights());
         List<String> excludedBrands = normalizeTextList(request.getExcludedBrands());
         List<Long> excludedCarIds = normalizeLongList(request.getExcludedCarIds());
         validateBudget(request.getBudgetMin(), request.getBudgetMax());
 
-        EnumMap<WeightDimension, BigDecimal> weights = buildWeights(scene, focusFactors);
+        EnumMap<WeightDimension, BigDecimal> weights = buildWeights(scenes, factorWeights);
         UserDemand demand = new UserDemand();
         demand.setUserId(userId);
         demand.setRawText(trimToNull(request.getRawText()));
         demand.setBudgetMin(request.getBudgetMin());
         demand.setBudgetMax(request.getBudgetMax());
-        demand.setBodyType(bodyType);
-        demand.setEnergyType(energyType);
-        demand.setSeats(request.getSeats());
-        demand.setScene(scene);
-        demand.setFocusFactors(toJson(focusFactors));
+        demand.setBodyTypes(toJson(bodyTypes));
+        demand.setEnergyTypes(toJson(energyTypes));
+        demand.setMinSeats(request.getMinSeats());
+        demand.setScenes(toJson(scenes));
+        demand.setFactorWeights(toJson(factorWeights));
         demand.setExcludedBrands(toJson(excludedBrands));
         demand.setExcludedCarIds(toJson(excludedCarIds));
-        demand.setProfileText(buildProfileText(scene, request.getBudgetMin(), request.getBudgetMax(),
-                bodyType, energyType, focusFactors));
+        demand.setProfileText(buildProfileText(
+                request.getBudgetMin(),
+                request.getBudgetMax(),
+                bodyTypes,
+                energyTypes,
+                scenes,
+                factorWeights,
+                excludedBrands,
+                excludedCarIds));
         applyWeights(demand, weights);
 
         UserDemand created = userDemandMapper.insert(demand);
@@ -150,41 +125,48 @@ public class UserProfileServiceImpl implements UserProfileService {
         return resolvedUserId;
     }
 
-    private String normalizeBodyType(String bodyType) {
-        String value = trimToNull(bodyType);
-        if (value == null) {
-            return null;
-        }
-        return BodyType.fromCode(value).getCode();
-    }
-
-    private String normalizeDemandEnergyType(String energyType) {
-        String value = trimToNull(energyType);
-        if (value == null) {
-            return null;
-        }
-        return EnergyType.fromCode(value).getCode();
-    }
-
-    private String normalizeScene(String scene) {
-        String value = trimToNull(scene);
-        if (value == null) {
-            return DEFAULT_SCENE;
-        }
-        if (!SCENE_TEMPLATES.containsKey(value)) {
-            throw new BusinessException("unsupported scene: " + value);
-        }
-        return value;
-    }
-
-    private List<String> normalizeFocusFactors(List<String> focusFactors) {
-        List<String> values = normalizeTextList(focusFactors);
+    private List<String> normalizeBodyTypes(List<String> bodyTypes) {
+        List<String> values = normalizeTextList(bodyTypes);
         for (String value : values) {
-            if (!FOCUS_DIMENSIONS.containsKey(value)) {
-                throw new BusinessException("unsupported focusFactor: " + value);
+            BodyType.fromCode(value);
+        }
+        return values;
+    }
+
+    private List<String> normalizeDemandEnergyTypes(List<String> energyTypes) {
+        List<String> values = normalizeTextList(energyTypes);
+        for (String value : values) {
+            EnergyType.fromCode(value);
+        }
+        return values;
+    }
+
+    private List<String> normalizeScenes(List<String> scenes) {
+        List<String> values = normalizeTextList(scenes);
+        if (values.isEmpty()) {
+            return List.of(DEFAULT_SCENE);
+        }
+        for (String value : values) {
+            if (!SCENE_TEMPLATES.containsKey(value)) {
+                throw new BusinessException("unsupported scene: " + value);
             }
         }
         return values;
+    }
+
+    private Map<String, Integer> normalizeFactorWeights(Map<String, Integer> factorWeights) {
+        Map<String, Integer> normalized = new LinkedHashMap<>();
+        Map<String, Integer> source = factorWeights == null ? Map.of() : factorWeights;
+        for (WeightDimension dimension : WEIGHT_ORDER) {
+            Integer value = source.get(dimension.key());
+            normalized.put(dimension.key(), value == null ? 0 : value);
+        }
+        for (String key : source.keySet()) {
+            if (WEIGHT_ORDER.stream().noneMatch(dimension -> dimension.key().equals(key))) {
+                throw new BusinessException("unsupported factorWeight: " + key);
+            }
+        }
+        return normalized;
     }
 
     private List<String> normalizeTextList(List<String> values) {
@@ -219,21 +201,32 @@ public class UserProfileServiceImpl implements UserProfileService {
         }
     }
 
-    private EnumMap<WeightDimension, BigDecimal> buildWeights(String scene, List<String> focusFactors) {
-        EnumMap<WeightDimension, BigDecimal> rawWeights = new EnumMap<>(SCENE_TEMPLATES.get(scene));
-        EnumMap<WeightDimension, BigDecimal> increments = new EnumMap<>(WeightDimension.class);
-        for (String focusFactor : focusFactors) {
-            WeightDimension dimension = FOCUS_DIMENSIONS.get(focusFactor);
-            BigDecimal current = increments.getOrDefault(dimension, BigDecimal.ZERO);
-            BigDecimal next = current.add(FOCUS_INCREMENT).min(MAX_FOCUS_INCREMENT_PER_DIMENSION);
-            increments.put(dimension, next);
+    private EnumMap<WeightDimension, BigDecimal> buildWeights(List<String> scenes, Map<String, Integer> factorWeights) {
+        boolean hasExplicitWeight = factorWeights.values().stream().anyMatch(value -> value != null && value > 0);
+        if (hasExplicitWeight) {
+            EnumMap<WeightDimension, BigDecimal> rawWeights = new EnumMap<>(WeightDimension.class);
+            for (WeightDimension dimension : WEIGHT_ORDER) {
+                rawWeights.put(dimension, BigDecimal.valueOf(factorWeights.getOrDefault(dimension.key(), 0)));
+            }
+            return normalizeWeights(rawWeights);
         }
-        for (Map.Entry<WeightDimension, BigDecimal> entry : increments.entrySet()) {
-            BigDecimal adjusted = rawWeights.get(entry.getKey()).add(entry.getValue())
-                    .min(MAX_RAW_WEIGHT_PER_DIMENSION);
-            rawWeights.put(entry.getKey(), adjusted);
+
+        EnumMap<WeightDimension, BigDecimal> averaged = new EnumMap<>(WeightDimension.class);
+        for (WeightDimension dimension : WEIGHT_ORDER) {
+            averaged.put(dimension, BigDecimal.ZERO);
         }
-        return normalizeWeights(rawWeights);
+        List<String> sceneValues = scenes == null || scenes.isEmpty() ? List.of(DEFAULT_SCENE) : scenes;
+        for (String scene : sceneValues) {
+            EnumMap<WeightDimension, BigDecimal> template = SCENE_TEMPLATES.get(scene);
+            for (WeightDimension dimension : WEIGHT_ORDER) {
+                averaged.put(dimension, averaged.get(dimension).add(template.get(dimension)));
+            }
+        }
+        BigDecimal divisor = BigDecimal.valueOf(sceneValues.size());
+        for (WeightDimension dimension : WEIGHT_ORDER) {
+            averaged.put(dimension, averaged.get(dimension).divide(divisor, 8, RoundingMode.HALF_UP));
+        }
+        return normalizeWeights(averaged);
     }
 
     private EnumMap<WeightDimension, BigDecimal> normalizeWeights(EnumMap<WeightDimension, BigDecimal> rawWeights) {
@@ -241,7 +234,7 @@ public class UserProfileServiceImpl implements UserProfileService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         if (rawSum.compareTo(BigDecimal.ZERO) <= 0) {
             rawWeights = new EnumMap<>(SCENE_TEMPLATES.get(DEFAULT_SCENE));
-            rawSum = BigDecimal.ONE;
+            rawSum = rawWeights.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
         }
 
         EnumMap<WeightDimension, BigDecimal> normalized = new EnumMap<>(WeightDimension.class);
@@ -274,30 +267,40 @@ public class UserProfileServiceImpl implements UserProfileService {
     }
 
     private String buildProfileText(
-            String scene,
             BigDecimal budgetMin,
             BigDecimal budgetMax,
-            String bodyType,
-            String energyType,
-            List<String> focusFactors) {
-        String preferenceText;
-        if (energyType != null && bodyType != null) {
-            preferenceText = "偏好" + energyType + bodyType;
-        } else if (energyType != null) {
-            preferenceText = "偏好" + energyType + "动力";
-        } else if (bodyType != null) {
-            preferenceText = "偏好" + bodyType;
-        } else {
-            preferenceText = "车型动力不限";
-        }
+            List<String> bodyTypes,
+            List<String> energyTypes,
+            List<String> scenes,
+            Map<String, Integer> factorWeights,
+            List<String> excludedBrands,
+            List<Long> excludedCarIds) {
+        List<String> parts = new ArrayList<>();
+        parts.add(buildBudgetText(budgetMin, budgetMax));
+        parts.add(bodyTypes.isEmpty() ? "可接受车型类型不限" : "可接受" + joinChinese(bodyTypes));
+        parts.add(energyTypes.isEmpty() ? "可接受动力类型不限" : "可接受" + joinChinese(energyTypes) + "动力");
+        parts.add("使用场景为" + joinChinese(scenes));
 
-        String focusText = focusFactors.isEmpty()
-                ? "关注因素较均衡"
-                : "关注" + joinChinese(focusFactors);
-        return SCENE_PROFILE_NAMES.get(scene) + "，"
-                + buildBudgetText(budgetMin, budgetMax) + "，"
-                + preferenceText + "，"
-                + focusText + "。";
+        List<String> highFactors = highFactorLabels(factorWeights);
+        parts.add(highFactors.isEmpty() ? "偏好权重较均衡" : "重点关注" + joinChinese(highFactors));
+        if (!excludedBrands.isEmpty()) {
+            parts.add("排除品牌：" + joinChinese(excludedBrands));
+        }
+        if (!excludedCarIds.isEmpty()) {
+            parts.add("已排除" + excludedCarIds.size() + "款车型");
+        }
+        return String.join("，", parts) + "。";
+    }
+
+    private List<String> highFactorLabels(Map<String, Integer> factorWeights) {
+        return WEIGHT_ORDER.stream()
+                .filter(dimension -> factorWeights.getOrDefault(dimension.key(), 0) > 0)
+                .sorted(Comparator.comparing(
+                        (WeightDimension dimension) -> factorWeights.getOrDefault(dimension.key(), 0))
+                        .reversed())
+                .limit(4)
+                .map(WeightDimension::label)
+                .toList();
     }
 
     private String buildBudgetText(BigDecimal budgetMin, BigDecimal budgetMax) {
@@ -320,6 +323,9 @@ public class UserProfileServiceImpl implements UserProfileService {
     }
 
     private String joinChinese(List<String> values) {
+        if (values.isEmpty()) {
+            return "";
+        }
         if (values.size() == 1) {
             return values.get(0);
         }
@@ -337,11 +343,11 @@ public class UserProfileServiceImpl implements UserProfileService {
         vo.setRawText(demand.getRawText());
         vo.setBudgetMin(demand.getBudgetMin());
         vo.setBudgetMax(demand.getBudgetMax());
-        vo.setBodyType(demand.getBodyType());
-        vo.setEnergyType(demand.getEnergyType());
-        vo.setSeats(demand.getSeats());
-        vo.setScene(demand.getScene());
-        vo.setFocusFactors(readStringList(demand.getFocusFactors()));
+        vo.setBodyTypes(readStringList(demand.getBodyTypes()));
+        vo.setEnergyTypes(readStringList(demand.getEnergyTypes()));
+        vo.setMinSeats(demand.getMinSeats());
+        vo.setScenes(readStringList(demand.getScenes()));
+        vo.setFactorWeights(readIntegerMap(demand.getFactorWeights()));
         vo.setExcludedBrands(readStringList(demand.getExcludedBrands()));
         vo.setExcludedCarIds(readLongList(demand.getExcludedCarIds()));
         vo.setProfileText(demand.getProfileText());
@@ -366,7 +372,10 @@ public class UserProfileServiceImpl implements UserProfileService {
     }
 
     private List<String> readStringList(String json) {
-        JsonNode node = readJsonArray(json);
+        JsonNode node = readJsonNode(json);
+        if (!node.isArray()) {
+            return List.of();
+        }
         List<String> values = new ArrayList<>();
         for (JsonNode item : node) {
             values.add(item.asText());
@@ -375,7 +384,10 @@ public class UserProfileServiceImpl implements UserProfileService {
     }
 
     private List<Long> readLongList(String json) {
-        JsonNode node = readJsonArray(json);
+        JsonNode node = readJsonNode(json);
+        if (!node.isArray()) {
+            return List.of();
+        }
         List<Long> values = new ArrayList<>();
         for (JsonNode item : node) {
             if (item.canConvertToLong()) {
@@ -387,24 +399,34 @@ public class UserProfileServiceImpl implements UserProfileService {
         return values;
     }
 
-    private JsonNode readJsonArray(String json) {
+    private Map<String, Integer> readIntegerMap(String json) {
+        JsonNode node = readJsonNode(json);
+        Map<String, Integer> values = new LinkedHashMap<>();
+        for (WeightDimension dimension : WEIGHT_ORDER) {
+            JsonNode value = node.path(dimension.key());
+            values.put(dimension.key(), value.isNumber() ? value.intValue() : 0);
+        }
+        return values;
+    }
+
+    private JsonNode readJsonNode(String json) {
         if (!StringUtils.hasText(json)) {
-            return objectMapper.createArrayNode();
+            return objectMapper.createObjectNode();
         }
         try {
             JsonNode node = objectMapper.readTree(json);
             if (node.isTextual()) {
                 node = objectMapper.readTree(node.asText());
             }
-            return node.isArray() ? node : objectMapper.createArrayNode();
+            return node;
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException("failed to parse user demand json field", exception);
         }
     }
 
-    private String toJson(List<?> values) {
+    private String toJson(Object value) {
         try {
-            return objectMapper.writeValueAsString(values == null ? List.of() : values);
+            return objectMapper.writeValueAsString(value);
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException("failed to serialize user demand json field", exception);
         }
@@ -441,14 +463,30 @@ public class UserProfileServiceImpl implements UserProfileService {
     }
 
     private enum WeightDimension {
-        PRICE,
-        SPACE,
-        SAFETY,
-        ENERGY,
-        INTELLIGENCE,
-        COMFORT,
-        POWER,
-        REPUTATION,
-        POPULARITY
+        PRICE("price", "价格"),
+        SPACE("space", "空间"),
+        SAFETY("safety", "安全"),
+        ENERGY("energy", "能耗"),
+        INTELLIGENCE("intelligence", "智能"),
+        COMFORT("comfort", "舒适"),
+        POWER("power", "动力"),
+        REPUTATION("reputation", "口碑"),
+        POPULARITY("popularity", "热度");
+
+        private final String key;
+        private final String label;
+
+        WeightDimension(String key, String label) {
+            this.key = key;
+            this.label = label;
+        }
+
+        String key() {
+            return key;
+        }
+
+        String label() {
+            return label;
+        }
     }
 }

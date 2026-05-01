@@ -6,7 +6,9 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public class UserDemandSaveRequest {
 
@@ -22,18 +24,20 @@ public class UserDemandSaveRequest {
     @DecimalMin("0")
     private BigDecimal budgetMax;
 
-    private String bodyType;
+    @Size(max = 10)
+    private List<@Size(max = 16) String> bodyTypes;
 
-    private String energyType;
+    @Size(max = 10)
+    private List<@Size(max = 16) String> energyTypes;
 
     @Min(2)
     @Max(9)
-    private Integer seats;
+    private Integer minSeats;
 
-    private String scene;
+    @Size(max = 10)
+    private List<@Size(max = 32) String> scenes;
 
-    @Size(max = 20)
-    private List<@Size(max = 32) String> focusFactors;
+    private Map<@Size(max = 32) String, @Min(0) @Max(10) Integer> factorWeights = new LinkedHashMap<>();
 
     @Size(max = 20)
     private List<@Size(max = 64) String> excludedBrands;
@@ -73,44 +77,44 @@ public class UserDemandSaveRequest {
         this.budgetMax = budgetMax;
     }
 
-    public String getBodyType() {
-        return bodyType;
+    public List<String> getBodyTypes() {
+        return bodyTypes;
     }
 
-    public void setBodyType(String bodyType) {
-        this.bodyType = bodyType;
+    public void setBodyTypes(List<String> bodyTypes) {
+        this.bodyTypes = bodyTypes;
     }
 
-    public String getEnergyType() {
-        return energyType;
+    public List<String> getEnergyTypes() {
+        return energyTypes;
     }
 
-    public void setEnergyType(String energyType) {
-        this.energyType = energyType;
+    public void setEnergyTypes(List<String> energyTypes) {
+        this.energyTypes = energyTypes;
     }
 
-    public Integer getSeats() {
-        return seats;
+    public Integer getMinSeats() {
+        return minSeats;
     }
 
-    public void setSeats(Integer seats) {
-        this.seats = seats;
+    public void setMinSeats(Integer minSeats) {
+        this.minSeats = minSeats;
     }
 
-    public String getScene() {
-        return scene;
+    public List<String> getScenes() {
+        return scenes;
     }
 
-    public void setScene(String scene) {
-        this.scene = scene;
+    public void setScenes(List<String> scenes) {
+        this.scenes = scenes;
     }
 
-    public List<String> getFocusFactors() {
-        return focusFactors;
+    public Map<String, Integer> getFactorWeights() {
+        return factorWeights;
     }
 
-    public void setFocusFactors(List<String> focusFactors) {
-        this.focusFactors = focusFactors;
+    public void setFactorWeights(Map<String, Integer> factorWeights) {
+        this.factorWeights = factorWeights;
     }
 
     public List<String> getExcludedBrands() {

@@ -62,7 +62,7 @@
 - 匹配状态
 - 推荐理由
 - 不足提醒
-- 降级提示，可选
+- 降级提示追溯字段，可选
 
 ### 2.3 算法流程
 
@@ -75,58 +75,40 @@
 4. 按预算上限、车型类型、动力类型、座位数等条件执行严格过滤。
 5. 对候选车型动态计算价格匹配分。
 6. 使用多维加权公式计算综合匹配分。
-7. 按综合匹配分排序，得到 Top-K 推荐结果。
+7. 按综合匹配分排序，得到完全匹配车型组和推荐组。
 8. 根据高权重维度和车型高分维度生成推荐理由。
 9. 根据高权重维度和车型低分维度生成不足提醒。
-10. 如果严格匹配结果少于 `min(5, topK)`，执行分级降级推荐补充候选。
+10. 执行分级降级推荐补充候选，不按固定 TopK 截断。
 11. 保存推荐记录和推荐明细，支持后续追溯。
 ```
 
 推荐生成伪代码如下：
 
 ```text
-function generateRecommendation(userId, demandId, topK):
+function generateRecommendation(userId, demandId):
     demand = loadDemand(demandId)
     weights = buildWeights(demand)
     candidates = loadApprovedCarsWithScores()
     resultItems = []
-    fallbackThreshold = min(5, topK)
-
     strictCandidates = filterCandidates(candidates, demand, STRICT)
-    resultItems.addAll(scoreAndExplain(strictCandidates, demand, weights, STRICT))
-    sort resultItems by totalScore desc, reputationScore desc, popularityScore desc
+    strictItems = scoreAndExplain(strictCandidates, demand, weights, STRICT)
+    sort strictItems by totalScore desc, reputationScore desc, popularityScore desc
+    resultItems.addAll(strictItems)
 
-    if resultItems.size < fallbackThreshold:
-        for stage in [RELAX_BUDGET, RELAX_BODY_TYPE, RELAX_ENERGY_TYPE, SIMILAR_RECOMMEND]:
-            stageCandidates = filterCandidates(candidates, demand, stage)
+    for stage in [RELAX_BUDGET, RELAX_BODY_TYPE, RELAX_ENERGY_TYPE, SIMILAR_RECOMMEND]:
+        stageCandidates = filterCandidates(candidates, demand, stage)
 
-            for car in stageCandidates:
-                if car.id already exists in resultItems:
-                    continue
+        for car in stageCandidates:
+            if car.id already exists in resultItems:
+                continue
 
-                priceScore = calculatePriceScore(car.guidePrice, demand, stage)
-                totalScore = calculateTotalScore(car.featureScore, priceScore, weights)
-                tags = generateTags(car.featureScore, priceScore)
-                reasonText = generateReasons(car.featureScore, weights)
-                weaknessText = generateWeaknesses(car.featureScore, weights)
+            resultItems.add(scoreAndExplain(car, demand, weights, stage))
 
-                resultItems.add({
-                    carId,
-                    totalScore,
-                    priceScore,
-                    featureScoreSnapshot,
-                    matchLevel: stage,
-                    tags,
-                    reasonText,
-                    weaknessText
-                })
+    recommendationItems = resultItems where matchLevel != STRICT
+    sort recommendationItems by totalScore desc, reputationScore desc, popularityScore desc
 
-            sort resultItems by totalScore desc, reputationScore desc, popularityScore desc
-
-            if resultItems.size >= topK:
-                break
-
-    finalItems = first topK resultItems
+    finalItems = strictItems + recommendationItems
+    assign rankNo by finalItems order
     recommendStatus = buildRecommendStatus(finalItems)
     fallbackMessage = buildFallbackMessage(recommendStatus, strictCount(finalItems))
     record = saveRecommendRecord(demand, weights, fallbackMessage, recommendStatus)
@@ -329,7 +311,7 @@ comfortScore = spaceScore * 0.5 + intelligenceScore * 0.2 + reputationScore * 0.
 - 预算上限 `budgetMax`
 - 可接受车型类型 `bodyTypes`
 - 可接受动力类型 `energyTypes`
-- 座位数 `seats`
+- 最低座位数 `minSeats`
 - 使用场景 `scenes`
 - 显式偏好权重 `factorWeights`
 - 排除品牌 `excludedBrands`
@@ -558,7 +540,7 @@ totalScore =
 
 ## 8. 降级推荐
 
-当严格匹配结果少于 `min(5, topK)` 条时触发降级，避免 `topK < 5` 时阈值不合理。用户端不展示推荐数量输入，`topK` 由后端默认值或内部调用控制，最终推荐默认返回 Top 10。
+阶段 9.5 后推荐生成不再使用 `topK`、`min(5, topK)` 或默认 Top 10 截断。系统先生成全部 `STRICT` 候选，再按阶段生成全部非 `STRICT` 补充候选。最终展示顺序为 `STRICT` 组在前、推荐组在后，每组内部按综合分排序。
 
 | 阶段 | 匹配状态 | 处理方式 | 提示 |
 | --- | --- | --- | --- |
@@ -584,15 +566,15 @@ totalScore =
 
 ```text
 1. 系统首先获取 STRICT 候选车型。
-2. 如果 STRICT 数量达到 min(5, topK)，不启动降级，直接返回严格匹配 TopK。
-3. 如果 STRICT 数量不足 min(5, topK)，进入 RELAX_BUDGET 阶段补充新候选。
-4. 如果仍不足 topK，则进入 RELAX_BODY_TYPE 阶段补充新候选。
-5. 如果仍不足 topK，则进入 RELAX_ENERGY_TYPE 阶段补充新候选。
-6. 如果仍不足 topK，则进入 SIMILAR_RECOMMEND 阶段补充新候选。
+2. 系统始终按阶段计算补充推荐候选，不用固定数量阈值判断是否停止。
+3. 进入 RELAX_BUDGET 阶段补充新候选。
+4. 进入 RELAX_BODY_TYPE 阶段补充新候选。
+5. 进入 RELAX_ENERGY_TYPE 阶段补充新候选。
+6. 进入 SIMILAR_RECOMMEND 阶段补充新候选。
 7. 每个阶段新增候选必须按 carId 去重。
 8. 同一辆车只保留首次进入推荐集时对应的 matchLevel。
-9. 每轮补充后重新按 totalScore 排序。
-10. 达到 topK 后停止继续放宽。
+9. `STRICT` 组和推荐组分别按 totalScore、reputationScore、popularityScore 排序。
+10. 最终 `rankNo` 按展示顺序保存：`STRICT` 组在前，推荐组在后。
 ```
 
 这样可以保证严格匹配结果不会被宽松阶段覆盖，也可以避免同一辆车在多个阶段重复出现。
@@ -661,7 +643,7 @@ EMPTY：所有阶段都没有候选结果，最终推荐结果为空。
 - 用户需求
 - 画像文本
 - 权重快照
-- 降级提示
+- 降级提示追溯字段
 - 推荐状态
 
 每个推荐明细必须保存：

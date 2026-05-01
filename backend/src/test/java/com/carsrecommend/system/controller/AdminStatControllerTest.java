@@ -43,10 +43,12 @@ class AdminStatControllerTest {
                 .andExpect(jsonPath("$.data.sceneDistribution.length()").value(0))
                 .andExpect(jsonPath("$.data.popularCars.length()").value(0));
 
-        insertDemand(101, new BigDecimal("100000"), new BigDecimal("150000"), "SUV", "插混",
-                "家庭出行", "[\"空间\",\"安全\"]", "家庭画像");
-        insertDemand(102, new BigDecimal("250000"), new BigDecimal("320000"), "MPV", "纯电",
-                "商务接待", "[\"安全\",\"舒适\",\"口碑\"]", "商务画像");
+        insertDemand(101, new BigDecimal("100000"), new BigDecimal("150000"),
+                "[\"SUV\"]", "[\"插混\"]", "[\"家庭出行\"]",
+                "{\"space\":8,\"safety\":8}", "家庭画像");
+        insertDemand(102, new BigDecimal("250000"), new BigDecimal("320000"),
+                "[\"MPV\"]", "[\"纯电\"]", "[\"商务接待\"]",
+                "{\"safety\":8,\"comfort\":7,\"reputation\":6}", "商务画像");
         insertRecommendRecord(201, 101, "FALLBACK");
         insertRecommendRecord(202, 102, "SUCCESS");
         insertRecommendItem(201, 2, 1);
@@ -79,20 +81,20 @@ class AdminStatControllerTest {
             long id,
             BigDecimal budgetMin,
             BigDecimal budgetMax,
-            String bodyType,
-            String energyType,
-            String scene,
-            String focusFactors,
+            String bodyTypes,
+            String energyTypes,
+            String scenes,
+            String factorWeights,
             String profileText) {
         jdbcTemplate.update("""
                 INSERT INTO user_demand (
-                    id, user_id, raw_text, budget_min, budget_max, body_type, energy_type, seats,
-                    scene, focus_factors, excluded_brands, excluded_car_ids, profile_text,
+                    id, user_id, raw_text, budget_min, budget_max, body_types, energy_types, min_seats,
+                    scenes, factor_weights, excluded_brands, excluded_car_ids, profile_text,
                     weight_price, weight_space, weight_safety, weight_energy, weight_intelligence,
                     weight_comfort, weight_power, weight_reputation, weight_popularity
                 ) VALUES (?, 1, '', ?, ?, ?, ?, 5, ?, ?, '[]', '[]', ?,
                     0.1000, 0.2000, 0.2000, 0.1000, 0.1000, 0.1000, 0.0500, 0.1000, 0.0500)
-                """, id, budgetMin, budgetMax, bodyType, energyType, scene, focusFactors, profileText);
+                """, id, budgetMin, budgetMax, bodyTypes, energyTypes, scenes, factorWeights, profileText);
     }
 
     private void insertRecommendRecord(long id, long demandId, String status) {

@@ -80,6 +80,25 @@ class CarControllerTest {
         mockMvc.perform(get("/api/car/{id}", 99999))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value(404));
+
+        mockMvc.perform(get("/api/car/brands"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[?(@=='比亚迪')]").exists())
+                .andExpect(jsonPath("$.data[?(@=='详情测试')]").doesNotExist());
+
+        mockMvc.perform(get("/api/car/options")
+                        .param("keyword", "宋")
+                        .param("limit", "5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].id").value(2))
+                .andExpect(jsonPath("$.data[0].brand").value("比亚迪"))
+                .andExpect(jsonPath("$.data[0].modelName").value("宋PLUS DM-i 110KM 旗舰型"))
+                .andExpect(jsonPath("$.data[0].displayName").value("比亚迪 宋PLUS DM-i 110KM 旗舰型"));
+
+        mockMvc.perform(get("/api/car/options")
+                        .param("keyword", "无参数评分测试车"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(0));
     }
 
     private int count(String sql) {

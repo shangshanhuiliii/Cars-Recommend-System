@@ -19,20 +19,20 @@ public class UserDemand extends BaseEntity {
     @TableField("budget_max")
     private BigDecimal budgetMax;
 
-    @TableField("body_type")
-    private String bodyType;
+    @TableField("body_types")
+    private String bodyTypes;
 
-    @TableField("energy_type")
-    private String energyType;
+    @TableField("energy_types")
+    private String energyTypes;
 
-    @TableField("seats")
-    private Integer seats;
+    @TableField("min_seats")
+    private Integer minSeats;
 
-    @TableField("scene")
-    private String scene;
+    @TableField("scenes")
+    private String scenes;
 
-    @TableField("focus_factors")
-    private String focusFactors;
+    @TableField("factor_weights")
+    private String factorWeights;
 
     @TableField("excluded_brands")
     private String excludedBrands;
@@ -102,44 +102,44 @@ public class UserDemand extends BaseEntity {
         this.budgetMax = budgetMax;
     }
 
-    public String getBodyType() {
-        return bodyType;
+    public String getBodyTypes() {
+        return bodyTypes;
     }
 
-    public void setBodyType(String bodyType) {
-        this.bodyType = bodyType;
+    public void setBodyTypes(String bodyTypes) {
+        this.bodyTypes = bodyTypes;
     }
 
-    public String getEnergyType() {
-        return energyType;
+    public String getEnergyTypes() {
+        return energyTypes;
     }
 
-    public void setEnergyType(String energyType) {
-        this.energyType = energyType;
+    public void setEnergyTypes(String energyTypes) {
+        this.energyTypes = energyTypes;
     }
 
-    public Integer getSeats() {
-        return seats;
+    public Integer getMinSeats() {
+        return minSeats;
     }
 
-    public void setSeats(Integer seats) {
-        this.seats = seats;
+    public void setMinSeats(Integer minSeats) {
+        this.minSeats = minSeats;
     }
 
-    public String getScene() {
-        return scene;
+    public String getScenes() {
+        return scenes;
     }
 
-    public void setScene(String scene) {
-        this.scene = scene;
+    public void setScenes(String scenes) {
+        this.scenes = scenes;
     }
 
-    public String getFocusFactors() {
-        return focusFactors;
+    public String getFactorWeights() {
+        return factorWeights;
     }
 
-    public void setFocusFactors(String focusFactors) {
-        this.focusFactors = focusFactors;
+    public void setFactorWeights(String factorWeights) {
+        this.factorWeights = factorWeights;
     }
 
     public String getExcludedBrands() {

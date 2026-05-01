@@ -43,7 +43,9 @@ class DatabaseSchemaSeedTest {
             assertTrue(count(connection, "SELECT COUNT(*) FROM car_model WHERE guide_price BETWEEN 150000 AND 250000") > 0);
             assertTrue(count(connection, "SELECT COUNT(*) FROM car_model WHERE guide_price > 250000") > 0);
 
-            assertColumnSelectable(connection, "SELECT excluded_car_ids FROM user_demand WHERE 1 = 0");
+            assertColumnSelectable(connection,
+                    "SELECT body_types, energy_types, min_seats, scenes, factor_weights, excluded_car_ids "
+                            + "FROM user_demand WHERE 1 = 0");
             assertColumnSelectable(connection, "SELECT recommend_status FROM recommend_record WHERE 1 = 0");
             assertColumnSelectable(connection, "SELECT tags FROM recommend_item WHERE 1 = 0");
             assertColumnSelectable(connection,
@@ -55,8 +57,17 @@ class DatabaseSchemaSeedTest {
             assertEquals(0, count(connection, "SELECT COUNT(*) FROM recommend_record"));
             assertEquals(0, count(connection, "SELECT COUNT(*) FROM recommend_item"));
 
-            execute(connection, "INSERT INTO user_demand (user_id, energy_type) VALUES (1, '新能源')");
-            assertEquals(1, count(connection, "SELECT COUNT(*) FROM user_demand WHERE energy_type = '新能源'"));
+            execute(connection,
+                    "INSERT INTO user_demand (user_id, energy_types) VALUES (1, '[\"新能源\"]')");
+            assertEquals(1, count(connection, "SELECT COUNT(*) FROM user_demand WHERE energy_types LIKE '%新能源%'"));
+            assertThrows(SQLException.class,
+                    () -> execute(connection, "SELECT body_type FROM user_demand WHERE 1 = 0"));
+            assertThrows(SQLException.class,
+                    () -> execute(connection, "SELECT energy_type FROM user_demand WHERE 1 = 0"));
+            assertThrows(SQLException.class,
+                    () -> execute(connection, "SELECT scene FROM user_demand WHERE 1 = 0"));
+            assertThrows(SQLException.class,
+                    () -> execute(connection, "SELECT focus_factors FROM user_demand WHERE 1 = 0"));
 
             assertThrows(SQLException.class, () -> execute(connection,
                     "INSERT INTO car_model (brand, series, model_name, guide_price, body_type, energy_type, "

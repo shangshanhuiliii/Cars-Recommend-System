@@ -44,7 +44,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     private static final long DEFAULT_DEMO_USER_ID = 1L;
     private static final String STRICT_SUCCESS_MESSAGE = "已为您找到完全匹配车型";
     private static final String PARTIAL_FALLBACK_MESSAGE =
-            "完全匹配车型数量不足，系统已补充部分降级推荐车型，并在每条结果中标明匹配状态。";
+            "完全匹配车型数量不足，系统已补充部分推荐车型，并在每条结果中标明匹配状态。";
     private static final String NO_STRICT_FALLBACK_MESSAGE =
             "未找到完全匹配车型，系统已根据您的核心偏好提供相近推荐。";
     private static final String EMPTY_RECOMMEND_MESSAGE = "暂未找到合适车型，请调整预算、车型类型或动力类型后重试。";
@@ -84,7 +84,7 @@ public class RecommendationServiceImpl implements RecommendationService {
         }
 
         List<CandidateCar> candidates = loadCandidatesWithScores();
-        List<ScoredRecommendation> scoredItems = generateRecommendationItems(candidates, demand, request.getTopK());
+        List<ScoredRecommendation> scoredItems = generateRecommendationItems(candidates, demand);
         String recommendStatus = buildRecommendStatus(scoredItems);
         String fallbackMessage = buildFallbackMessage(scoredItems, recommendStatus);
 
@@ -136,33 +136,26 @@ public class RecommendationServiceImpl implements RecommendationService {
 
     private List<ScoredRecommendation> generateRecommendationItems(
             List<CandidateCar> candidates,
-            UserDemand demand,
-            int topK) {
-        List<ScoredRecommendation> resultItems = new ArrayList<>();
+            UserDemand demand) {
+        List<ScoredRecommendation> strictItems = new ArrayList<>();
+        List<ScoredRecommendation> recommendationItems = new ArrayList<>();
         Set<Long> addedCarIds = new HashSet<>();
 
-        addStageRecommendations(candidates, demand, MatchLevel.STRICT, resultItems, addedCarIds);
-        resultItems.sort(recommendationComparator());
+        addStageRecommendations(candidates, demand, MatchLevel.STRICT, strictItems, addedCarIds);
+        strictItems.sort(recommendationComparator());
 
-        int fallbackThreshold = Math.min(5, topK);
-        if (resultItems.size() < fallbackThreshold) {
-            for (MatchLevel matchLevel : List.of(
-                    MatchLevel.RELAX_BUDGET,
-                    MatchLevel.RELAX_BODY_TYPE,
-                    MatchLevel.RELAX_ENERGY_TYPE,
-                    MatchLevel.SIMILAR_RECOMMEND)) {
-                addStageRecommendations(candidates, demand, matchLevel, resultItems, addedCarIds);
-                resultItems.sort(recommendationComparator());
-                if (resultItems.size() >= topK) {
-                    break;
-                }
-            }
+        for (MatchLevel matchLevel : List.of(
+                MatchLevel.RELAX_BUDGET,
+                MatchLevel.RELAX_BODY_TYPE,
+                MatchLevel.RELAX_ENERGY_TYPE,
+                MatchLevel.SIMILAR_RECOMMEND)) {
+            addStageRecommendations(candidates, demand, matchLevel, recommendationItems, addedCarIds);
         }
 
-        return resultItems.stream()
-                .sorted(recommendationComparator())
-                .limit(topK)
-                .toList();
+        recommendationItems.sort(recommendationComparator());
+        List<ScoredRecommendation> finalItems = new ArrayList<>(strictItems);
+        finalItems.addAll(recommendationItems);
+        return finalItems;
     }
 
     private void addStageRecommendations(
@@ -223,7 +216,7 @@ public class RecommendationServiceImpl implements RecommendationService {
         if (excludedCarIds.contains(car.getId())) {
             return false;
         }
-        if (demand.getSeats() != null && (car.getSeats() == null || car.getSeats() < demand.getSeats())) {
+        if (demand.getMinSeats() != null && (car.getSeats() == null || car.getSeats() < demand.getMinSeats())) {
             return false;
         }
         return true;
@@ -247,21 +240,23 @@ public class RecommendationServiceImpl implements RecommendationService {
     }
 
     private boolean matchesRelaxBodyTypeFilters(CarModel car, UserDemand demand) {
-        if (!StringUtils.hasText(demand.getBodyType())) {
+        Set<String> strictBodyTypes = demandBodyTypes(demand);
+        if (strictBodyTypes.isEmpty()) {
             return false;
         }
         return matchesStrictBudget(car, demand)
-                && relaxedBodyTypes(demand.getBodyType()).contains(car.getBodyType())
+                && relaxedBodyTypes(strictBodyTypes).contains(car.getBodyType())
                 && matchesStrictEnergyType(car, demand);
     }
 
     private boolean matchesRelaxEnergyTypeFilters(CarModel car, UserDemand demand) {
-        if (!StringUtils.hasText(demand.getEnergyType())) {
+        Set<String> strictEnergyTypes = expandedDemandEnergyTypes(demand);
+        if (strictEnergyTypes.isEmpty()) {
             return false;
         }
         return matchesStrictBudget(car, demand)
                 && matchesStrictBodyType(car, demand)
-                && relaxedEnergyTypes(demand.getEnergyType()).contains(car.getEnergyType());
+                && relaxedEnergyTypes(readStringList(demand.getEnergyTypes()), strictEnergyTypes).contains(car.getEnergyType());
     }
 
     private boolean matchesStrictBudget(CarModel car, UserDemand demand) {
@@ -269,41 +264,76 @@ public class RecommendationServiceImpl implements RecommendationService {
     }
 
     private boolean matchesStrictBodyType(CarModel car, UserDemand demand) {
-        return !StringUtils.hasText(demand.getBodyType()) || demand.getBodyType().equals(car.getBodyType());
+        Set<String> bodyTypes = demandBodyTypes(demand);
+        return bodyTypes.isEmpty() || bodyTypes.contains(car.getBodyType());
     }
 
     private boolean matchesStrictEnergyType(CarModel car, UserDemand demand) {
-        return matchesDemandEnergyType(car.getEnergyType(), demand.getEnergyType());
+        Set<String> energyTypes = expandedDemandEnergyTypes(demand);
+        return energyTypes.isEmpty() || energyTypes.contains(car.getEnergyType());
     }
 
-    private Set<String> relaxedBodyTypes(String bodyType) {
-        return switch (bodyType) {
-            case "SUV" -> Set.of("MPV");
-            case "MPV" -> Set.of("SUV");
-            case "轿车" -> Set.of("SUV");
-            default -> Set.of();
-        };
+    private Set<String> demandBodyTypes(UserDemand demand) {
+        return new LinkedHashSet<>(readStringList(demand.getBodyTypes()));
     }
 
-    private Set<String> relaxedEnergyTypes(String energyType) {
-        return switch (energyType) {
-            case "纯电" -> Set.of("插混", "增程");
-            case "插混" -> Set.of("增程", "纯电");
-            case "增程" -> Set.of("插混", "纯电");
-            case "燃油" -> Set.of("插混");
-            case "新能源" -> Set.of("纯电", "插混", "增程");
-            default -> Set.of();
-        };
-    }
-
-    private boolean matchesDemandEnergyType(String carEnergyType, String demandEnergyType) {
-        if (!StringUtils.hasText(demandEnergyType)) {
-            return true;
+    private Set<String> relaxedBodyTypes(Set<String> bodyTypes) {
+        Set<String> relaxed = new LinkedHashSet<>();
+        for (String bodyType : bodyTypes) {
+            switch (bodyType) {
+                case "SUV" -> relaxed.add("MPV");
+                case "MPV" -> relaxed.add("SUV");
+                case "轿车" -> relaxed.add("SUV");
+                default -> {
+                }
+            }
         }
-        if ("新能源".equals(demandEnergyType)) {
-            return "纯电".equals(carEnergyType) || "插混".equals(carEnergyType) || "增程".equals(carEnergyType);
+        relaxed.removeAll(bodyTypes);
+        return relaxed;
+    }
+
+    private Set<String> expandedDemandEnergyTypes(UserDemand demand) {
+        Set<String> expanded = new LinkedHashSet<>();
+        for (String energyType : readStringList(demand.getEnergyTypes())) {
+            if ("新能源".equals(energyType)) {
+                expanded.add("纯电");
+                expanded.add("插混");
+                expanded.add("增程");
+            } else {
+                expanded.add(energyType);
+            }
         }
-        return demandEnergyType.equals(carEnergyType);
+        return expanded;
+    }
+
+    private Set<String> relaxedEnergyTypes(List<String> energyTypes, Set<String> strictEnergyTypes) {
+        Set<String> relaxed = new LinkedHashSet<>();
+        for (String energyType : energyTypes) {
+            switch (energyType) {
+                case "纯电" -> {
+                    relaxed.add("插混");
+                    relaxed.add("增程");
+                }
+                case "插混" -> {
+                    relaxed.add("增程");
+                    relaxed.add("纯电");
+                }
+                case "增程" -> {
+                    relaxed.add("插混");
+                    relaxed.add("纯电");
+                }
+                case "燃油" -> relaxed.add("插混");
+                case "新能源" -> {
+                    relaxed.add("纯电");
+                    relaxed.add("插混");
+                    relaxed.add("增程");
+                }
+                default -> {
+                }
+            }
+        }
+        relaxed.removeAll(strictEnergyTypes);
+        return relaxed;
     }
 
     private BigDecimal calculatePriceScore(BigDecimal price, UserDemand demand) {

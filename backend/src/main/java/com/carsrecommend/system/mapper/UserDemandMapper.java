@@ -20,8 +20,8 @@ import org.springframework.stereotype.Repository;
 public class UserDemandMapper {
 
     private static final String SELECT_COLUMNS = """
-            id, user_id, raw_text, budget_min, budget_max, body_type, energy_type, seats,
-            scene, focus_factors, excluded_brands, excluded_car_ids, profile_text,
+            id, user_id, raw_text, budget_min, budget_max, body_types, energy_types, min_seats,
+            scenes, factor_weights, excluded_brands, excluded_car_ids, profile_text,
             weight_price, weight_space, weight_safety, weight_energy, weight_intelligence,
             weight_comfort, weight_power, weight_reputation, weight_popularity,
             deleted, create_time, update_time
@@ -34,11 +34,11 @@ public class UserDemandMapper {
         demand.setRawText(resultSet.getString("raw_text"));
         demand.setBudgetMin(resultSet.getBigDecimal("budget_min"));
         demand.setBudgetMax(resultSet.getBigDecimal("budget_max"));
-        demand.setBodyType(resultSet.getString("body_type"));
-        demand.setEnergyType(resultSet.getString("energy_type"));
-        demand.setSeats(readInteger(resultSet, "seats"));
-        demand.setScene(resultSet.getString("scene"));
-        demand.setFocusFactors(resultSet.getString("focus_factors"));
+        demand.setBodyTypes(resultSet.getString("body_types"));
+        demand.setEnergyTypes(resultSet.getString("energy_types"));
+        demand.setMinSeats(readInteger(resultSet, "min_seats"));
+        demand.setScenes(resultSet.getString("scenes"));
+        demand.setFactorWeights(resultSet.getString("factor_weights"));
         demand.setExcludedBrands(resultSet.getString("excluded_brands"));
         demand.setExcludedCarIds(resultSet.getString("excluded_car_ids"));
         demand.setProfileText(resultSet.getString("profile_text"));
@@ -74,8 +74,8 @@ public class UserDemandMapper {
     public UserDemand insert(UserDemand demand) {
         String sql = """
                 INSERT INTO user_demand (
-                    user_id, raw_text, budget_min, budget_max, body_type, energy_type, seats,
-                    scene, focus_factors, excluded_brands, excluded_car_ids, profile_text,
+                    user_id, raw_text, budget_min, budget_max, body_types, energy_types, min_seats,
+                    scenes, factor_weights, excluded_brands, excluded_car_ids, profile_text,
                     weight_price, weight_space, weight_safety, weight_energy, weight_intelligence,
                     weight_comfort, weight_power, weight_reputation, weight_popularity
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -88,11 +88,11 @@ public class UserDemandMapper {
             statement.setString(index++, demand.getRawText());
             statement.setBigDecimal(index++, demand.getBudgetMin());
             statement.setBigDecimal(index++, demand.getBudgetMax());
-            statement.setString(index++, demand.getBodyType());
-            statement.setString(index++, demand.getEnergyType());
-            statement.setObject(index++, demand.getSeats());
-            statement.setString(index++, demand.getScene());
-            statement.setString(index++, demand.getFocusFactors());
+            statement.setString(index++, demand.getBodyTypes());
+            statement.setString(index++, demand.getEnergyTypes());
+            statement.setObject(index++, demand.getMinSeats());
+            statement.setString(index++, demand.getScenes());
+            statement.setString(index++, demand.getFactorWeights());
             statement.setString(index++, demand.getExcludedBrands());
             statement.setString(index++, demand.getExcludedCarIds());
             statement.setString(index++, demand.getProfileText());

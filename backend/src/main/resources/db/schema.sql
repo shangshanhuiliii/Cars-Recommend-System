@@ -121,11 +121,11 @@ CREATE TABLE IF NOT EXISTS user_demand (
     raw_text VARCHAR(1000),
     budget_min DECIMAL(12, 2),
     budget_max DECIMAL(12, 2),
-    body_type VARCHAR(16),
-    energy_type VARCHAR(16),
-    seats INT,
-    scene VARCHAR(32),
-    focus_factors JSON,
+    body_types JSON,
+    energy_types JSON,
+    min_seats INT,
+    scenes JSON,
+    factor_weights JSON,
     excluded_brands JSON,
     excluded_car_ids JSON,
     profile_text VARCHAR(500),
@@ -142,9 +142,7 @@ CREATE TABLE IF NOT EXISTS user_demand (
     create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_user_demand_user_id FOREIGN KEY (user_id) REFERENCES app_user (id),
-    CONSTRAINT ck_user_demand_body_type CHECK (body_type IS NULL OR body_type IN ('SUV', '轿车', 'MPV')),
-    CONSTRAINT ck_user_demand_energy_type CHECK (energy_type IS NULL OR energy_type IN ('燃油', '纯电', '插混', '增程', '新能源')),
-    CONSTRAINT ck_user_demand_scene CHECK (scene IS NULL OR scene IN ('城市通勤', '家庭出行', '长途自驾', '新手代步', '商务接待', '综合需求'))
+    CONSTRAINT ck_user_demand_min_seats CHECK (min_seats IS NULL OR min_seats BETWEEN 2 AND 9)
 );
 
 CREATE INDEX idx_user_demand_user_id ON user_demand (user_id);
