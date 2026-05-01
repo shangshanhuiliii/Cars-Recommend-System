@@ -50,7 +50,7 @@ class RecommendationControllerTest {
     private JdbcTemplate jdbcTemplate;
 
     @Test
-    void generateUsesStrictFilteringRealScoresAndPersistsTraceRecords() throws Exception {
+    void generateUsesRealScoresFallbackExplanationsAndPersistsTraceRecords() throws Exception {
         mockMvc.perform(post("/api/admin/cars/scores/recalculate"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.recalculatedCount").value(20));
@@ -68,7 +68,7 @@ class RecommendationControllerTest {
                   "excludedCarIds": []
                 }
                 """);
-        JsonNode familyRecommend = generate(familyDemand.path("id").asLong(), 10);
+        JsonNode familyRecommend = generate(familyDemand.path("id").asLong(), 1);
         assertEquals("SUCCESS", familyRecommend.path("recommendStatus").asText());
         assertEquals("已为您找到完全匹配车型", familyRecommend.path("fallbackMessage").asText());
         assertEquals(1, familyRecommend.path("items").size());
@@ -81,7 +81,9 @@ class RecommendationControllerTest {
         assertEquals(0, count("SELECT COUNT(*) FROM recommend_item WHERE record_id = ? AND car_id = 2",
                 familyRecommend.path("recordId").asLong()));
         assertTotalScoreMatchesFormula(familyDemand, familyItem);
-        assertRecordAndItemSnapshotsSaved(familyRecommend, familyItem);
+        assertTextPresent(familyItem.path("reasonText").asText());
+        assertTextPresent(familyItem.path("weaknessText").asText());
+        assertRecordAndItemSnapshotsSaved(familyRecommend, familyItem, "SUCCESS");
 
         JsonNode cityDemand = postDemand("""
                 {
@@ -106,6 +108,7 @@ class RecommendationControllerTest {
                 .compareTo(new BigDecimal("85")) >= 0);
         assertTrue(cityRecommend.path("items").get(0).path("tags").size() >= 2);
         assertTrue(cityRecommend.path("items").get(0).path("tags").size() <= 3);
+        assertAllMatchLevel(cityRecommend.path("items"), "STRICT");
 
         JsonNode minOnlyDemand = postDemand("""
                 {
@@ -140,7 +143,22 @@ class RecommendationControllerTest {
             assertFalse("比亚迪".equals(item.path("brand").asText()));
         }
 
-        JsonNode emptyDemand = postDemand("""
+        JsonNode topKThresholdDemand = postDemand("""
+                {
+                  "budgetMax": 140000,
+                  "bodyType": "SUV",
+                  "scene": "综合需求",
+                  "focusFactors": ["空间"],
+                  "excludedBrands": [],
+                  "excludedCarIds": []
+                }
+                """);
+        JsonNode topKThresholdRecommend = generate(topKThresholdDemand.path("id").asLong(), 3);
+        assertEquals("SUCCESS", topKThresholdRecommend.path("recommendStatus").asText());
+        assertEquals(3, topKThresholdRecommend.path("items").size());
+        assertAllMatchLevel(topKThresholdRecommend.path("items"), "STRICT");
+
+        JsonNode budgetRelaxDemand = postDemand("""
                 {
                   "budgetMax": 150000,
                   "bodyType": "SUV",
@@ -152,8 +170,114 @@ class RecommendationControllerTest {
                   "excludedCarIds": [8]
                 }
                 """);
+        JsonNode budgetRelaxRecommend = generate(budgetRelaxDemand.path("id").asLong(), 1);
+        assertEquals("FALLBACK", budgetRelaxRecommend.path("recommendStatus").asText());
+        assertEquals("未找到足够的完全匹配车型，系统已适度放宽预算上限。",
+                budgetRelaxRecommend.path("fallbackMessage").asText());
+        assertEquals("RELAX_BUDGET", budgetRelaxRecommend.path("items").get(0).path("matchLevel").asText());
+        assertEquals(2L, budgetRelaxRecommend.path("items").get(0).path("carId").asLong());
+
+        JsonNode bodyRelaxDemand = postDemand("""
+                {
+                  "budgetMax": 200000,
+                  "bodyType": "SUV",
+                  "energyType": "燃油",
+                  "seats": 5,
+                  "scene": "综合需求",
+                  "focusFactors": ["空间"],
+                  "excludedBrands": [],
+                  "excludedCarIds": [6]
+                }
+                """);
+        JsonNode bodyRelaxRecommend = generate(bodyRelaxDemand.path("id").asLong(), 1);
+        assertEquals("FALLBACK", bodyRelaxRecommend.path("recommendStatus").asText());
+        assertEquals("未找到足够的完全匹配车型，系统已扩展相近车型类型。",
+                bodyRelaxRecommend.path("fallbackMessage").asText());
+        assertEquals("RELAX_BODY_TYPE", bodyRelaxRecommend.path("items").get(0).path("matchLevel").asText());
+        assertEquals("MPV", bodyRelaxRecommend.path("items").get(0).path("bodyType").asText());
+
+        JsonNode energyRelaxDemand = postDemand("""
+                {
+                  "budgetMax": 150000,
+                  "bodyType": "SUV",
+                  "energyType": "燃油",
+                  "seats": 5,
+                  "scene": "综合需求",
+                  "focusFactors": ["能耗"],
+                  "excludedBrands": [],
+                  "excludedCarIds": [6]
+                }
+                """);
+        JsonNode energyRelaxRecommend = generate(energyRelaxDemand.path("id").asLong(), 1);
+        assertEquals("FALLBACK", energyRelaxRecommend.path("recommendStatus").asText());
+        assertEquals("未找到足够的完全匹配车型，系统已扩展相近动力类型。",
+                energyRelaxRecommend.path("fallbackMessage").asText());
+        assertEquals("RELAX_ENERGY_TYPE", energyRelaxRecommend.path("items").get(0).path("matchLevel").asText());
+        assertEquals("插混", energyRelaxRecommend.path("items").get(0).path("energyType").asText());
+
+        JsonNode similarDemand = postDemand("""
+                {
+                  "budgetMax": 50000,
+                  "bodyType": "MPV",
+                  "energyType": "纯电",
+                  "seats": 7,
+                  "scene": "综合需求",
+                  "focusFactors": ["空间"],
+                  "excludedBrands": ["别克"],
+                  "excludedCarIds": [20]
+                }
+                """);
+        JsonNode similarRecommend = generate(similarDemand.path("id").asLong(), 1);
+        assertEquals("FALLBACK", similarRecommend.path("recommendStatus").asText());
+        assertEquals("未找到完全匹配车型，以下车型并非完全满足条件，但在核心偏好上较接近。",
+                similarRecommend.path("fallbackMessage").asText());
+        JsonNode similarItem = similarRecommend.path("items").get(0);
+        assertEquals("SIMILAR_RECOMMEND", similarItem.path("matchLevel").asText());
+        assertTrue(similarItem.path("seats").asInt() >= 7);
+        assertFalse("别克".equals(similarItem.path("brand").asText()));
+        assertFalse(20L == similarItem.path("carId").asLong());
+
+        JsonNode fallbackChainRecommend = generate(budgetRelaxDemand.path("id").asLong(), 20);
+        assertEquals("FALLBACK", fallbackChainRecommend.path("recommendStatus").asText());
+        assertEquals(1, countCarId(fallbackChainRecommend.path("items"), 2L));
+        assertEquals("RELAX_BUDGET", findItemByCarId(fallbackChainRecommend.path("items"), 2L)
+                .path("matchLevel").asText());
+        assertSavedRecommendationItemTexts(fallbackChainRecommend);
+
+        insertBalancedCar();
+        JsonNode balancedDemand = postDemand("""
+                {
+                  "bodyType": "MPV",
+                  "energyType": "纯电",
+                  "seats": 7,
+                  "scene": "综合需求",
+                  "focusFactors": ["空间", "安全"],
+                  "excludedBrands": [],
+                  "excludedCarIds": []
+                }
+                """);
+        JsonNode balancedRecommend = generate(balancedDemand.path("id").asLong(), 1);
+        assertEquals(301L, balancedRecommend.path("items").get(0).path("carId").asLong());
+        assertEquals("该车型整体匹配较均衡，暂无明显短板。",
+                balancedRecommend.path("items").get(0).path("weaknessText").asText());
+        assertTextPresent(balancedRecommend.path("items").get(0).path("reasonText").asText());
+
+        JsonNode emptyDemand = postDemand("""
+                {
+                  "budgetMax": 50000,
+                  "bodyType": "SUV",
+                  "energyType": "纯电",
+                  "seats": 9,
+                  "scene": "综合需求",
+                  "focusFactors": ["空间"],
+                  "excludedBrands": [],
+                  "excludedCarIds": []
+                }
+                """);
         JsonNode emptyRecommend = generate(emptyDemand.path("id").asLong(), 10);
         assertEquals("EMPTY", emptyRecommend.path("recommendStatus").asText());
+        assertEquals("暂未找到合适车型，请调整预算、车型类型或动力类型后重试。",
+                emptyRecommend.path("fallbackMessage").asText());
         assertEquals(0, emptyRecommend.path("items").size());
         long emptyRecordId = emptyRecommend.path("recordId").asLong();
         assertEquals(1, count("SELECT COUNT(*) FROM recommend_record WHERE id = ? AND recommend_status = 'EMPTY'",
@@ -168,7 +292,7 @@ class RecommendationControllerTest {
                   "scene": "综合需求",
                   "focusFactors": [],
                   "excludedBrands": [],
-                  "excludedCarIds": []
+                  "excludedCarIds": [301]
                 }
                 """);
         JsonNode sortingRecommend = generate(sortingDemand.path("id").asLong(), 4);
@@ -179,6 +303,7 @@ class RecommendationControllerTest {
         assertEquals(201L, sortingItems.get(2).path("carId").asLong());
         assertEquals(202L, sortingItems.get(3).path("carId").asLong());
         assertSorted(sortingItems);
+        assertAllRecommendationTextsPresent(sortingItems);
 
         assertThrows(BadSqlGrammarException.class,
                 () -> jdbcTemplate.queryForObject("SELECT price_score FROM car_feature_score", BigDecimal.class));
@@ -214,10 +339,10 @@ class RecommendationControllerTest {
         return objectMapper.readTree(result.getResponse().getContentAsString(StandardCharsets.UTF_8)).path("data");
     }
 
-    private void assertRecordAndItemSnapshotsSaved(JsonNode recommend, JsonNode item) throws Exception {
+    private void assertRecordAndItemSnapshotsSaved(JsonNode recommend, JsonNode item, String recommendStatus) throws Exception {
         long recordId = recommend.path("recordId").asLong();
-        assertEquals(1, count("SELECT COUNT(*) FROM recommend_record WHERE id = ? AND recommend_status = 'SUCCESS'",
-                recordId));
+        assertEquals(1, count("SELECT COUNT(*) FROM recommend_record WHERE id = ? AND recommend_status = ?",
+                recordId, recommendStatus));
         assertEquals(1, count("""
                 SELECT COUNT(*) FROM recommend_item
                 WHERE record_id = ?
@@ -232,8 +357,12 @@ class RecommendationControllerTest {
                   AND power_score IS NOT NULL
                   AND reputation_score IS NOT NULL
                   AND popularity_score IS NOT NULL
-                  AND match_level = 'STRICT'
-                """, recordId, item.path("carId").asLong()));
+                  AND match_level = ?
+                  AND reason_text IS NOT NULL
+                  AND reason_text <> ''
+                  AND weakness_text IS NOT NULL
+                  AND weakness_text <> ''
+                """, recordId, item.path("carId").asLong(), item.path("matchLevel").asText()));
 
         String tagsJson = jdbcTemplate.queryForObject(
                 "SELECT tags FROM recommend_item WHERE record_id = ? AND rank_no = 1",
@@ -242,6 +371,21 @@ class RecommendationControllerTest {
         JsonNode savedTags = readJsonArray(tagsJson);
         assertTrue(savedTags.isArray());
         assertEquals(item.path("tags").size(), savedTags.size());
+    }
+
+    private void assertSavedRecommendationItemTexts(JsonNode recommend) {
+        long recordId = recommend.path("recordId").asLong();
+        int itemCount = recommend.path("items").size();
+        assertEquals(itemCount, count("""
+                SELECT COUNT(*) FROM recommend_item
+                WHERE record_id = ?
+                  AND match_level IS NOT NULL
+                  AND match_level <> ''
+                  AND reason_text IS NOT NULL
+                  AND reason_text <> ''
+                  AND weakness_text IS NOT NULL
+                  AND weakness_text <> ''
+                """, recordId));
     }
 
     private JsonNode readJsonArray(String json) throws Exception {
@@ -287,6 +431,42 @@ class RecommendationControllerTest {
         }
     }
 
+    private void assertAllMatchLevel(JsonNode items, String matchLevel) {
+        for (JsonNode item : items) {
+            assertEquals(matchLevel, item.path("matchLevel").asText());
+        }
+    }
+
+    private void assertAllRecommendationTextsPresent(JsonNode items) {
+        for (JsonNode item : items) {
+            assertTextPresent(item.path("reasonText").asText());
+            assertTextPresent(item.path("weaknessText").asText());
+        }
+    }
+
+    private void assertTextPresent(String value) {
+        assertTrue(value != null && !value.isBlank());
+    }
+
+    private int countCarId(JsonNode items, long carId) {
+        int total = 0;
+        for (JsonNode item : items) {
+            if (item.path("carId").asLong() == carId) {
+                total++;
+            }
+        }
+        return total;
+    }
+
+    private JsonNode findItemByCarId(JsonNode items, long carId) {
+        for (JsonNode item : items) {
+            if (item.path("carId").asLong() == carId) {
+                return item;
+            }
+        }
+        throw new AssertionError("carId not found: " + carId);
+    }
+
     private boolean containsTag(JsonNode item, String tag) {
         for (JsonNode value : item.path("tags")) {
             if (tag.equals(value.asText())) {
@@ -324,6 +504,11 @@ class RecommendationControllerTest {
         insertScore(202, "70.00", "70.00", "70.00", "70.00", "70.00", "70.00", "80.00", "24.00");
         insertScore(203, "70.00", "70.00", "70.00", "70.00", "70.00", "60.00", "80.00", "46.00");
         insertScore(204, "70.00", "70.00", "70.00", "70.00", "70.00", "70.00", "80.00", "30.00");
+    }
+
+    private void insertBalancedCar() {
+        insertCar(301, "解释测试", "均衡车系", "均衡纯电MPV", "MPV", "纯电", 150000, 1000, "4.0");
+        insertScore(301, "80.00", "80.00", "80.00", "80.00", "80.00", "80.00", "80.00", "80.00");
     }
 
     private void insertCar(

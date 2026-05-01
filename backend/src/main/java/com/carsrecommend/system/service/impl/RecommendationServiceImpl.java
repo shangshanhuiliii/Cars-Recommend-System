@@ -26,8 +26,9 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -42,8 +43,13 @@ public class RecommendationServiceImpl implements RecommendationService {
 
     private static final long DEFAULT_DEMO_USER_ID = 1L;
     private static final String STRICT_SUCCESS_MESSAGE = "已为您找到完全匹配车型";
-    private static final String BASIC_REASON_TEXT = "该车型符合当前严格筛选条件，综合匹配度由车型评分和用户权重计算得出。";
-    private static final String BASIC_WEAKNESS_TEXT = "当前结果为严格匹配推荐，可结合维度评分继续对比车型差异。";
+    private static final String RELAX_BUDGET_MESSAGE = "未找到足够的完全匹配车型，系统已适度放宽预算上限。";
+    private static final String RELAX_BODY_TYPE_MESSAGE = "未找到足够的完全匹配车型，系统已扩展相近车型类型。";
+    private static final String RELAX_ENERGY_TYPE_MESSAGE = "未找到足够的完全匹配车型，系统已扩展相近动力类型。";
+    private static final String SIMILAR_RECOMMEND_MESSAGE = "未找到完全匹配车型，以下车型并非完全满足条件，但在核心偏好上较接近。";
+    private static final String EMPTY_RECOMMEND_MESSAGE = "暂未找到合适车型，请调整预算、车型类型或动力类型后重试。";
+    private static final String DEFAULT_REASON_TEXT = "该车型在多个维度上与您的需求较为接近，可作为备选车型进一步对比。";
+    private static final String DEFAULT_WEAKNESS_TEXT = "该车型整体匹配较均衡，暂无明显短板。";
 
     private final UserDemandMapper userDemandMapper;
     private final CarModelMapper carModelMapper;
@@ -77,17 +83,10 @@ public class RecommendationServiceImpl implements RecommendationService {
             throw new BusinessException("demand does not belong to current user");
         }
 
-        List<ScoredRecommendation> scoredItems = carModelMapper.findApprovedRecommendationCandidates().stream()
-                .map(car -> toScoredRecommendation(car, demand))
-                .flatMap(List::stream)
-                .sorted(recommendationComparator())
-                .limit(request.getTopK())
-                .toList();
-
-        String recommendStatus = scoredItems.isEmpty()
-                ? RecommendStatus.EMPTY.getCode()
-                : RecommendStatus.SUCCESS.getCode();
-        String fallbackMessage = scoredItems.isEmpty() ? "" : STRICT_SUCCESS_MESSAGE;
+        List<CandidateCar> candidates = loadCandidatesWithScores();
+        List<ScoredRecommendation> scoredItems = generateRecommendationItems(candidates, demand, request.getTopK());
+        String recommendStatus = buildRecommendStatus(scoredItems);
+        String fallbackMessage = buildFallbackMessage(scoredItems, recommendStatus);
 
         RecommendRecord record = new RecommendRecord();
         record.setUserId(userId);
@@ -126,21 +125,96 @@ public class RecommendationServiceImpl implements RecommendationService {
         return resolvedUserId;
     }
 
-    private List<ScoredRecommendation> toScoredRecommendation(CarModel car, UserDemand demand) {
-        if (!matchesStrictDemand(car, demand)) {
-            return List.of();
+    private List<CandidateCar> loadCandidatesWithScores() {
+        List<CandidateCar> candidates = new ArrayList<>();
+        for (CarModel car : carModelMapper.findApprovedRecommendationCandidates()) {
+            carFeatureScoreMapper.findByCarId(car.getId())
+                    .ifPresent(score -> candidates.add(new CandidateCar(car, score)));
         }
-        return carFeatureScoreMapper.findByCarId(car.getId())
-                .map(score -> {
-                    BigDecimal priceScore = calculatePriceScore(car.getGuidePrice(), demand);
-                    BigDecimal totalScore = calculateTotalScore(priceScore, score, demand);
-                    List<String> tags = generateTags(priceScore, score);
-                    return List.of(new ScoredRecommendation(car, score, priceScore, totalScore, tags));
-                })
-                .orElseGet(List::of);
+        return candidates;
     }
 
-    private boolean matchesStrictDemand(CarModel car, UserDemand demand) {
+    private List<ScoredRecommendation> generateRecommendationItems(
+            List<CandidateCar> candidates,
+            UserDemand demand,
+            int topK) {
+        List<ScoredRecommendation> resultItems = new ArrayList<>();
+        Set<Long> addedCarIds = new HashSet<>();
+
+        addStageRecommendations(candidates, demand, MatchLevel.STRICT, resultItems, addedCarIds);
+        resultItems.sort(recommendationComparator());
+
+        int fallbackThreshold = Math.min(5, topK);
+        if (resultItems.size() < fallbackThreshold) {
+            for (MatchLevel matchLevel : List.of(
+                    MatchLevel.RELAX_BUDGET,
+                    MatchLevel.RELAX_BODY_TYPE,
+                    MatchLevel.RELAX_ENERGY_TYPE,
+                    MatchLevel.SIMILAR_RECOMMEND)) {
+                addStageRecommendations(candidates, demand, matchLevel, resultItems, addedCarIds);
+                resultItems.sort(recommendationComparator());
+                if (resultItems.size() >= topK) {
+                    break;
+                }
+            }
+        }
+
+        return resultItems.stream()
+                .sorted(recommendationComparator())
+                .limit(topK)
+                .toList();
+    }
+
+    private void addStageRecommendations(
+            List<CandidateCar> candidates,
+            UserDemand demand,
+            MatchLevel matchLevel,
+            List<ScoredRecommendation> resultItems,
+            Set<Long> addedCarIds) {
+        for (CandidateCar candidate : candidates) {
+            Long carId = candidate.car().getId();
+            if (addedCarIds.contains(carId) || !matchesDemand(candidate.car(), demand, matchLevel)) {
+                continue;
+            }
+            resultItems.add(toScoredRecommendation(candidate, demand, matchLevel));
+            addedCarIds.add(carId);
+        }
+    }
+
+    private ScoredRecommendation toScoredRecommendation(
+            CandidateCar candidate,
+            UserDemand demand,
+            MatchLevel matchLevel) {
+        BigDecimal priceScore = calculatePriceScore(candidate.car().getGuidePrice(), demand);
+        BigDecimal totalScore = calculateTotalScore(priceScore, candidate.featureScore(), demand);
+        List<String> tags = generateTags(priceScore, candidate.featureScore());
+        String reasonText = generateReasonText(priceScore, candidate.featureScore(), demand);
+        String weaknessText = generateWeaknessText(priceScore, candidate.featureScore(), demand);
+        return new ScoredRecommendation(
+                candidate.car(),
+                candidate.featureScore(),
+                priceScore,
+                totalScore,
+                matchLevel,
+                tags,
+                reasonText,
+                weaknessText);
+    }
+
+    private boolean matchesDemand(CarModel car, UserDemand demand, MatchLevel matchLevel) {
+        if (!matchesCommonFilters(car, demand)) {
+            return false;
+        }
+        return switch (matchLevel) {
+            case STRICT -> matchesStrictFilters(car, demand);
+            case RELAX_BUDGET -> matchesRelaxBudgetFilters(car, demand);
+            case RELAX_BODY_TYPE -> matchesRelaxBodyTypeFilters(car, demand);
+            case RELAX_ENERGY_TYPE -> matchesRelaxEnergyTypeFilters(car, demand);
+            case SIMILAR_RECOMMEND -> true;
+        };
+    }
+
+    private boolean matchesCommonFilters(CarModel car, UserDemand demand) {
         Set<String> excludedBrands = new HashSet<>(readStringList(demand.getExcludedBrands()));
         if (excludedBrands.contains(car.getBrand())) {
             return false;
@@ -152,13 +226,74 @@ public class RecommendationServiceImpl implements RecommendationService {
         if (demand.getSeats() != null && (car.getSeats() == null || car.getSeats() < demand.getSeats())) {
             return false;
         }
-        if (demand.getBudgetMax() != null && car.getGuidePrice().compareTo(demand.getBudgetMax()) > 0) {
+        return true;
+    }
+
+    private boolean matchesStrictFilters(CarModel car, UserDemand demand) {
+        return matchesStrictBudget(car, demand)
+                && matchesStrictBodyType(car, demand)
+                && matchesStrictEnergyType(car, demand);
+    }
+
+    private boolean matchesRelaxBudgetFilters(CarModel car, UserDemand demand) {
+        if (demand.getBudgetMax() == null) {
             return false;
         }
-        if (StringUtils.hasText(demand.getBodyType()) && !demand.getBodyType().equals(car.getBodyType())) {
+        BigDecimal relaxedBudgetMax = demand.getBudgetMax().multiply(new BigDecimal("1.10"));
+        return car.getGuidePrice().compareTo(demand.getBudgetMax()) > 0
+                && car.getGuidePrice().compareTo(relaxedBudgetMax) <= 0
+                && matchesStrictBodyType(car, demand)
+                && matchesStrictEnergyType(car, demand);
+    }
+
+    private boolean matchesRelaxBodyTypeFilters(CarModel car, UserDemand demand) {
+        if (!StringUtils.hasText(demand.getBodyType())) {
             return false;
         }
+        return matchesStrictBudget(car, demand)
+                && relaxedBodyTypes(demand.getBodyType()).contains(car.getBodyType())
+                && matchesStrictEnergyType(car, demand);
+    }
+
+    private boolean matchesRelaxEnergyTypeFilters(CarModel car, UserDemand demand) {
+        if (!StringUtils.hasText(demand.getEnergyType())) {
+            return false;
+        }
+        return matchesStrictBudget(car, demand)
+                && matchesStrictBodyType(car, demand)
+                && relaxedEnergyTypes(demand.getEnergyType()).contains(car.getEnergyType());
+    }
+
+    private boolean matchesStrictBudget(CarModel car, UserDemand demand) {
+        return demand.getBudgetMax() == null || car.getGuidePrice().compareTo(demand.getBudgetMax()) <= 0;
+    }
+
+    private boolean matchesStrictBodyType(CarModel car, UserDemand demand) {
+        return !StringUtils.hasText(demand.getBodyType()) || demand.getBodyType().equals(car.getBodyType());
+    }
+
+    private boolean matchesStrictEnergyType(CarModel car, UserDemand demand) {
         return matchesDemandEnergyType(car.getEnergyType(), demand.getEnergyType());
+    }
+
+    private Set<String> relaxedBodyTypes(String bodyType) {
+        return switch (bodyType) {
+            case "SUV" -> Set.of("MPV");
+            case "MPV" -> Set.of("SUV");
+            case "轿车" -> Set.of("SUV");
+            default -> Set.of();
+        };
+    }
+
+    private Set<String> relaxedEnergyTypes(String energyType) {
+        return switch (energyType) {
+            case "纯电" -> Set.of("插混", "增程");
+            case "插混" -> Set.of("增程", "纯电");
+            case "增程" -> Set.of("插混", "纯电");
+            case "燃油" -> Set.of("插混");
+            case "新能源" -> Set.of("纯电", "插混", "增程");
+            default -> Set.of();
+        };
     }
 
     private boolean matchesDemandEnergyType(String carEnergyType, String demandEnergyType) {
@@ -183,6 +318,9 @@ public class RecommendationServiceImpl implements RecommendationService {
             }
             return score(90);
         }
+        if (price.compareTo(budgetMax) > 0) {
+            return calculateAboveBudgetMaxScore(price, budgetMax);
+        }
         if (budgetMin == null) {
             budgetMin = BigDecimal.ZERO;
         }
@@ -204,6 +342,13 @@ public class RecommendationServiceImpl implements RecommendationService {
         BigDecimal lowerRatio = budgetMin.subtract(price).divide(denominator, 8, RoundingMode.HALF_UP);
         BigDecimal value = new BigDecimal("90").subtract(lowerRatio.multiply(new BigDecimal("50")));
         return score(value.max(new BigDecimal("75")));
+    }
+
+    private BigDecimal calculateAboveBudgetMaxScore(BigDecimal price, BigDecimal budgetMax) {
+        BigDecimal denominator = budgetMax.max(BigDecimal.ONE);
+        BigDecimal overRatio = price.subtract(budgetMax).divide(denominator, 8, RoundingMode.HALF_UP);
+        BigDecimal value = new BigDecimal("80").subtract(overRatio.multiply(new BigDecimal("100")));
+        return score(value.max(new BigDecimal("50")));
     }
 
     private BigDecimal calculateTotalScore(BigDecimal priceScore, CarFeatureScore score, UserDemand demand) {
@@ -246,6 +391,137 @@ public class RecommendationServiceImpl implements RecommendationService {
                 .toList();
     }
 
+    private String generateReasonText(BigDecimal priceScore, CarFeatureScore score, UserDemand demand) {
+        List<DimensionScore> dimensions = dimensionScores(priceScore, score, demand);
+        List<DimensionScore> topWeightedDimensions = dimensions.stream()
+                .sorted(Comparator.comparing(DimensionScore::weight, Comparator.reverseOrder()))
+                .limit(4)
+                .toList();
+        List<String> reasons = new ArrayList<>();
+        Set<String> usedKeys = new LinkedHashSet<>();
+
+        for (DimensionScore dimension : topWeightedDimensions) {
+            if (dimension.score().compareTo(new BigDecimal("80")) >= 0) {
+                addReason(reasons, usedKeys, dimension);
+            }
+            if (reasons.size() >= 3) {
+                break;
+            }
+        }
+
+        if (reasons.size() < 2) {
+            for (DimensionScore dimension : dimensionsByScoreDesc(dimensions)) {
+                if (dimension.score().compareTo(new BigDecimal("80")) >= 0) {
+                    addReason(reasons, usedKeys, dimension);
+                }
+                if (reasons.size() >= 3) {
+                    break;
+                }
+            }
+        }
+
+        if (reasons.size() < 2) {
+            for (DimensionScore dimension : dimensionsByScoreDesc(dimensions)) {
+                addReason(reasons, usedKeys, dimension);
+                if (reasons.size() >= 2) {
+                    break;
+                }
+            }
+        }
+
+        if (reasons.isEmpty()) {
+            return DEFAULT_REASON_TEXT;
+        }
+        return String.join("；", reasons);
+    }
+
+    private String generateWeaknessText(BigDecimal priceScore, CarFeatureScore score, UserDemand demand) {
+        List<DimensionScore> topWeightedDimensions = dimensionScores(priceScore, score, demand).stream()
+                .sorted(Comparator.comparing(DimensionScore::weight, Comparator.reverseOrder()))
+                .limit(4)
+                .toList();
+        List<String> weaknesses = new ArrayList<>();
+        for (DimensionScore dimension : topWeightedDimensions) {
+            if (dimension.score().compareTo(new BigDecimal("65")) < 0) {
+                weaknesses.add(dimension.weaknessText());
+            }
+            if (weaknesses.size() >= 2) {
+                break;
+            }
+        }
+        return weaknesses.isEmpty() ? DEFAULT_WEAKNESS_TEXT : String.join("；", weaknesses);
+    }
+
+    private void addReason(List<String> reasons, Set<String> usedKeys, DimensionScore dimension) {
+        if (usedKeys.add(dimension.key())) {
+            reasons.add(dimension.reasonText());
+        }
+    }
+
+    private List<DimensionScore> dimensionsByScoreDesc(List<DimensionScore> dimensions) {
+        return dimensions.stream()
+                .sorted(Comparator.comparing(DimensionScore::score, Comparator.reverseOrder()))
+                .toList();
+    }
+
+    private List<DimensionScore> dimensionScores(BigDecimal priceScore, CarFeatureScore score, UserDemand demand) {
+        return List.of(
+                new DimensionScore(
+                        "price",
+                        weight(demand.getWeightPrice()),
+                        priceScore,
+                        "该车型价格与您的预算匹配度较高，有助于控制购车成本。",
+                        "该车型价格匹配度偏低，可能与您的预算区间存在一定偏差。"),
+                new DimensionScore(
+                        "space",
+                        weight(demand.getWeightSpace()),
+                        score.getSpaceScore(),
+                        "该车型空间表现较好，适合家庭出行和多人乘坐场景。",
+                        "该车型空间表现相对一般，如果您经常满载或重视乘坐宽敞度，需要重点对比。"),
+                new DimensionScore(
+                        "safety",
+                        weight(demand.getWeightSafety()),
+                        score.getSafetyScore(),
+                        "该车型安全配置得分较高，符合您对安全性的关注。",
+                        "该车型安全配置得分偏低，如果您重视主动安全和安全气囊配置，需要谨慎比较。"),
+                new DimensionScore(
+                        "energy",
+                        weight(demand.getWeightEnergy()),
+                        score.getEnergyScore(),
+                        "该车型能耗表现较好，日常用车成本和续航表现更有优势。",
+                        "该车型能耗或续航表现偏弱，如果您关注长期用车成本，需要继续对比。"),
+                new DimensionScore(
+                        "intelligence",
+                        weight(demand.getWeightIntelligence()),
+                        score.getIntelligenceScore(),
+                        "该车型智能配置较丰富，能提升车机体验和辅助驾驶便利性。",
+                        "该车型智能配置表现一般，如果您更看重车机体验和辅助驾驶，可继续对比其他车型。"),
+                new DimensionScore(
+                        "comfort",
+                        weight(demand.getWeightComfort()),
+                        score.getComfortScore(),
+                        "该车型舒适性表现较好，适合日常通勤和长途乘坐。",
+                        "该车型舒适性得分偏低，如果您重视乘坐体验，需要关注空间、配置和口碑差异。"),
+                new DimensionScore(
+                        "power",
+                        weight(demand.getWeightPower()),
+                        score.getPowerScore(),
+                        "该车型动力表现较强，适合看重加速和驾驶响应的用户。",
+                        "该车型动力表现一般，如果您经常高速或满载出行，需要重点试驾确认。"),
+                new DimensionScore(
+                        "reputation",
+                        weight(demand.getWeightReputation()),
+                        score.getReputationScore(),
+                        "该车型口碑评分较高，用户评价和可靠性表现更稳。",
+                        "该车型口碑得分一般，建议结合真实车主评价和售后表现继续判断。"),
+                new DimensionScore(
+                        "popularity",
+                        weight(demand.getWeightPopularity()),
+                        score.getPopularityScore(),
+                        "该车型市场热度较高，销量基础和关注度表现较好。",
+                        "该车型市场热度一般，可结合保有量和后续用车便利性继续判断。"));
+    }
+
     private void addTag(List<TagCandidate> candidates, BigDecimal score, String label, BigDecimal threshold) {
         if (score != null && score.compareTo(threshold) >= 0) {
             candidates.add(new TagCandidate(label, score));
@@ -256,6 +532,42 @@ public class RecommendationServiceImpl implements RecommendationService {
         return Comparator.comparing(ScoredRecommendation::totalScore, Comparator.reverseOrder())
                 .thenComparing(item -> item.featureScore().getReputationScore(), Comparator.reverseOrder())
                 .thenComparing(item -> item.featureScore().getPopularityScore(), Comparator.reverseOrder());
+    }
+
+    private String buildRecommendStatus(List<ScoredRecommendation> items) {
+        if (items.isEmpty()) {
+            return RecommendStatus.EMPTY.getCode();
+        }
+        boolean hasFallbackItem = items.stream()
+                .anyMatch(item -> item.matchLevel() != MatchLevel.STRICT);
+        return hasFallbackItem ? RecommendStatus.FALLBACK.getCode() : RecommendStatus.SUCCESS.getCode();
+    }
+
+    private String buildFallbackMessage(List<ScoredRecommendation> items, String recommendStatus) {
+        if (RecommendStatus.EMPTY.getCode().equals(recommendStatus)) {
+            return EMPTY_RECOMMEND_MESSAGE;
+        }
+        MatchLevel highestLevel = items.stream()
+                .map(ScoredRecommendation::matchLevel)
+                .max(Comparator.comparing(this::matchLevelOrder))
+                .orElse(MatchLevel.STRICT);
+        return switch (highestLevel) {
+            case STRICT -> STRICT_SUCCESS_MESSAGE;
+            case RELAX_BUDGET -> RELAX_BUDGET_MESSAGE;
+            case RELAX_BODY_TYPE -> RELAX_BODY_TYPE_MESSAGE;
+            case RELAX_ENERGY_TYPE -> RELAX_ENERGY_TYPE_MESSAGE;
+            case SIMILAR_RECOMMEND -> SIMILAR_RECOMMEND_MESSAGE;
+        };
+    }
+
+    private int matchLevelOrder(MatchLevel matchLevel) {
+        return switch (matchLevel) {
+            case STRICT -> 0;
+            case RELAX_BUDGET -> 1;
+            case RELAX_BODY_TYPE -> 2;
+            case RELAX_ENERGY_TYPE -> 3;
+            case SIMILAR_RECOMMEND -> 4;
+        };
     }
 
     private RecommendItem toRecommendItem(Long recordId, int rankNo, ScoredRecommendation scoredItem) {
@@ -274,9 +586,9 @@ public class RecommendationServiceImpl implements RecommendationService {
         item.setReputationScore(scoredItem.featureScore().getReputationScore());
         item.setPopularityScore(scoredItem.featureScore().getPopularityScore());
         item.setTags(toJson(scoredItem.tags()));
-        item.setMatchLevel(MatchLevel.STRICT.getCode());
-        item.setReasonText(BASIC_REASON_TEXT);
-        item.setWeaknessText(BASIC_WEAKNESS_TEXT);
+        item.setMatchLevel(scoredItem.matchLevel().getCode());
+        item.setReasonText(scoredItem.reasonText());
+        item.setWeaknessText(scoredItem.weaknessText());
         return item;
     }
 
@@ -301,10 +613,10 @@ public class RecommendationServiceImpl implements RecommendationService {
         vo.setPowerScore(scoredItem.featureScore().getPowerScore());
         vo.setReputationScore(scoredItem.featureScore().getReputationScore());
         vo.setPopularityScore(scoredItem.featureScore().getPopularityScore());
-        vo.setMatchLevel(MatchLevel.STRICT.getCode());
+        vo.setMatchLevel(scoredItem.matchLevel().getCode());
         vo.setTags(scoredItem.tags());
-        vo.setReasonText(BASIC_REASON_TEXT);
-        vo.setWeaknessText(BASIC_WEAKNESS_TEXT);
+        vo.setReasonText(scoredItem.reasonText());
+        vo.setWeaknessText(scoredItem.weaknessText());
         return vo;
     }
 
@@ -377,12 +689,28 @@ public class RecommendationServiceImpl implements RecommendationService {
                 .setScale(2, RoundingMode.HALF_UP);
     }
 
+    private record CandidateCar(
+            CarModel car,
+            CarFeatureScore featureScore) {
+    }
+
     private record ScoredRecommendation(
             CarModel car,
             CarFeatureScore featureScore,
             BigDecimal priceScore,
             BigDecimal totalScore,
-            List<String> tags) {
+            MatchLevel matchLevel,
+            List<String> tags,
+            String reasonText,
+            String weaknessText) {
+    }
+
+    private record DimensionScore(
+            String key,
+            BigDecimal weight,
+            BigDecimal score,
+            String reasonText,
+            String weaknessText) {
     }
 
     private record TagCandidate(String label, BigDecimal score) {

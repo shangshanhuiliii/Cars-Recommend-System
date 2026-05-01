@@ -316,13 +316,22 @@ GET  /api/recommend/history
 
 其中 `tags` 由推荐算法按高分维度生成，并保存为 `recommend_item.tags` 快照。推荐历史查询时应返回保存的标签快照，不应每次查询时重新生成。标签只用于前端卡片快速展示，不替代 `reasonText` 和 `weaknessText`。
 
-阶段 5 仅实现 `STRICT` 推荐基础闭环：有严格匹配结果时 `recommendStatus = SUCCESS`、`matchLevel = STRICT`；无严格匹配结果时 `recommendStatus = EMPTY` 且 `items` 为空。`FALLBACK` 和非 `STRICT` 的 `matchLevel` 在阶段 6 推荐解释与降级中实现。
+阶段 6 起推荐生成支持 `STRICT`、`RELAX_BUDGET`、`RELAX_BODY_TYPE`、`RELAX_ENERGY_TYPE`、`SIMILAR_RECOMMEND` 分级匹配。若严格匹配结果少于 `min(5, topK)`，系统会按阶段补充候选，并在每条推荐明细中保存对应 `matchLevel`，不覆盖已进入推荐集的严格匹配结果。
 
 `recommendStatus` 生成规则：
 
 - `SUCCESS`：最终返回结果不为空，且全部推荐项 `matchLevel = STRICT`。
 - `FALLBACK`：最终返回结果不为空，且至少存在一个非 `STRICT` 推荐项。
 - `EMPTY`：所有阶段都没有候选结果，`items` 为空。
+
+`fallbackMessage` 生成规则：
+
+- `STRICT`：空字符串或“已为您找到完全匹配车型”。
+- `RELAX_BUDGET`：“未找到足够的完全匹配车型，系统已适度放宽预算上限。”
+- `RELAX_BODY_TYPE`：“未找到足够的完全匹配车型，系统已扩展相近车型类型。”
+- `RELAX_ENERGY_TYPE`：“未找到足够的完全匹配车型，系统已扩展相近动力类型。”
+- `SIMILAR_RECOMMEND`：“未找到完全匹配车型，以下车型并非完全满足条件，但在核心偏好上较接近。”
+- `EMPTY`：“暂未找到合适车型，请调整预算、车型类型或动力类型后重试。”
 
 推荐历史详情必须返回：
 
