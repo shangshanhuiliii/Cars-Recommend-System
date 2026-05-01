@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -305,6 +306,63 @@ class RecommendationControllerTest {
         assertSorted(sortingItems);
         assertAllRecommendationTextsPresent(sortingItems);
 
+        long familyRecordId = familyRecommend.path("recordId").asLong();
+        jdbcTemplate.update("""
+                UPDATE recommend_item
+                SET total_score = ?, tags = ?, reason_text = ?, weakness_text = ?
+                WHERE record_id = ? AND rank_no = 1
+                """, new BigDecimal("12.34"), "[\"snapshot-tag\"]", "snapshot reason",
+                "snapshot weakness", familyRecordId);
+
+        JsonNode historyPageOne = getJson("/api/recommend/history?page=1&size=1");
+        assertTrue(historyPageOne.path("total").asLong() >= 2);
+        assertEquals(1, historyPageOne.path("records").size());
+        JsonNode firstHistoryRecord = historyPageOne.path("records").get(0);
+        assertTrue(firstHistoryRecord.path("recordId").asLong() > 0);
+        assertTrue(firstHistoryRecord.path("topCarNames").isArray());
+        assertTrue(firstHistoryRecord.path("topCarNames").size() > 0);
+        assertTrue(firstHistoryRecord.path("itemCount").asLong() > 0);
+
+        JsonNode historyPageTwo = getJson("/api/recommend/history?page=2&size=1");
+        assertEquals(1, historyPageTwo.path("records").size());
+        assertFalse(firstHistoryRecord.path("recordId").asLong()
+                == historyPageTwo.path("records").get(0).path("recordId").asLong());
+
+        JsonNode fullHistory = getJson("/api/recommend/history?page=1&size=100");
+        assertTrue(containsRecord(fullHistory.path("records"), familyRecordId));
+
+        JsonNode detail = getJson("/api/recommend/" + familyRecordId);
+        assertEquals(familyRecordId, detail.path("recordId").asLong());
+        assertEquals(1L, detail.path("userId").asLong());
+        assertEquals(familyDemand.path("id").asLong(), detail.path("demandId").asLong());
+        assertTextPresent(detail.path("profileText").asText());
+        assertTextPresent(detail.path("fallbackMessage").asText());
+        assertEquals("SUCCESS", detail.path("recommendStatus").asText());
+        assertTrue(detail.path("createTime").isTextual());
+        assertTrue(detail.path("weights").path("space").isNumber());
+        assertEquals(familyDemand.path("id").asLong(), detail.path("demand").path("id").asLong());
+        assertEquals(familyDemand.path("bodyType").asText(), detail.path("demand").path("bodyType").asText());
+        JsonNode detailItem = detail.path("items").get(0);
+        assertEquals(1, detailItem.path("rankNo").asInt());
+        assertEquals(0, new BigDecimal("12.34").compareTo(detailItem.path("totalScore").decimalValue()));
+        assertScoreFieldsPresent(detailItem);
+        assertEquals("snapshot-tag", detailItem.path("tags").get(0).asText());
+        assertEquals("snapshot reason", detailItem.path("reasonText").asText());
+        assertEquals("snapshot weakness", detailItem.path("weaknessText").asText());
+        assertEquals("STRICT", detailItem.path("matchLevel").asText());
+
+        JsonNode sortingDetail = getJson("/api/recommend/" + sortingRecommend.path("recordId").asLong());
+        assertRankNoAscending(sortingDetail.path("items"));
+
+        jdbcTemplate.update(
+                "INSERT INTO app_user (id, username, password, nickname, phone) VALUES (2, 'other_user', 'pwd', 'Other', '')");
+        JsonNode otherUserHistory = getJson("/api/recommend/history?userId=2&page=1&size=10");
+        assertEquals(0, otherUserHistory.path("total").asLong());
+        assertEquals(0, otherUserHistory.path("records").size());
+        mockMvc.perform(get("/api/recommend/{recordId}?userId=2", familyRecordId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(404));
+
         assertThrows(BadSqlGrammarException.class,
                 () -> jdbcTemplate.queryForObject("SELECT price_score FROM car_feature_score", BigDecimal.class));
     }
@@ -335,6 +393,15 @@ class RecommendationControllerTest {
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.recordId").isNumber())
                 .andExpect(jsonPath("$.data.userId").value(1))
+                .andReturn();
+        return objectMapper.readTree(result.getResponse().getContentAsString(StandardCharsets.UTF_8)).path("data");
+    }
+
+    private JsonNode getJson(String url) throws Exception {
+        MvcResult result = mockMvc.perform(get(url)
+                        .characterEncoding(StandardCharsets.UTF_8))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
                 .andReturn();
         return objectMapper.readTree(result.getResponse().getContentAsString(StandardCharsets.UTF_8)).path("data");
     }
@@ -446,6 +513,33 @@ class RecommendationControllerTest {
 
     private void assertTextPresent(String value) {
         assertTrue(value != null && !value.isBlank());
+    }
+
+    private void assertScoreFieldsPresent(JsonNode item) {
+        assertTrue(item.path("priceScore").isNumber());
+        assertTrue(item.path("spaceScore").isNumber());
+        assertTrue(item.path("safetyScore").isNumber());
+        assertTrue(item.path("energyScore").isNumber());
+        assertTrue(item.path("intelligenceScore").isNumber());
+        assertTrue(item.path("comfortScore").isNumber());
+        assertTrue(item.path("powerScore").isNumber());
+        assertTrue(item.path("reputationScore").isNumber());
+        assertTrue(item.path("popularityScore").isNumber());
+    }
+
+    private void assertRankNoAscending(JsonNode items) {
+        for (int i = 0; i < items.size(); i++) {
+            assertEquals(i + 1, items.get(i).path("rankNo").asInt());
+        }
+    }
+
+    private boolean containsRecord(JsonNode records, long recordId) {
+        for (JsonNode record : records) {
+            if (record.path("recordId").asLong() == recordId) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private int countCarId(JsonNode items, long carId) {

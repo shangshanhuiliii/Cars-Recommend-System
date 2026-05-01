@@ -346,7 +346,13 @@ GET  /api/recommend/history
 - 不足提醒
 - 匹配状态
 
-`GET /api/recommend/history` 返回轻量历史列表，用于历史页列表展示：
+`GET /api/recommend/history` 返回轻量历史列表，用于历史页列表展示。支持查询参数：
+
+| 参数 | 说明 |
+| --- | --- |
+| `userId` | 用户 ID；为空时使用默认演示用户 `app_user.id = 1` |
+| `page` | 页码，默认 1 |
+| `size` | 每页数量，默认 10，最大 100 |
 
 ```json
 {
@@ -367,7 +373,9 @@ GET  /api/recommend/history
 }
 ```
 
-`GET /api/recommend/{recordId}` 返回完整历史详情，结构与推荐生成响应保持一致，并额外返回 `weights`、`demand` 和 `createTime`。历史详情中的 `items[].tags`、分数、理由、不足和 `matchLevel` 必须来自保存的推荐快照，不允许重新计算。
+`GET /api/recommend/{recordId}` 支持查询参数 `userId`，为空时使用默认演示用户 `app_user.id = 1`。接口只返回当前用户自己的推荐记录；查询其他用户的记录应返回无权限或未找到。
+
+该接口返回完整历史详情，结构与推荐生成响应保持一致，并额外返回 `weights`、`demand` 和 `createTime`。历史详情中的 `items[].tags`、分数、理由、不足和 `matchLevel` 必须来自保存的推荐快照，不允许重新计算。
 
 ## 3. 第二档接口
 
