@@ -21,6 +21,36 @@ export function displayTags(tags) {
   if (!Array.isArray(tags)) {
     return []
   }
-  const technicalTags = new Set(['完全匹配', '降级推荐', '放宽预算', '放宽车型', '放宽动力', '相似推荐'])
+  const technicalTags = new Set([
+    '完全匹配',
+    '降级推荐',
+    '放宽预算',
+    '放宽车型',
+    '放宽动力',
+    '相似推荐',
+    'STRICT',
+    'RELAX_BUDGET',
+    'RELAX_BODY_TYPE',
+    'RELAX_ENERGY_TYPE',
+    'SIMILAR_RECOMMEND',
+    'TOPSIS',
+    'Pareto',
+    '熵权',
+  ])
   return tags.filter((tag) => !technicalTags.has(tag))
+}
+
+export function rankOrderedItems(items) {
+  if (!Array.isArray(items)) {
+    return []
+  }
+  return items
+    .map((item, index) => ({ item, index }))
+    .sort((left, right) => {
+      const leftRank = Number(left.item?.rankNo ?? left.index + 1)
+      const rightRank = Number(right.item?.rankNo ?? right.index + 1)
+      if (leftRank !== rightRank) return leftRank - rightRank
+      return left.index - right.index
+    })
+    .map(({ item }) => item)
 }

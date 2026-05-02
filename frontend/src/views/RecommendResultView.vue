@@ -205,7 +205,7 @@ import { useRoute } from 'vue-router'
 import { fetchCarDetail } from '@/api/cars'
 import { fetchRecommendationDetail } from '@/api/recommend'
 import { carImageSrc, fallbackCarImage } from '@/utils/carImage'
-import { displayTags } from '@/utils/recommendPresentation'
+import { displayTags, rankOrderedItems } from '@/utils/recommendPresentation'
 
 const route = useRoute()
 const loading = ref(false)
@@ -264,9 +264,9 @@ const weightRows = computed(() =>
   })),
 )
 
-const strictItems = computed(() => sortedItems((detail.value?.items || []).filter((item) => item.matchLevel === 'STRICT')))
+const strictItems = computed(() => rankOrderedItems((detail.value?.items || []).filter((item) => item.matchLevel === 'STRICT')))
 const recommendationItems = computed(() =>
-  sortedItems((detail.value?.items || []).filter((item) => item.matchLevel !== 'STRICT')),
+  rankOrderedItems((detail.value?.items || []).filter((item) => item.matchLevel !== 'STRICT')),
 )
 
 const itemGroups = computed(() => {
@@ -340,16 +340,6 @@ async function openCarDetail(carId) {
   } finally {
     carDetailLoading.value = false
   }
-}
-
-function sortedItems(items) {
-  return [...items].sort((a, b) => {
-    const total = Number(b.totalScore || 0) - Number(a.totalScore || 0)
-    if (total !== 0) return total
-    const reputation = Number(b.reputationScore || 0) - Number(a.reputationScore || 0)
-    if (reputation !== 0) return reputation
-    return Number(b.popularityScore || 0) - Number(a.popularityScore || 0)
-  })
 }
 
 function scoreRows(item) {

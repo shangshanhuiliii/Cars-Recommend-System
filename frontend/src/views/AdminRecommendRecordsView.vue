@@ -104,6 +104,13 @@
                 show-icon
               />
 
+              <div class="trace-grid">
+                <div v-for="row in algorithmRows" :key="row.label">
+                  <span>{{ row.label }}</span>
+                  <strong>{{ row.value }}</strong>
+                </div>
+              </div>
+
               <div class="snapshot-grid">
                 <div>
                   <p class="section-title">用户需求</p>
@@ -123,7 +130,7 @@
                 </div>
 
                 <div>
-                  <p class="section-title">权重快照</p>
+                  <p class="section-title">最终权重快照</p>
                   <div v-for="row in weightRows" :key="row.key" class="weight-row">
                     <span>{{ row.label }}</span>
                     <el-progress :percentage="toPercent(row.value)" :stroke-width="8" :show-text="false" />
@@ -253,6 +260,21 @@ const demandFactorRows = computed(() =>
     .sort((a, b) => b.value - a.value),
 )
 
+const algorithmRows = computed(() => [
+  {
+    label: '算法版本',
+    value: detail.value?.algorithmVersion || 'weighted-sum-v1',
+  },
+  {
+    label: '组合系数 alpha',
+    value: formatAlpha(detail.value?.alpha),
+  },
+  {
+    label: '推荐状态',
+    value: statusLabel(detail.value?.recommendStatus),
+  },
+])
+
 onMounted(loadRecords)
 
 async function loadRecords() {
@@ -353,6 +375,11 @@ function toPercent(value) {
 
 function formatWeight(value) {
   return `${(Number(value || 0) * 100).toFixed(1)}%`
+}
+
+function formatAlpha(value) {
+  if (value === null || value === undefined || value === '') return '未记录'
+  return Number(value).toFixed(2)
 }
 
 function formatScore(value) {
@@ -494,6 +521,36 @@ function formatDate(value) {
 
 .fallback-alert {
   margin-top: 16px;
+}
+
+.trace-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.trace-grid div {
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: #f9fafb;
+}
+
+.trace-grid span,
+.trace-grid strong {
+  display: block;
+}
+
+.trace-grid span {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.trace-grid strong {
+  margin-top: 4px;
+  color: var(--color-primary-dark);
+  font-size: 13px;
 }
 
 .snapshot-grid {
@@ -638,6 +695,7 @@ function formatDate(value) {
 
 @media (max-width: 1080px) {
   .record-layout,
+  .trace-grid,
   .snapshot-grid,
   .explain-grid,
   .score-grid {

@@ -82,10 +82,13 @@ public class RecommendationRecordServiceImpl implements RecommendationRecordServ
         vo.setUserId(record.getUserId());
         vo.setDemandId(record.getDemandId());
         vo.setProfileText(record.getProfileText());
+        JsonNode weightSnapshot = readJsonNode(record.getWeightSnapshot());
+        vo.setAlgorithmVersion(readAlgorithmVersion(weightSnapshot));
+        vo.setAlpha(readAlpha(weightSnapshot));
         vo.setFallbackMessage(record.getFallbackMessage());
         vo.setRecommendStatus(record.getRecommendStatus());
         vo.setCreateTime(record.getCreateTime());
-        vo.setWeights(readWeights(record.getWeightSnapshot()));
+        vo.setWeights(readWeights(weightSnapshot));
         vo.setDemand(userProfileService.getDemandById(record.getDemandId()));
         vo.setItems(recommendItemMapper.findSnapshotsByRecordId(record.getId()).stream()
                 .map(this::toRecommendationItemVO)
@@ -161,8 +164,7 @@ public class RecommendationRecordServiceImpl implements RecommendationRecordServ
         return vo;
     }
 
-    private DemandWeightsVO readWeights(String json) {
-        JsonNode node = readJsonNode(json);
+    private DemandWeightsVO readWeights(JsonNode node) {
         JsonNode weightNode = node.path("finalWeight");
         if (!weightNode.isObject()) {
             weightNode = node;
@@ -178,6 +180,18 @@ public class RecommendationRecordServiceImpl implements RecommendationRecordServ
         vo.setReputation(readDecimal(weightNode, "reputation"));
         vo.setPopularity(readDecimal(weightNode, "popularity"));
         return vo;
+    }
+
+    private String readAlgorithmVersion(JsonNode node) {
+        JsonNode value = node.path("algorithmVersion");
+        if (value.isTextual() && StringUtils.hasText(value.asText())) {
+            return value.asText();
+        }
+        return "weighted-sum-v1";
+    }
+
+    private BigDecimal readAlpha(JsonNode node) {
+        return readDecimal(node, "alpha");
     }
 
     private BigDecimal readDecimal(JsonNode node, String fieldName) {

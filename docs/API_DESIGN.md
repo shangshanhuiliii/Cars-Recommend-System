@@ -420,6 +420,8 @@ GET  /api/recommend/history
   "demandId": 10,
   "userId": 1,
   "profileText": "家庭和长途出行用户，预算10-15万，可接受SUV或MPV，偏好插混或新能源车型，重点关注安全、空间和舒适。",
+  "algorithmVersion": "pareto-topsis-v1",
+  "alpha": 0.75,
   "fallbackMessage": "已为您找到完全匹配车型",
   "recommendStatus": "SUCCESS",
   "items": [
@@ -456,6 +458,8 @@ GET  /api/recommend/history
 其中 `tags` 由推荐算法按高分维度生成，并保存为 `recommend_item.tags` 快照。推荐历史查询时应返回保存的标签快照，不应每次查询时重新生成。标签只用于前端卡片快速展示，不替代 `reasonText` 和 `weaknessText`。
 
 `items[].totalScore` 字段继续保留。阶段 9.6-D 起，该字段表示基于主客观组合权重与 TOPSIS 相对接近度得到的推荐分，取值范围为 0-100，保留 2 位小数；不再表示旧版简单加权求和分。详细算法公式只维护在 `RECOMMENDATION_ALGORITHM_UPGRADE.md`。
+
+`algorithmVersion` 和 `alpha` 由 `recommend_record.weight_snapshot` 解析得到，用于管理端和历史详情区分旧版 `weighted-sum-v1` 与新版 `pareto-topsis-v1`。旧历史记录如果只保存扁平九维权重，详情响应可回退显示 `algorithmVersion = weighted-sum-v1`，`alpha` 可为空。
 
 阶段 6 起推荐生成支持 `STRICT`、`RELAX_BUDGET`、`RELAX_BODY_TYPE`、`RELAX_ENERGY_TYPE`、`SIMILAR_RECOMMEND` 分级匹配。阶段 9.5 后系统不再按固定 TopK 截断结果：`STRICT` 组返回全部完全匹配候选，非 `STRICT` 组按放宽阶段补充全部推荐候选，并在每条推荐明细中保存对应 `matchLevel`，不覆盖已进入推荐集的严格匹配结果。
 
@@ -514,7 +518,7 @@ GET  /api/recommend/history
 
 `GET /api/recommend/{recordId}` 支持查询参数 `userId`，为空时使用默认演示用户 `app_user.id = 1`。接口只返回当前用户自己的推荐记录；查询其他用户的记录应返回无权限或未找到。
 
-该接口返回完整历史详情，结构与推荐生成响应保持一致，并额外返回 `weights`、`demand` 和 `createTime`。历史详情中的 `items[].tags`、分数、理由、不足和 `matchLevel` 必须来自保存的推荐快照，不允许重新计算。
+该接口返回完整历史详情，结构与推荐生成响应保持一致，并额外返回 `weights`、`demand` 和 `createTime`。其中 `weights` 表示当次推荐最终权重；新版快照读取 `finalWeight`，旧版扁平快照直接读取九维权重。历史详情中的 `items[].tags`、分数、理由、不足和 `matchLevel` 必须来自保存的推荐快照，不允许重新计算。
 
 ## 3. 第二档接口
 

@@ -1,5 +1,6 @@
 package com.carsrecommend.system.vo;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -9,6 +10,8 @@ public class RecommendationResponseVO {
     private Long demandId;
     private Long userId;
     private String profileText;
+    private String algorithmVersion;
+    private BigDecimal alpha;
     private String fallbackMessage;
     private String recommendStatus;
     private List<RecommendationItemVO> items;
@@ -44,6 +47,22 @@ public class RecommendationResponseVO {
 
     public void setProfileText(String profileText) {
         this.profileText = profileText;
+    }
+
+    public String getAlgorithmVersion() {
+        return algorithmVersion;
+    }
+
+    public void setAlgorithmVersion(String algorithmVersion) {
+        this.algorithmVersion = algorithmVersion;
+    }
+
+    public BigDecimal getAlpha() {
+        return alpha;
+    }
+
+    public void setAlpha(BigDecimal alpha) {
+        this.alpha = alpha;
     }
 
     public String getFallbackMessage() {

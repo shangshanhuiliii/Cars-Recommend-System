@@ -89,6 +89,8 @@ class RecommendationControllerTest {
                 """);
         JsonNode familyRecommend = generate(familyDemand.path("id").asLong());
         assertEquals("FALLBACK", familyRecommend.path("recommendStatus").asText());
+        assertEquals("pareto-topsis-v1", familyRecommend.path("algorithmVersion").asText());
+        assertEquals(0, new BigDecimal("0.75").compareTo(familyRecommend.path("alpha").decimalValue()));
         assertTrue(familyRecommend.path("fallbackMessage").asText().contains("完全匹配车型数量不足"));
         assertFalse(familyRecommend.path("fallbackMessage").asText().contains("未找到完全匹配车型"));
         assertTrue(countMatchLevel(familyRecommend.path("items"), "STRICT") > 0);
@@ -201,6 +203,8 @@ class RecommendationControllerTest {
         assertEquals(1L, detail.path("userId").asLong());
         assertEquals(familyDemand.path("id").asLong(), detail.path("demandId").asLong());
         assertTextPresent(detail.path("profileText").asText());
+        assertEquals("pareto-topsis-v1", detail.path("algorithmVersion").asText());
+        assertEquals(0, new BigDecimal("0.75").compareTo(detail.path("alpha").decimalValue()));
         assertTrue(detail.path("fallbackMessage").asText().contains("完全匹配车型数量不足"));
         assertEquals("FALLBACK", detail.path("recommendStatus").asText());
         assertTrue(detail.path("createTime").isTextual());
@@ -224,6 +228,7 @@ class RecommendationControllerTest {
                 objectMapper.writeValueAsString(familyDemand.path("weights")),
                 familyRecordId);
         JsonNode legacySnapshotDetail = getJson("/api/recommend/" + familyRecordId);
+        assertEquals("weighted-sum-v1", legacySnapshotDetail.path("algorithmVersion").asText());
         assertEquals(0, familyDemand.path("weights").path("space").decimalValue()
                 .compareTo(legacySnapshotDetail.path("weights").path("space").decimalValue()));
 
@@ -265,6 +270,8 @@ class RecommendationControllerTest {
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.recordId").isNumber())
                 .andExpect(jsonPath("$.data.userId").value(1))
+                .andExpect(jsonPath("$.data.algorithmVersion").value("pareto-topsis-v1"))
+                .andExpect(jsonPath("$.data.alpha").isNumber())
                 .andReturn();
         return objectMapper.readTree(result.getResponse().getContentAsString(StandardCharsets.UTF_8)).path("data");
     }

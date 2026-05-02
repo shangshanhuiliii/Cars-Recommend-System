@@ -124,6 +124,8 @@ public class RecommendationServiceImpl implements RecommendationService {
         response.setDemandId(demand.getId());
         response.setUserId(userId);
         response.setProfileText(demand.getProfileText());
+        response.setAlgorithmVersion(weightSnapshot.algorithmVersion());
+        response.setAlpha(weightSnapshot.alpha());
         response.setFallbackMessage(fallbackMessage);
         response.setRecommendStatus(recommendStatus);
         response.setItems(itemVOs);
