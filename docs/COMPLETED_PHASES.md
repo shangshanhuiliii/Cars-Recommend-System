@@ -1,6 +1,6 @@
 # 已完成阶段汇总
 
-本文档记录项目当前已经完成并验收通过的阶段、实际能力、验证结果和后续注意事项。详细需求边界仍以 `PROJECT_SPEC.md` 为准；推荐算法公式和伪代码见 `RECOMMENDATION_ALGORITHM.md`；阶段计划见 `IMPLEMENTATION_TASKS.md`。
+本文档记录项目当前已经完成并验收通过的阶段、实际能力、验证结果和后续注意事项。详细需求边界仍以 `PROJECT_SPEC.md` 为准；当前主算法公式和伪代码见 `RECOMMENDATION_ALGORITHM_UPGRADE.md`，升级前算法基线和特征评分规则见 `RECOMMENDATION_ALGORITHM.md`；阶段计划见 `IMPLEMENTATION_TASKS.md`。
 
 项目主链路按以下顺序逐步闭环：
 
@@ -519,6 +519,70 @@
 - 自然语言解析需要按新字段输出 `bodyTypes`、`energyTypes`、`scenes`、`factorWeights`。
 - 用户端隐藏顶部强提示不代表后端删除 `fallbackMessage`；管理端和历史详情仍可展示。
 
+## 阶段 9.6：推荐算法升级为主客观组合权重 + Pareto-TOPSIS
+
+### 阶段目标
+
+将阶段 5 的加权求和基线升级为“基于主客观组合权重与 Pareto-TOPSIS 的可解释汽车推荐算法”，算法版本为 `pareto-topsis-v1`，同时保持推荐可解释、可降级、可追溯。
+
+### 已完成内容
+
+- 抽取候选生成、价格分、矩阵构建等算法组件，降低 `RecommendationServiceImpl` 复杂度。
+- 实现 `subjectiveWeight`、熵权法 `objectiveWeight`、组合权重 `finalWeight` 和 `alpha` 规则。
+- 扩展 `recommend_record.weight_snapshot`，保存 `algorithmVersion`、`alpha`、`subjectiveWeight`、`objectiveWeight`、`finalWeight`。
+- 实现 Pareto 非支配标记，第一版只用于组内排序优先，不删除候选，不新增数据库字段。
+- 实现 TOPSIS 排序，`recommend_item.total_score` 和 API `totalScore` 当前语义为 TOPSIS 推荐分 / 综合匹配度。
+- 保留边界兜底：候选数为 1 或 TOPSIS 距离无差异时使用加权效用 `fallbackScore`。
+- 升级 `reasonText` 为基于贡献度生成，升级 `weaknessText` 为基于正理想解差距生成。
+- 保持 `tags` 只表示推荐亮点，不写入 `matchLevel`、Pareto、TOPSIS 或降级技术状态。
+- 推荐结果和历史详情新增或解析 `algorithmVersion`、`alpha`，管理端可展示最终权重快照。
+- 前端推荐结果页按“完全匹配车型 / 推荐”分组展示，每组内部按后端 `rankNo` 升序展示，不再按 `totalScore`、口碑分或热度分二次排序。
+- 本地 MySQL 联调已通过三个答辩案例：家庭出行、城市通勤、极端条件。
+
+### 主要接口或页面
+
+- `POST /api/recommend/generate`
+- `GET /api/recommend/{recordId}`
+- `GET /api/recommend/history`
+- `/recommend/result/:recordId`
+- `/history`
+- `/admin/recommend-records`
+
+### 主要数据表或字段变化
+
+- 不新增数据库字段。
+- `recommend_record.weight_snapshot` JSON 结构升级为算法快照。
+- `recommend_item.total_score` 字段保留，语义从旧版加权求和分升级为 TOPSIS 推荐分。
+- `recommend_item.rank_no` 是历史和前端展示排序的权威快照。
+
+### 测试与验证结果
+
+- `mvn test` 通过。
+- `mvn package` 通过。
+- `npm run build` 通过。
+- `node scripts/verifyRecommendPresentation.mjs` 通过。
+- `git diff --check` 通过。
+- 搜索检查确认未恢复 `topK`、默认 Top 10 或 `min(5, topK)` 规则。
+- 本地 MySQL 联调确认：
+  - `algorithmVersion = pareto-topsis-v1`。
+  - `weight_snapshot` 包含主观权重、客观权重和最终权重。
+  - `totalScore` 在 0-100 范围内。
+  - `STRICT` 组始终在推荐组前。
+  - `rankNo` 连续且前端按后端顺序展示。
+  - `tags` 不包含技术状态词。
+  - `reasonText` 和 `weaknessText` 均来自快照。
+
+### 是否达到最低完成标准
+
+是。推荐算法已完成主客观组合权重、Pareto 非支配优先、TOPSIS 推荐分、解释升级、快照追溯和前端排序适配。
+
+### 遗留问题或后续注意事项
+
+- 加权求和只保留为历史基线、TOPSIS 边界兜底和论文对比，不再作为当前主排序算法。
+- TOPSIS 是相对候选集排序，候选集变化会影响 `totalScore`，答辩时不能解释为绝对市场评分。
+- Pareto 第一版不持久化 `paretoDominated`，历史通过 `rankNo`、`totalScore`、维度分和权重快照追溯用户可见排序。
+- 自然语言解析尚未实现，阶段 10 必须输出当前新字段，不得恢复旧字段或固定 TopK 规则。
+
 ## 当前 MVP 状态
 
 当前系统已经可以完成完整 MVP 主链路：
@@ -533,7 +597,7 @@
 - 车型多维特征评分。
 - 结构化购车需求保存。
 - 多车型类型、多动力类型、多使用场景和九维显式偏好权重建模。
-- 动态价格分和多维加权推荐。
+- 动态价格分、主客观组合权重、Pareto 非支配优先和 TOPSIS 推荐分。
 - 严格匹配和分级补充推荐。
 - 推荐标签、推荐理由和不足提醒。
 - 推荐记录和推荐明细快照保存。

@@ -1,10 +1,10 @@
-# 推荐算法详细说明
+# 推荐算法基线与特征评分说明
 
-本文档说明当前代码应实现的推荐算法公式、流程、字段和伪代码。`RECOMMENDATION_DESIGN.md` 负责推荐闭环概要和设计边界；本文档负责可执行算法细节，避免两份文档长期重复维护同一套公式。
+本文档保留升级前加权求和算法基线、车型特征评分规则、降级阶段边界和历史对比说明。阶段 9.6 后当前主算法为 `pareto-topsis-v1`，详细公式、流程和伪代码维护在 `RECOMMENDATION_ALGORITHM_UPGRADE.md`。本文中的加权求和仅作为历史算法基线、TOPSIS 边界兜底 `fallbackScore` 和升级前后对比使用。
 
 ## 1. 算法定位
 
-本项目采用的是面向汽车购买场景的可解释内容推荐算法：
+本项目采用的是面向汽车购买场景的可解释内容推荐算法。当前主算法是“基于主客观组合权重与 Pareto-TOPSIS 的可解释汽车推荐算法”；升级前基线算法具备以下共同特征：
 
 - 基于内容特征的可解释推荐。
 - 多维偏好权重建模。
@@ -25,7 +25,7 @@
 | `car_param` | 车型参数和配置，用于特征评分来源追溯 |
 | `car_feature_score` | 车型空间、安全、能耗、智能、舒适、动力、口碑、热度评分 |
 | `user_demand` | 用户预算、可接受车型/动力集合、场景、显式偏好、排除条件 |
-| 用户画像权重 | 九维推荐权重，用于综合分计算 |
+| 用户画像权重 | 九维推荐权重；升级前用于加权综合分，当前作为 `subjectiveWeight` 来源 |
 | 排除品牌 | 硬约束，降级阶段不放宽 |
 | 排除车型 | 硬约束，降级阶段不放宽 |
 | 默认演示用户 | `userId` 为空时使用 `app_user.id = 1` |
@@ -100,9 +100,9 @@ defaultWeight = normalize(rawDefaultWeight)
 
 ```text
 如果 factorWeights 至少一个维度 > 0：
-  finalWeights = normalize(factorWeights)
+  profileWeights = normalize(factorWeights)
 否则：
-  finalWeights = scenes 生成的默认权重
+  profileWeights = scenes 生成的默认权重
 ```
 
 如果 `factorWeights` 全部为 0 或未传，并且 `scenes` 也为空，则使用“综合需求”默认模板。
@@ -226,10 +226,18 @@ priceScore = 75
 - `budgetMin` 只影响价格匹配分。
 - `priceScore` 不写入车型评分表。
 
-## 7. 综合分计算
+## 7. 历史基线综合分与 TOPSIS 兜底
+
+阶段 9.6 前，推荐排序使用线性加权求和得到旧版 `totalScore`。阶段 9.6-D 起，`totalScore` 当前语义已升级为 TOPSIS 推荐分 / 综合匹配度，不再是主流程的简单加权求和分。
+
+以下公式仅用于三类场景：
+
+- 历史算法基线说明。
+- TOPSIS 候选数为 1 或加权矩阵无差异时的边界兜底 `fallbackScore`。
+- 论文中算法升级前后对比。
 
 ```text
-totalScore =
+weightedSumScore =
   priceScore * weightPrice
   + spaceScore * weightSpace
   + safetyScore * weightSafety
@@ -245,9 +253,9 @@ totalScore =
 
 - 所有维度分值为 0-100。
 - 所有权重总和为 1。
-- `totalScore` 保留合理小数位即可。
-- 排序规则：
-  1. `totalScore desc`
+- `weightedSumScore` 保留合理小数位即可。
+- 历史基线排序规则：
+  1. `weightedSumScore desc`
   2. `reputationScore desc`
   3. `popularityScore desc`
 
@@ -271,10 +279,12 @@ totalScore =
 - 阶段 9.5 后不再使用 `topK` 截断推荐结果。
 - `STRICT` 组返回全部完全匹配车型。
 - 非 `STRICT` 组返回全部补充推荐车型。
-- 最终展示顺序：
+- 历史基线最终展示顺序：
   - `STRICT` 组在前。
   - 推荐组在后。
-  - 每组内部按 `totalScore desc`、`reputationScore desc`、`popularityScore desc` 排序。
+  - 每组内部按加权分、`reputationScore desc`、`popularityScore desc` 排序。
+
+当前主算法的组内排序由 Pareto 非支配优先级和 TOPSIS 推荐分决定，并由后端写入 `rankNo`；详见 `RECOMMENDATION_ALGORITHM_UPGRADE.md`。
 
 ### 8.1 各阶段边界
 
@@ -468,7 +478,9 @@ EMPTY:
 
 历史记录读取快照，不重新计算历史推荐的 `tags`、分数、理由、不足和 `matchLevel`。
 
-## 13. 伪代码
+## 13. 历史基线伪代码
+
+以下伪代码描述升级前加权求和流程，用于理解历史基线和 TOPSIS 兜底来源。当前主流程的 Pareto-TOPSIS 伪代码见 `RECOMMENDATION_ALGORITHM_UPGRADE.md`。
 
 ```text
 function generateRecommendation(request):

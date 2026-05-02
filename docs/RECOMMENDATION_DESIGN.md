@@ -1,6 +1,6 @@
 # 推荐闭环设计
 
-本文档描述推荐系统的闭环设计、模块职责和边界。当前基线规则、评分细则、降级阶段、伪代码和示例场景统一维护在 `RECOMMENDATION_ALGORITHM.md`；主客观组合权重 + Pareto-TOPSIS 的升级设计和公式维护在 `RECOMMENDATION_ALGORITHM_UPGRADE.md`。数据库字段见 `DATABASE_DESIGN.md`，接口约定见 `API_DESIGN.md`，实施阶段见 `IMPLEMENTATION_TASKS.md`。
+本文档描述推荐系统的闭环设计、模块职责和边界。当前主算法的详细公式、流程和伪代码统一维护在 `RECOMMENDATION_ALGORITHM_UPGRADE.md`；升级前加权算法基线、特征评分规则和历史对比说明维护在 `RECOMMENDATION_ALGORITHM.md`。数据库字段见 `DATABASE_DESIGN.md`，接口约定见 `API_DESIGN.md`，实施阶段见 `IMPLEMENTATION_TASKS.md`。
 
 ## 1. 推荐目标
 
@@ -22,12 +22,12 @@
 本项目采用：
 
 ```text
-基于内容特征的规则评分与多维加权匹配推荐算法
+基于主客观组合权重与 Pareto-TOPSIS 的可解释汽车推荐算法
 ```
 
-该算法适合当前项目，因为车型参数和用户需求都可以结构化，且推荐结果需要在论文和答辩中解释清楚。
+该算法版本为 `pareto-topsis-v1`。它适合当前项目，因为车型参数和用户需求都可以结构化，候选车型数量适合多指标决策方法，且推荐结果需要在论文和答辩中解释清楚。
 
-阶段 9.6 起，在保留内容特征、降级推荐、推荐解释和推荐追溯的前提下，推荐排序升级为主客观组合权重、Pareto 非支配识别和 TOPSIS 多指标决策排序。升级设计只在 `RECOMMENDATION_ALGORITHM_UPGRADE.md` 中维护详细公式。
+阶段 9.6 起，在保留内容特征、降级推荐、推荐解释和推荐追溯的前提下，推荐排序已升级为主客观组合权重、Pareto 非支配识别和 TOPSIS 多指标决策排序。详细公式只在 `RECOMMENDATION_ALGORITHM_UPGRADE.md` 中维护。
 
 本项目不采用：
 
@@ -48,7 +48,7 @@
 5. 解释生成：生成 `tags`、`reasonText` 和 `weaknessText`。
 6. 追溯保存：保存 `recommend_record` 和 `recommend_item` 快照。
 
-详细公式和伪代码见 `RECOMMENDATION_ALGORITHM.md`。
+详细公式和伪代码见 `RECOMMENDATION_ALGORITHM_UPGRADE.md`。
 
 ## 4. 车型特征评分职责
 
@@ -109,7 +109,7 @@
 - `STRICT` 组：全部完全匹配车型。
 - 推荐组：全部非 `STRICT` 补充推荐车型。
 
-最终展示顺序为 `STRICT` 组在前，推荐组在后；每组内部先按 Pareto 非支配优先，再按 `totalScore`、口碑分、热度分排序。`totalScore` 字段继续保留，当前语义为 TOPSIS 推荐分，不再是旧版简单加权求和分。
+最终展示顺序为 `STRICT` 组在前，推荐组在后；后端每组内部先按 Pareto 非支配优先，再按 `totalScore`、口碑分、热度分排序并写入 `rankNo`。前端每组内部必须按后端返回的 `rankNo` 升序展示，不按 `totalScore`、口碑分或热度分二次排序。`totalScore` 字段继续保留，当前语义为 TOPSIS 推荐分，不再是旧版简单加权求和分。
 
 ## 7. 降级推荐职责
 
@@ -131,15 +131,15 @@
 - 用户端弱化技术性降级提示。
 - 管理端和历史详情保留 `matchLevel`、`recommendStatus` 和 `fallbackMessage` 用于追溯。
 
-各阶段边界和映射规则见 `RECOMMENDATION_ALGORITHM.md`。
+各阶段边界和映射规则见 `RECOMMENDATION_ALGORITHM_UPGRADE.md`。
 
 ## 8. 推荐解释职责
 
 推荐解释由三类内容组成：
 
 - `tags`：推荐亮点摘要，只展示优势标签。
-- `reasonText`：结合用户高权重维度和车型高分维度说明为什么推荐。
-- `weaknessText`：结合用户高权重维度和车型低分维度说明潜在不足。
+- `reasonText`：结合 `finalWeight` 和 TOPSIS 归一化表现，从贡献度较高的维度说明为什么推荐。
+- `weaknessText`：结合用户高权重维度和正理想解差距，说明潜在不足；无明显短板时使用均衡保底文案。
 
 `tags` 不允许包含匹配状态或降级状态，例如“完全匹配”“降级推荐”“放宽预算”“放宽车型”“放宽动力”“相似推荐”。`matchLevel` 不能混入 `tags`。
 
@@ -164,6 +164,8 @@
 - 推荐。
 
 用户端默认不展示 `fallbackMessage` 顶部强提示，不展示“降级推荐”等技术标签。管理端推荐记录页可以完整展示 `recommendStatus`、`fallbackMessage` 和 `matchLevel`。
+
+用户端每组内部以后端 `rankNo` 为唯一排序权威。前端只负责分组和展示，不重新计算、不重新排序推荐结果，以保留后端 Pareto-TOPSIS 排序结果。
 
 ## 11. 后续功能边界
 

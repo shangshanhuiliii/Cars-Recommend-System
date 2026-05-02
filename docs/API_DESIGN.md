@@ -1,6 +1,6 @@
 ﻿# API 设计
 
-本文档只描述接口分组、请求响应约定和核心字段。数据库字段见 `DATABASE_DESIGN.md`，推荐闭环概要见 `RECOMMENDATION_DESIGN.md`，推荐算法细节见 `RECOMMENDATION_ALGORITHM.md`，阶段任务见 `IMPLEMENTATION_TASKS.md`。
+本文档只描述接口分组、请求响应约定和核心字段。数据库字段见 `DATABASE_DESIGN.md`，推荐闭环概要见 `RECOMMENDATION_DESIGN.md`，当前主算法细节见 `RECOMMENDATION_ALGORITHM_UPGRADE.md`，阶段任务见 `IMPLEMENTATION_TASKS.md`。
 
 ## 1. 通用约定
 
@@ -387,10 +387,10 @@ GET  /api/user/demand/{id}
 }
 ```
 
-权重生成规则见 `RECOMMENDATION_ALGORITHM.md`。简要约定：
+用户画像主观权重生成规则见 `RECOMMENDATION_ALGORITHM_UPGRADE.md`。简要约定：
 
-- `factorWeights` 至少一个值大于 0 时，后端直接归一化 `factorWeights` 作为最终 `weights`。
-- `factorWeights` 全部为 0 时，后端根据 `scenes` 多场景模板平均值生成默认 `weights`。
+- `factorWeights` 至少一个值大于 0 时，后端直接归一化 `factorWeights` 作为用户画像主观权重。
+- `factorWeights` 全部为 0 时，后端根据 `scenes` 多场景模板平均值生成用户画像主观权重。
 - 旧请求字段 `bodyType`、`energyType`、`scene`、`focusFactors` 在需求模型重构后不再作为用户端标准请求字段。
 
 ### 2.6 推荐生成与追溯
@@ -458,6 +458,8 @@ GET  /api/recommend/history
 其中 `tags` 由推荐算法按高分维度生成，并保存为 `recommend_item.tags` 快照。推荐历史查询时应返回保存的标签快照，不应每次查询时重新生成。标签只用于前端卡片快速展示，不替代 `reasonText` 和 `weaknessText`。
 
 `items[].totalScore` 字段继续保留。阶段 9.6-D 起，该字段表示基于主客观组合权重与 TOPSIS 相对接近度得到的推荐分，取值范围为 0-100，保留 2 位小数；不再表示旧版简单加权求和分。详细算法公式只维护在 `RECOMMENDATION_ALGORITHM_UPGRADE.md`。
+
+`items[].rankNo` 是推荐结果展示排序的权威字段。后端已经按 `STRICT` 组优先、推荐组在后，并在组内应用 Pareto-TOPSIS 排序后写入 `rankNo`；前端推荐结果页和历史详情页应按 `rankNo` 升序展示，不再按 `totalScore`、`reputationScore` 或 `popularityScore` 二次排序。
 
 `algorithmVersion` 和 `alpha` 由 `recommend_record.weight_snapshot` 解析得到，用于管理端和历史详情区分旧版 `weighted-sum-v1` 与新版 `pareto-topsis-v1`。旧历史记录如果只保存扁平九维权重，详情响应可回退显示 `algorithmVersion = weighted-sum-v1`，`alpha` 可为空。
 

@@ -1,6 +1,6 @@
 ﻿# 数据库设计
 
-本文档只描述数据库表职责、关键字段和数据追溯关系。推荐闭环概要见 `RECOMMENDATION_DESIGN.md`，推荐算法细节见 `RECOMMENDATION_ALGORITHM.md`，接口设计见 `API_DESIGN.md`，实施计划见 `IMPLEMENTATION_TASKS.md`。
+本文档只描述数据库表职责、关键字段和数据追溯关系。推荐闭环概要见 `RECOMMENDATION_DESIGN.md`，当前主算法细节见 `RECOMMENDATION_ALGORITHM_UPGRADE.md`，升级前算法基线和特征评分规则见 `RECOMMENDATION_ALGORITHM.md`，接口设计见 `API_DESIGN.md`，实施计划见 `IMPLEMENTATION_TASKS.md`。
 
 ## 1. 设计原则
 
@@ -264,7 +264,7 @@ REJECTED：审核拒绝，不进入推荐候选
 | `user_id` | 用户 ID；演示模式下写入 `app_user.id = 1` |
 | `demand_id` | 用户需求 ID |
 | `profile_text` | 推荐时的画像文本快照 |
-| `weight_snapshot` | 权重快照，JSON 或文本 JSON |
+| `weight_snapshot` | 权重快照，JSON 或文本 JSON；新版包含 `algorithmVersion`、`alpha`、`subjectiveWeight`、`objectiveWeight`、`finalWeight` |
 | `fallback_message` | 降级提示 |
 | `recommend_status` | 推荐状态，例如 `SUCCESS`、`FALLBACK`、`EMPTY` |
 | `deleted` | 软删除 |
@@ -291,7 +291,7 @@ EMPTY：所有阶段都没有候选结果。
 | `record_id` | 推荐记录 ID |
 | `car_id` | 车型 ID |
 | `rank_no` | 排名 |
-| `total_score` | 综合分 |
+| `total_score` | 综合匹配度；阶段 9.6-D 起为 TOPSIS 推荐分，旧历史记录可能为加权求和基线分 |
 | `price_score` | 动态价格分 |
 | `space_score` | 空间分快照 |
 | `safety_score` | 安全分快照 |

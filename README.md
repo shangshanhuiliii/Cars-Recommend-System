@@ -1,24 +1,25 @@
 ﻿# Cars Recommend System
 
-基于多维偏好建模与可解释推荐的汽车购买推荐系统。
+基于主客观组合权重与 Pareto-TOPSIS 的可解释汽车购买推荐系统。
 
 本项目的最高优先级是推荐算法及其工程化实现，而不是普通车型 CRUD 或简单条件筛选。系统主链路是：
 
 ```text
-车型参数 -> 特征评分 -> 用户画像 -> 多维匹配 -> 推荐解释 -> 降级推荐 -> 推荐记录追溯
+车型参数 -> 特征评分 -> 用户画像 -> 多指标决策排序 -> 推荐解释 -> 降级推荐 -> 推荐记录追溯
 ```
 
 ## 文档导航
 
 - `docs/PROJECT_SPEC.md`：项目总览、范围边界、技术栈、功能优先级和验收口径。
 - `docs/RECOMMENDATION_DESIGN.md`：推荐闭环概要设计、模块职责和边界。
-- `docs/RECOMMENDATION_ALGORITHM.md`：当前推荐算法的公式、流程、字段、伪代码和示例场景。
-- `docs/RECOMMENDATION_ALGORITHM_UPGRADE.md`：主客观组合权重 + Pareto-TOPSIS 推荐算法升级设计。
+- `docs/RECOMMENDATION_ALGORITHM_UPGRADE.md`：当前主算法详细文档，算法版本为 `pareto-topsis-v1`。
+- `docs/RECOMMENDATION_ALGORITHM.md`：升级前加权算法基线、特征评分规则和历史对比说明。
 - `docs/DATABASE_DESIGN.md`：数据库表职责、关键字段和推荐追溯数据设计。
 - `docs/API_DESIGN.md`：前后端接口分组、请求响应约定和核心接口字段。
 - `docs/FRONTEND_DESIGN.md`：前端页面展示、交互规则、状态展示和样式规范。
 - `docs/IMPLEMENTATION_TASKS.md`：分阶段任务清单、最低完成标准、增强标准和里程碑。
 - `docs/COMPLETED_PHASES.md`：已完成阶段、验证结果、当前 MVP 状态和遗留事项。
+- `docs/DEFENSE_NOTES.md`：论文和答辩口径、演示案例和常见问题回答。
 - `AGENTS.md`：AI 编程代理和协作者必须遵守的项目级规则。
 
 ## 不纳入核心实现

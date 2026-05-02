@@ -4,13 +4,14 @@
 
 - `docs/PROJECT_SPEC.md`：项目规格、范围边界、功能优先级。
 - `docs/RECOMMENDATION_DESIGN.md`：推荐闭环概要设计和模块边界。
-- `docs/RECOMMENDATION_ALGORITHM.md`：推荐算法公式、流程、伪代码和示例。
-- `docs/RECOMMENDATION_ALGORITHM_UPGRADE.md`：主客观组合权重 + Pareto-TOPSIS 推荐算法升级设计。
+- `docs/RECOMMENDATION_ALGORITHM_UPGRADE.md`：当前主算法详细文档，算法版本为 `pareto-topsis-v1`。
+- `docs/RECOMMENDATION_ALGORITHM.md`：升级前加权算法基线、特征评分规则和历史对比说明。
 - `docs/DATABASE_DESIGN.md`：数据库表职责和关键字段。
 - `docs/API_DESIGN.md`：接口约定和核心请求响应。
 - `docs/FRONTEND_DESIGN.md`：前端页面展示、交互状态和样式规范。
 - `docs/IMPLEMENTATION_TASKS.md`：分阶段任务清单和验收标准。
 - `docs/COMPLETED_PHASES.md`：已完成阶段、验证结果和当前 MVP 状态。
+- `docs/DEFENSE_NOTES.md`：论文和答辩口径、演示案例和常见问题回答。
 
 ## 1. 最高优先级
 
@@ -82,7 +83,7 @@ util         评分、解析、权重归一化等工具
 
 - 数据库设计以 `docs/DATABASE_DESIGN.md` 为准。
 - 接口设计以 `docs/API_DESIGN.md` 为准。
-- 推荐闭环概要以 `docs/RECOMMENDATION_DESIGN.md` 为准；当前推荐算法公式和流程以 `docs/RECOMMENDATION_ALGORITHM.md` 为准；算法升级设计以 `docs/RECOMMENDATION_ALGORITHM_UPGRADE.md` 为准。
+- 推荐闭环概要以 `docs/RECOMMENDATION_DESIGN.md` 为准；当前主算法公式和流程以 `docs/RECOMMENDATION_ALGORITHM_UPGRADE.md` 为准；`docs/RECOMMENDATION_ALGORITHM.md` 只保留升级前加权算法基线、特征评分规则和历史对比说明。
 - 价格统一使用元，尺寸统一使用毫米，续航统一使用公里。
 - 若缺少完整真实数据，允许编写合理测试数据用于开发和测试，但字段必须符合汽车常识，且推荐总分仍必须由算法计算。
 - 普通用户表统一命名为 `app_user`，默认演示用户为 `app_user.id = 1`。
@@ -141,12 +142,14 @@ util         评分、解析、权重归一化等工具
 
 - 项目范围和优先级写入 `PROJECT_SPEC.md`。
 - 推荐闭环概要和模块边界写入 `RECOMMENDATION_DESIGN.md`。
-- 推荐算法公式、流程和伪代码写入 `RECOMMENDATION_ALGORITHM.md`。
+- 当前主算法公式、流程和伪代码写入 `RECOMMENDATION_ALGORITHM_UPGRADE.md`。
+- 升级前加权算法基线、特征评分规则和历史对比说明写入 `RECOMMENDATION_ALGORITHM.md`。
 - 表结构和字段写入 `DATABASE_DESIGN.md`。
 - 接口写入 `API_DESIGN.md`。
 - 前端页面、交互和样式规范写入 `FRONTEND_DESIGN.md`。
 - 阶段任务写入 `IMPLEMENTATION_TASKS.md`。
 - 已完成阶段和当前 MVP 状态写入 `COMPLETED_PHASES.md`。
+- 论文和答辩口径、演示案例和常见问题写入 `DEFENSE_NOTES.md`。
 
 不要在多个文档中重复维护同一份详细内容，避免出现冲突。
 
