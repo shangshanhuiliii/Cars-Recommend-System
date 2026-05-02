@@ -3,6 +3,7 @@ package com.carsrecommend.system.service.impl;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Service;
@@ -18,11 +19,17 @@ public class TopsisRanker {
             List<RecommendationScoreVector> scoreVectors,
             Map<String, BigDecimal> finalWeight,
             List<BigDecimal> fallbackScores) {
+        return analyze(scoreVectors, finalWeight, fallbackScores).items().stream()
+                .map(TopsisItemResult::totalScore)
+                .toList();
+    }
+
+    public TopsisRankingResult analyze(
+            List<RecommendationScoreVector> scoreVectors,
+            Map<String, BigDecimal> finalWeight,
+            List<BigDecimal> fallbackScores) {
         if (scoreVectors.isEmpty()) {
-            return List.of();
-        }
-        if (scoreVectors.size() == 1) {
-            return List.of(normalizeScore(fallbackScores.get(0)));
+            return new TopsisRankingResult(List.of());
         }
 
         double[][] normalizedMatrix = normalizedMatrix(scoreVectors);
@@ -30,19 +37,25 @@ public class TopsisRanker {
         double[] positiveIdeal = positiveIdeal(weightedMatrix);
         double[] negativeIdeal = negativeIdeal(weightedMatrix);
 
-        List<BigDecimal> totalScores = new ArrayList<>();
+        List<TopsisItemResult> items = new ArrayList<>();
         for (int i = 0; i < scoreVectors.size(); i++) {
             double positiveDistance = distance(weightedMatrix[i], positiveIdeal);
             double negativeDistance = distance(weightedMatrix[i], negativeIdeal);
             double distanceSum = positiveDistance + negativeDistance;
+            BigDecimal totalScore;
             if (distanceSum <= ZERO_TOLERANCE) {
-                totalScores.add(normalizeScore(fallbackScores.get(i)));
+                totalScore = normalizeScore(fallbackScores.get(i));
             } else {
-                totalScores.add(normalizeScore(BigDecimal.valueOf(negativeDistance / distanceSum)
-                        .multiply(ONE_HUNDRED)));
+                totalScore = normalizeScore(BigDecimal.valueOf(negativeDistance / distanceSum)
+                        .multiply(ONE_HUNDRED));
             }
+            items.add(new TopsisItemResult(
+                    totalScore,
+                    toScoreMap(normalizedMatrix[i]),
+                    toScoreMap(weightedMatrix[i]),
+                    toScoreMap(positiveIdeal)));
         }
-        return totalScores;
+        return new TopsisRankingResult(List.copyOf(items));
     }
 
     private double[][] normalizedMatrix(List<RecommendationScoreVector> scoreVectors) {
@@ -131,5 +144,25 @@ public class TopsisRanker {
         return value.max(BigDecimal.ZERO)
                 .min(ONE_HUNDRED)
                 .setScale(SCORE_SCALE, RoundingMode.HALF_UP);
+    }
+
+    private Map<String, BigDecimal> toScoreMap(double[] values) {
+        Map<String, BigDecimal> result = new LinkedHashMap<>();
+        for (int index = 0; index < RecommendationDimension.ORDERED.size(); index++) {
+            result.put(
+                    RecommendationDimension.ORDERED.get(index).key(),
+                    BigDecimal.valueOf(values[index]).setScale(8, RoundingMode.HALF_UP));
+        }
+        return result;
+    }
+
+    public record TopsisRankingResult(List<TopsisItemResult> items) {
+    }
+
+    public record TopsisItemResult(
+            BigDecimal totalScore,
+            Map<String, BigDecimal> normalizedScore,
+            Map<String, BigDecimal> weightedNormalizedScore,
+            Map<String, BigDecimal> positiveIdeal) {
     }
 }

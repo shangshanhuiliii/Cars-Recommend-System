@@ -23,9 +23,7 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,8 +39,6 @@ public class RecommendationServiceImpl implements RecommendationService {
     private static final String NO_STRICT_FALLBACK_MESSAGE =
             "未找到完全匹配车型，系统已根据您的核心偏好提供相近推荐。";
     private static final String EMPTY_RECOMMEND_MESSAGE = "暂未找到合适车型，请调整预算、车型类型或动力类型后重试。";
-    private static final String DEFAULT_REASON_TEXT = "该车型在多个维度上与您的需求较为接近，可作为备选车型进一步对比。";
-    private static final String DEFAULT_WEAKNESS_TEXT = "该车型整体匹配较均衡，暂无明显短板。";
 
     private final UserDemandMapper userDemandMapper;
     private final RecommendRecordMapper recommendRecordMapper;
@@ -52,6 +48,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     private final RecommendationWeightService recommendationWeightService;
     private final ParetoAnalyzer paretoAnalyzer;
     private final TopsisRanker topsisRanker;
+    private final RecommendationExplanationService recommendationExplanationService;
     private final ObjectMapper objectMapper;
 
     public RecommendationServiceImpl(
@@ -63,6 +60,7 @@ public class RecommendationServiceImpl implements RecommendationService {
             RecommendationWeightService recommendationWeightService,
             ParetoAnalyzer paretoAnalyzer,
             TopsisRanker topsisRanker,
+            RecommendationExplanationService recommendationExplanationService,
             ObjectMapper objectMapper) {
         this.userDemandMapper = userDemandMapper;
         this.recommendRecordMapper = recommendRecordMapper;
@@ -72,6 +70,7 @@ public class RecommendationServiceImpl implements RecommendationService {
         this.recommendationWeightService = recommendationWeightService;
         this.paretoAnalyzer = paretoAnalyzer;
         this.topsisRanker = topsisRanker;
+        this.recommendationExplanationService = recommendationExplanationService;
         this.objectMapper = objectMapper;
     }
 
@@ -168,13 +167,21 @@ public class RecommendationServiceImpl implements RecommendationService {
     private List<ScoredRecommendation> applyTopsisScore(
             List<ScoredRecommendation> items,
             RecommendationWeightSnapshot weightSnapshot) {
-        List<BigDecimal> topsisScores = topsisRanker.rank(
-                scoreVectors(items),
+        List<RecommendationScoreVector> scoreVectors = scoreVectors(items);
+        TopsisRanker.TopsisRankingResult rankingResult = topsisRanker.analyze(
+                scoreVectors,
                 weightSnapshot.finalWeight(),
                 items.stream().map(ScoredRecommendation::fallbackScore).toList());
         List<ScoredRecommendation> topsisScoredItems = new ArrayList<>();
         for (int index = 0; index < items.size(); index++) {
-            topsisScoredItems.add(items.get(index).withTotalScore(topsisScores.get(index)));
+            TopsisRanker.TopsisItemResult topsisResult = rankingResult.items().get(index);
+            RecommendationExplanationService.Explanation explanation = recommendationExplanationService.generate(
+                    scoreVectors.get(index),
+                    topsisResult,
+                    weightSnapshot.finalWeight());
+            topsisScoredItems.add(items.get(index)
+                    .withTotalScore(topsisResult.totalScore())
+                    .withExplanation(explanation));
         }
         return topsisScoredItems;
     }
@@ -220,9 +227,6 @@ public class RecommendationServiceImpl implements RecommendationService {
             UserDemand demand) {
         BigDecimal priceScore = priceScoreCalculator.calculate(candidate.car().getGuidePrice(), demand);
         BigDecimal fallbackScore = calculateFallbackScore(priceScore, candidate.featureScore(), demand);
-        List<String> tags = generateTags(priceScore, candidate.featureScore());
-        String reasonText = generateReasonText(priceScore, candidate.featureScore(), demand);
-        String weaknessText = generateWeaknessText(priceScore, candidate.featureScore(), demand);
         return new ScoredRecommendation(
                 candidate.car(),
                 candidate.featureScore(),
@@ -230,9 +234,9 @@ public class RecommendationServiceImpl implements RecommendationService {
                 fallbackScore,
                 fallbackScore,
                 candidate.matchLevel(),
-                tags,
-                reasonText,
-                weaknessText,
+                List.of(),
+                "",
+                "",
                 false);
     }
 
@@ -252,165 +256,6 @@ public class RecommendationServiceImpl implements RecommendationService {
 
     private BigDecimal weight(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value;
-    }
-
-    private List<String> generateTags(BigDecimal priceScore, CarFeatureScore score) {
-        List<TagCandidate> candidates = new ArrayList<>();
-        addTag(candidates, score.getSpaceScore(), "空间优秀", new BigDecimal("85"));
-        addTag(candidates, score.getSafetyScore(), "安全配置高", new BigDecimal("85"));
-        addTag(candidates, score.getEnergyScore(), "能耗表现好", new BigDecimal("85"));
-        addTag(candidates, score.getIntelligenceScore(), "智能配置丰富", new BigDecimal("85"));
-        addTag(candidates, score.getComfortScore(), "舒适性较好", new BigDecimal("85"));
-        addTag(candidates, score.getPowerScore(), "动力表现强", new BigDecimal("85"));
-        addTag(candidates, score.getReputationScore(), "口碑较好", new BigDecimal("85"));
-        addTag(candidates, score.getPopularityScore(), "热门车型", new BigDecimal("85"));
-        addTag(candidates, priceScore, "价格匹配度高", new BigDecimal("90"));
-
-        if (candidates.isEmpty()) {
-            return List.of("表现均衡", "接近需求");
-        }
-        candidates.sort(Comparator.comparing(TagCandidate::score).reversed());
-        return candidates.stream()
-                .limit(3)
-                .map(TagCandidate::label)
-                .toList();
-    }
-
-    private String generateReasonText(BigDecimal priceScore, CarFeatureScore score, UserDemand demand) {
-        List<DimensionScore> dimensions = dimensionScores(priceScore, score, demand);
-        List<DimensionScore> topWeightedDimensions = dimensions.stream()
-                .sorted(Comparator.comparing(DimensionScore::weight, Comparator.reverseOrder()))
-                .limit(4)
-                .toList();
-        List<String> reasons = new ArrayList<>();
-        Set<String> usedKeys = new LinkedHashSet<>();
-
-        for (DimensionScore dimension : topWeightedDimensions) {
-            if (dimension.score().compareTo(new BigDecimal("80")) >= 0) {
-                addReason(reasons, usedKeys, dimension);
-            }
-            if (reasons.size() >= 3) {
-                break;
-            }
-        }
-
-        if (reasons.size() < 2) {
-            for (DimensionScore dimension : dimensionsByScoreDesc(dimensions)) {
-                if (dimension.score().compareTo(new BigDecimal("80")) >= 0) {
-                    addReason(reasons, usedKeys, dimension);
-                }
-                if (reasons.size() >= 3) {
-                    break;
-                }
-            }
-        }
-
-        if (reasons.size() < 2) {
-            for (DimensionScore dimension : dimensionsByScoreDesc(dimensions)) {
-                addReason(reasons, usedKeys, dimension);
-                if (reasons.size() >= 2) {
-                    break;
-                }
-            }
-        }
-
-        if (reasons.isEmpty()) {
-            return DEFAULT_REASON_TEXT;
-        }
-        return String.join("；", reasons);
-    }
-
-    private String generateWeaknessText(BigDecimal priceScore, CarFeatureScore score, UserDemand demand) {
-        List<DimensionScore> topWeightedDimensions = dimensionScores(priceScore, score, demand).stream()
-                .sorted(Comparator.comparing(DimensionScore::weight, Comparator.reverseOrder()))
-                .limit(4)
-                .toList();
-        List<String> weaknesses = new ArrayList<>();
-        for (DimensionScore dimension : topWeightedDimensions) {
-            if (dimension.score().compareTo(new BigDecimal("65")) < 0) {
-                weaknesses.add(dimension.weaknessText());
-            }
-            if (weaknesses.size() >= 2) {
-                break;
-            }
-        }
-        return weaknesses.isEmpty() ? DEFAULT_WEAKNESS_TEXT : String.join("；", weaknesses);
-    }
-
-    private void addReason(List<String> reasons, Set<String> usedKeys, DimensionScore dimension) {
-        if (usedKeys.add(dimension.key())) {
-            reasons.add(dimension.reasonText());
-        }
-    }
-
-    private List<DimensionScore> dimensionsByScoreDesc(List<DimensionScore> dimensions) {
-        return dimensions.stream()
-                .sorted(Comparator.comparing(DimensionScore::score, Comparator.reverseOrder()))
-                .toList();
-    }
-
-    private List<DimensionScore> dimensionScores(BigDecimal priceScore, CarFeatureScore score, UserDemand demand) {
-        return List.of(
-                new DimensionScore(
-                        "price",
-                        weight(demand.getWeightPrice()),
-                        priceScore,
-                        "该车型价格与您的预算匹配度较高，有助于控制购车成本。",
-                        "该车型价格匹配度偏低，可能与您的预算区间存在一定偏差。"),
-                new DimensionScore(
-                        "space",
-                        weight(demand.getWeightSpace()),
-                        score.getSpaceScore(),
-                        "该车型空间表现较好，适合家庭出行和多人乘坐场景。",
-                        "该车型空间表现相对一般，如果您经常满载或重视乘坐宽敞度，需要重点对比。"),
-                new DimensionScore(
-                        "safety",
-                        weight(demand.getWeightSafety()),
-                        score.getSafetyScore(),
-                        "该车型安全配置得分较高，符合您对安全性的关注。",
-                        "该车型安全配置得分偏低，如果您重视主动安全和安全气囊配置，需要谨慎比较。"),
-                new DimensionScore(
-                        "energy",
-                        weight(demand.getWeightEnergy()),
-                        score.getEnergyScore(),
-                        "该车型能耗表现较好，日常用车成本和续航表现更有优势。",
-                        "该车型能耗或续航表现偏弱，如果您关注长期用车成本，需要继续对比。"),
-                new DimensionScore(
-                        "intelligence",
-                        weight(demand.getWeightIntelligence()),
-                        score.getIntelligenceScore(),
-                        "该车型智能配置较丰富，能提升车机体验和辅助驾驶便利性。",
-                        "该车型智能配置表现一般，如果您更看重车机体验和辅助驾驶，可继续对比其他车型。"),
-                new DimensionScore(
-                        "comfort",
-                        weight(demand.getWeightComfort()),
-                        score.getComfortScore(),
-                        "该车型舒适性表现较好，适合日常通勤和长途乘坐。",
-                        "该车型舒适性得分偏低，如果您重视乘坐体验，需要关注空间、配置和口碑差异。"),
-                new DimensionScore(
-                        "power",
-                        weight(demand.getWeightPower()),
-                        score.getPowerScore(),
-                        "该车型动力表现较强，适合看重加速和驾驶响应的用户。",
-                        "该车型动力表现一般，如果您经常高速或满载出行，需要重点试驾确认。"),
-                new DimensionScore(
-                        "reputation",
-                        weight(demand.getWeightReputation()),
-                        score.getReputationScore(),
-                        "该车型口碑评分较高，用户评价和可靠性表现更稳。",
-                        "该车型口碑得分一般，建议结合真实车主评价和售后表现继续判断。"),
-                new DimensionScore(
-                        "popularity",
-                        weight(demand.getWeightPopularity()),
-                        score.getPopularityScore(),
-                        "该车型市场热度较高，销量基础和关注度表现较好。",
-                        "该车型市场热度一般，可结合保有量和后续用车便利性继续判断。"));
-    }
-
-    private void addTag(List<TagCandidate> candidates, BigDecimal score, String label, BigDecimal threshold) {
-        if (score != null && score.compareTo(threshold) >= 0) {
-            candidates.add(new TagCandidate(label, score));
-        }
     }
 
     private Comparator<ScoredRecommendation> recommendationComparator() {
@@ -545,16 +390,19 @@ public class RecommendationServiceImpl implements RecommendationService {
                     weaknessText,
                     paretoDominated);
         }
-    }
 
-    private record DimensionScore(
-            String key,
-            BigDecimal weight,
-            BigDecimal score,
-            String reasonText,
-            String weaknessText) {
-    }
-
-    private record TagCandidate(String label, BigDecimal score) {
+        private ScoredRecommendation withExplanation(RecommendationExplanationService.Explanation explanation) {
+            return new ScoredRecommendation(
+                    car,
+                    featureScore,
+                    priceScore,
+                    fallbackScore,
+                    totalScore,
+                    matchLevel,
+                    explanation.tags(),
+                    explanation.reasonText(),
+                    explanation.weaknessText(),
+                    paretoDominated);
+        }
     }
 }

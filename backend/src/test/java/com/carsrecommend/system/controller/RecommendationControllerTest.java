@@ -95,6 +95,7 @@ class RecommendationControllerTest {
         assertTrue(containsNonStrictMatchLevel(familyRecommend.path("items")));
         assertGroupedAndSorted(familyRecommend);
         assertNoTechnicalTags(familyRecommend.path("items"));
+        assertNoAlgorithmTermsInUserTexts(familyRecommend.path("items"));
         assertTotalScoreUsesTopsis(familyDemand, familyRecommend.path("items"));
         assertRecordAndItemSnapshotsSaved(familyRecommend, "FALLBACK");
         assertSavedRecommendationItemTexts(familyRecommend);
@@ -556,6 +557,24 @@ class RecommendationControllerTest {
             assertFalse(containsTag(item, "放宽车型"));
             assertFalse(containsTag(item, "放宽动力"));
             assertFalse(containsTag(item, "相似推荐"));
+            assertFalse(containsTag(item, "STRICT"));
+            assertFalse(containsTag(item, "RELAX_BUDGET"));
+            assertFalse(containsTag(item, "RELAX_BODY_TYPE"));
+            assertFalse(containsTag(item, "RELAX_ENERGY_TYPE"));
+            assertFalse(containsTag(item, "SIMILAR_RECOMMEND"));
+            assertFalse(containsTag(item, "TOPSIS"));
+            assertFalse(containsTag(item, "Pareto"));
+        }
+    }
+
+    private void assertNoAlgorithmTermsInUserTexts(JsonNode items) {
+        for (JsonNode item : items) {
+            String reasonText = item.path("reasonText").asText();
+            String weaknessText = item.path("weaknessText").asText();
+            assertFalse(reasonText.contains("TOPSIS"));
+            assertFalse(reasonText.contains("Pareto"));
+            assertFalse(weaknessText.contains("TOPSIS"));
+            assertFalse(weaknessText.contains("Pareto"));
         }
     }
 
