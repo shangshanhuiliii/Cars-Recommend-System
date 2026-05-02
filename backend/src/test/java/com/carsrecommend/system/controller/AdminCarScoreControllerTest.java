@@ -66,13 +66,13 @@ class AdminCarScoreControllerTest {
                 INSERT INTO car_model (
                     id, brand, series, model_name, guide_price, body_type, energy_type,
                     seats, launch_year, image_url, sales_volume, user_rating, audit_status
-                ) VALUES (101, 'Test', 'MissingParam', 'Missing Param SUV', 120000, 'SUV', '纯电',
+                ) VALUES (1001, 'Test', 'MissingParam', 'Missing Param SUV', 120000, 'SUV', '纯电',
                     5, 2026, '', 1000, 4.0, 'APPROVED')
                 """);
 
-        mockMvc.perform(post("/api/admin/cars/{id}/score/recalculate", 101))
+        mockMvc.perform(post("/api/admin/cars/{id}/score/recalculate", 1001))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.carId").value(101))
+                .andExpect(jsonPath("$.data.carId").value(1001))
                 .andExpect(jsonPath("$.data.spaceScore").value(63.00))
                 .andExpect(jsonPath("$.data.safetyScore").value(30.00))
                 .andExpect(jsonPath("$.data.energyScore").value(60.00))
@@ -81,9 +81,9 @@ class AdminCarScoreControllerTest {
 
         mockMvc.perform(post("/api/admin/cars/scores/recalculate"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.recalculatedCount").value(21))
-                .andExpect(jsonPath("$.data.records.length()").value(21));
-        assertEquals(21, count("SELECT COUNT(*) FROM car_feature_score"));
+                .andExpect(jsonPath("$.data.recalculatedCount").value(121))
+                .andExpect(jsonPath("$.data.records.length()").value(121));
+        assertEquals(121, count("SELECT COUNT(*) FROM car_feature_score"));
 
         BigDecimal topPopularity = jdbcTemplate.queryForObject(
                 "SELECT popularity_score FROM car_feature_score WHERE car_id = 1",

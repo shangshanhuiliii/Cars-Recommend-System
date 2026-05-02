@@ -27,8 +27,8 @@ class DatabaseSchemaSeedTest {
             assertEquals(1, count(connection, "SELECT COUNT(*) FROM app_user WHERE id = 1 AND username = 'demo_user'"));
             assertEquals(1, count(connection, "SELECT COUNT(*) FROM admin WHERE id = 1 AND username = 'demo_admin'"));
 
-            assertEquals(20, count(connection, "SELECT COUNT(*) FROM car_model"));
-            assertEquals(20, count(connection, "SELECT COUNT(*) FROM car_param"));
+            assertEquals(120, count(connection, "SELECT COUNT(*) FROM car_model"));
+            assertEquals(120, count(connection, "SELECT COUNT(*) FROM car_param"));
             assertEquals(3, count(connection, "SELECT COUNT(DISTINCT body_type) FROM car_model"));
             assertEquals(4, count(connection, "SELECT COUNT(DISTINCT energy_type) FROM car_model"));
             assertEquals(0, count(connection, "SELECT COUNT(*) FROM car_model WHERE energy_type = '新能源'"));
@@ -36,12 +36,28 @@ class DatabaseSchemaSeedTest {
                     "SELECT COUNT(*) FROM car_model WHERE energy_type NOT IN ('燃油', '纯电', '插混', '增程')"));
             assertEquals(0, count(connection,
                     "SELECT COUNT(*) FROM car_param p LEFT JOIN car_model c ON p.car_id = c.id WHERE c.id IS NULL"));
+            assertEquals(0, count(connection,
+                    "SELECT COUNT(*) FROM car_model c LEFT JOIN car_param p ON c.id = p.car_id WHERE p.car_id IS NULL"));
+
+            assertTrue(count(connection, "SELECT COUNT(*) FROM car_model WHERE body_type = 'SUV'") >= 40);
+            assertTrue(count(connection, "SELECT COUNT(*) FROM car_model WHERE body_type = '轿车'") >= 40);
+            assertTrue(count(connection, "SELECT COUNT(*) FROM car_model WHERE body_type = 'MPV'") >= 20);
+            assertTrue(count(connection, "SELECT COUNT(*) FROM car_model WHERE energy_type = '燃油'") >= 30);
+            assertTrue(count(connection, "SELECT COUNT(*) FROM car_model WHERE energy_type = '纯电'") >= 30);
+            assertTrue(count(connection, "SELECT COUNT(*) FROM car_model WHERE energy_type = '插混'") >= 25);
+            assertTrue(count(connection, "SELECT COUNT(*) FROM car_model WHERE energy_type = '增程'") >= 15);
+            assertTrue(count(connection, "SELECT COUNT(DISTINCT brand) FROM car_model") >= 25);
 
             assertTrue(count(connection, "SELECT COUNT(*) FROM car_model WHERE guide_price < 80000") > 0);
             assertTrue(count(connection, "SELECT COUNT(*) FROM car_model WHERE guide_price BETWEEN 80000 AND 120000") > 0);
-            assertTrue(count(connection, "SELECT COUNT(*) FROM car_model WHERE guide_price BETWEEN 100000 AND 150000") > 0);
-            assertTrue(count(connection, "SELECT COUNT(*) FROM car_model WHERE guide_price BETWEEN 150000 AND 250000") > 0);
-            assertTrue(count(connection, "SELECT COUNT(*) FROM car_model WHERE guide_price > 250000") > 0);
+            assertTrue(count(connection, "SELECT COUNT(*) FROM car_model WHERE guide_price BETWEEN 120000 AND 180000") > 0);
+            assertTrue(count(connection, "SELECT COUNT(*) FROM car_model WHERE guide_price BETWEEN 180000 AND 250000") > 0);
+            assertTrue(count(connection, "SELECT COUNT(*) FROM car_model WHERE guide_price BETWEEN 250000 AND 400000") > 0);
+            assertTrue(count(connection, "SELECT COUNT(*) FROM car_model WHERE guide_price > 400000") > 0);
+            assertTrue(count(connection, "SELECT COUNT(*) FROM car_model WHERE seats = 4") > 0);
+            assertTrue(count(connection, "SELECT COUNT(*) FROM car_model WHERE seats = 5") > 0);
+            assertTrue(count(connection, "SELECT COUNT(*) FROM car_model WHERE seats = 6") > 0);
+            assertTrue(count(connection, "SELECT COUNT(*) FROM car_model WHERE seats = 7") > 0);
 
             assertColumnSelectable(connection,
                     "SELECT body_types, energy_types, min_seats, scenes, factor_weights, excluded_car_ids "

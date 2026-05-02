@@ -52,7 +52,7 @@ class RecommendationControllerTest {
     void generateUsesNewDemandModelGroupingAndSnapshotPersistence() throws Exception {
         mockMvc.perform(post("/api/admin/cars/scores/recalculate"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.recalculatedCount").value(20));
+                .andExpect(jsonPath("$.data.recalculatedCount").value(120));
 
         JsonNode broadDemand = postDemand("""
                 {
@@ -63,7 +63,7 @@ class RecommendationControllerTest {
         JsonNode broadRecommend = generate(broadDemand.path("id").asLong());
         assertEquals("SUCCESS", broadRecommend.path("recommendStatus").asText());
         assertEquals("已为您找到完全匹配车型", broadRecommend.path("fallbackMessage").asText());
-        assertEquals(20, broadRecommend.path("items").size());
+        assertEquals(120, broadRecommend.path("items").size());
         assertAllMatchLevel(broadRecommend.path("items"), "STRICT");
         assertGroupedAndSorted(broadRecommend.path("items"));
         assertRankNoAscending(broadRecommend.path("items"));

@@ -5,6 +5,7 @@
 - `docs/PROJECT_SPEC.md`：项目规格、范围边界、功能优先级。
 - `docs/RECOMMENDATION_DESIGN.md`：推荐闭环概要设计和模块边界。
 - `docs/RECOMMENDATION_ALGORITHM.md`：推荐算法公式、流程、伪代码和示例。
+- `docs/RECOMMENDATION_ALGORITHM_UPGRADE.md`：主客观组合权重 + Pareto-TOPSIS 推荐算法升级设计。
 - `docs/DATABASE_DESIGN.md`：数据库表职责和关键字段。
 - `docs/API_DESIGN.md`：接口约定和核心请求响应。
 - `docs/FRONTEND_DESIGN.md`：前端页面展示、交互状态和样式规范。
@@ -81,7 +82,7 @@ util         评分、解析、权重归一化等工具
 
 - 数据库设计以 `docs/DATABASE_DESIGN.md` 为准。
 - 接口设计以 `docs/API_DESIGN.md` 为准。
-- 推荐闭环概要以 `docs/RECOMMENDATION_DESIGN.md` 为准；推荐算法公式和流程以 `docs/RECOMMENDATION_ALGORITHM.md` 为准。
+- 推荐闭环概要以 `docs/RECOMMENDATION_DESIGN.md` 为准；当前推荐算法公式和流程以 `docs/RECOMMENDATION_ALGORITHM.md` 为准；算法升级设计以 `docs/RECOMMENDATION_ALGORITHM_UPGRADE.md` 为准。
 - 价格统一使用元，尺寸统一使用毫米，续航统一使用公里。
 - 若缺少完整真实数据，允许编写合理测试数据用于开发和测试，但字段必须符合汽车常识，且推荐总分仍必须由算法计算。
 - 普通用户表统一命名为 `app_user`，默认演示用户为 `app_user.id = 1`。

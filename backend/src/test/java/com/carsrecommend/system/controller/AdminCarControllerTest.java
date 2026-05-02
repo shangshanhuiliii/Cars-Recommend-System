@@ -56,7 +56,7 @@ class AdminCarControllerTest {
                         .param("size", "5"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.total").value(20))
+                .andExpect(jsonPath("$.data.total").value(120))
                 .andExpect(jsonPath("$.data.page").value(1))
                 .andExpect(jsonPath("$.data.size").value(5))
                 .andExpect(jsonPath("$.data.records.length()").value(5));

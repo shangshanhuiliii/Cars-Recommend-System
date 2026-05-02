@@ -1,6 +1,6 @@
 # 推荐闭环设计
 
-本文档描述推荐系统的闭环设计、模块职责和边界。具体算法公式、评分细则、降级阶段、伪代码和示例场景统一维护在 `RECOMMENDATION_ALGORITHM.md`，避免两份文档重复维护同一套规则。数据库字段见 `DATABASE_DESIGN.md`，接口约定见 `API_DESIGN.md`，实施阶段见 `IMPLEMENTATION_TASKS.md`。
+本文档描述推荐系统的闭环设计、模块职责和边界。当前已实现算法的公式、评分细则、降级阶段、伪代码和示例场景统一维护在 `RECOMMENDATION_ALGORITHM.md`；主客观组合权重 + Pareto-TOPSIS 的后续升级设计维护在 `RECOMMENDATION_ALGORITHM_UPGRADE.md`。数据库字段见 `DATABASE_DESIGN.md`，接口约定见 `API_DESIGN.md`，实施阶段见 `IMPLEMENTATION_TASKS.md`。
 
 ## 1. 推荐目标
 
@@ -26,6 +26,8 @@
 ```
 
 该算法适合当前项目，因为车型参数和用户需求都可以结构化，且推荐结果需要在论文和答辩中解释清楚。
+
+后续升级目标是在保留内容特征、降级推荐、推荐解释和推荐追溯的前提下，引入主客观组合权重、Pareto 非支配识别和 TOPSIS 多指标决策排序。升级设计只在 `RECOMMENDATION_ALGORITHM_UPGRADE.md` 中维护详细公式。
 
 本项目不采用：
 
