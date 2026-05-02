@@ -84,6 +84,7 @@ class AlgorithmVisualizationControllerTest {
         assertEquals(5, visualization.path("demand").path("minSeats").asInt());
         assertTrue(visualization.path("constraints").size() >= 6);
         assertEquals(15, visualization.path("pipeline").size());
+        assertPipelineDetailed(visualization.path("pipeline"));
         assertEquals(5, visualization.path("stageStats").size());
         assertTrue(visualization.path("featureScoreRules").size() >= 9);
         assertTrue(visualization.path("snapshotNote").asText().contains("不会重新生成推荐"));
@@ -105,6 +106,17 @@ class AlgorithmVisualizationControllerTest {
         assertTrue(firstItem.path("topsis").path("negativeDistance").decimalValue().compareTo(BigDecimal.ZERO) >= 0);
         assertTrue(firstItem.path("contribution").path("space").isNumber());
         assertTrue(firstItem.path("gap").path("space").isNumber());
+        JsonNode featureScoreExample = visualization.path("featureScoreExample");
+        assertEquals(firstItem.path("carId").asLong(), featureScoreExample.path("carId").asLong());
+        assertTrue(featureScoreExample.path("brand").asText().length() > 0);
+        assertTrue(featureScoreExample.path("params").has("wheelbaseMm"));
+        assertTrue(featureScoreExample.path("scores").path("space").isNumber());
+        assertTrue(featureScoreExample.path("scores").path("safety").isNumber());
+        assertTrue(featureScoreExample.path("scoreBreakdown").isArray());
+        assertScoreBreakdownContains(featureScoreExample.path("scoreBreakdown"), "space");
+        assertScoreBreakdownContains(featureScoreExample.path("scoreBreakdown"), "safety");
+        assertScoreBreakdownContains(featureScoreExample.path("scoreBreakdown"), "energy");
+        assertScoreBreakdownContains(featureScoreExample.path("scoreBreakdown"), "comfort");
         assertNoTechnicalTags(items);
         assertEquals(recordCountBefore, count("SELECT COUNT(*) FROM recommend_record"));
         assertEquals(itemCountBefore, count("SELECT COUNT(*) FROM recommend_item"));
@@ -168,6 +180,31 @@ class AlgorithmVisualizationControllerTest {
             assertTrue(rankNo > previous);
             previous = rankNo;
         }
+    }
+
+    private void assertPipelineDetailed(JsonNode pipeline) {
+        for (JsonNode step : pipeline) {
+            assertTrue(step.path("description").asText().length() > 0);
+            assertTrue(step.path("inputSummary").asText().length() > 0);
+            assertTrue(step.path("outputSummary").asText().length() > 0);
+            assertTrue(step.path("recordResult").asText().length() > 0);
+            assertTrue(step.path("codeModule").asText().length() > 0);
+        }
+    }
+
+    private void assertScoreBreakdownContains(JsonNode breakdowns, String dimension) {
+        for (JsonNode breakdown : breakdowns) {
+            if (dimension.equals(breakdown.path("dimension").asText())) {
+                assertTrue(breakdown.path("finalScore").isNumber());
+                assertTrue(breakdown.path("formulaText").asText().length() > 0);
+                assertTrue(breakdown.path("matchedRules").isArray());
+                assertFalse(breakdown.path("matchedRules").isEmpty());
+                assertTrue(breakdown.path("matchedRules").get(0).path("delta").isNumber());
+                assertTrue(breakdown.path("explanation").asText().length() > 0);
+                return;
+            }
+        }
+        throw new AssertionError("missing score breakdown: " + dimension);
     }
 
     private void assertNoTechnicalTags(JsonNode items) {

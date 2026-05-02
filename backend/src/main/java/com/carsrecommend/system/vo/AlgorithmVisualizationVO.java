@@ -22,6 +22,7 @@ public record AlgorithmVisualizationVO(
         List<AlgorithmVisualizationMatrixRowVO> matrixRows,
         List<AlgorithmVisualizationItemVO> items,
         List<AlgorithmVisualizationFeatureScoreRuleVO> featureScoreRules,
+        AlgorithmVisualizationFeatureScoreExampleVO featureScoreExample,
         String snapshotNote,
         String compatibilityNote,
         LocalDateTime createTime) {

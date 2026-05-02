@@ -4,9 +4,11 @@ import com.carsrecommend.system.common.BusinessException;
 import com.carsrecommend.system.common.ErrorCode;
 import com.carsrecommend.system.common.enums.MatchLevel;
 import com.carsrecommend.system.entity.CarFeatureScore;
+import com.carsrecommend.system.entity.CarModel;
 import com.carsrecommend.system.entity.CarParam;
 import com.carsrecommend.system.entity.RecommendRecord;
 import com.carsrecommend.system.mapper.CarFeatureScoreMapper;
+import com.carsrecommend.system.mapper.CarModelMapper;
 import com.carsrecommend.system.mapper.CarParamMapper;
 import com.carsrecommend.system.mapper.RecommendItemMapper;
 import com.carsrecommend.system.mapper.RecommendItemSnapshot;
@@ -17,10 +19,13 @@ import com.carsrecommend.system.service.UserProfileService;
 import com.carsrecommend.system.vo.AlgorithmVisualizationConstraintVO;
 import com.carsrecommend.system.vo.AlgorithmVisualizationDemandVO;
 import com.carsrecommend.system.vo.AlgorithmVisualizationDimensionVO;
+import com.carsrecommend.system.vo.AlgorithmVisualizationFeatureScoreExampleVO;
 import com.carsrecommend.system.vo.AlgorithmVisualizationFeatureScoreRuleVO;
 import com.carsrecommend.system.vo.AlgorithmVisualizationItemVO;
 import com.carsrecommend.system.vo.AlgorithmVisualizationMatrixRowVO;
+import com.carsrecommend.system.vo.AlgorithmVisualizationMatchedRuleVO;
 import com.carsrecommend.system.vo.AlgorithmVisualizationPipelineStepVO;
+import com.carsrecommend.system.vo.AlgorithmVisualizationScoreBreakdownVO;
 import com.carsrecommend.system.vo.AlgorithmVisualizationStageStatVO;
 import com.carsrecommend.system.vo.AlgorithmVisualizationTopsisVO;
 import com.carsrecommend.system.vo.AlgorithmVisualizationVO;
@@ -62,6 +67,7 @@ public class AlgorithmVisualizationServiceImpl implements AlgorithmVisualization
     private final UserProfileService userProfileService;
     private final RecommendRecordMapper recommendRecordMapper;
     private final RecommendItemMapper recommendItemMapper;
+    private final CarModelMapper carModelMapper;
     private final CarParamMapper carParamMapper;
     private final CarFeatureScoreMapper carFeatureScoreMapper;
     private final ParetoAnalyzer paretoAnalyzer;
@@ -72,6 +78,7 @@ public class AlgorithmVisualizationServiceImpl implements AlgorithmVisualization
             UserProfileService userProfileService,
             RecommendRecordMapper recommendRecordMapper,
             RecommendItemMapper recommendItemMapper,
+            CarModelMapper carModelMapper,
             CarParamMapper carParamMapper,
             CarFeatureScoreMapper carFeatureScoreMapper,
             ParetoAnalyzer paretoAnalyzer,
@@ -80,6 +87,7 @@ public class AlgorithmVisualizationServiceImpl implements AlgorithmVisualization
         this.userProfileService = userProfileService;
         this.recommendRecordMapper = recommendRecordMapper;
         this.recommendItemMapper = recommendItemMapper;
+        this.carModelMapper = carModelMapper;
         this.carParamMapper = carParamMapper;
         this.carFeatureScoreMapper = carFeatureScoreMapper;
         this.paretoAnalyzer = paretoAnalyzer;
@@ -116,10 +124,11 @@ public class AlgorithmVisualizationServiceImpl implements AlgorithmVisualization
                         weights.objectiveWeight(),
                         weights.finalWeight()),
                 buildStageStats(snapshots),
-                pipeline(),
+                pipeline(record, demand, snapshots, weights),
                 buildMatrixRows(snapshots),
                 items,
                 featureScoreRules(),
+                buildFeatureScoreExample(snapshots),
                 SNAPSHOT_NOTE,
                 weights.compatibilityNote(),
                 record.getCreateTime());
@@ -224,23 +233,150 @@ public class AlgorithmVisualizationServiceImpl implements AlgorithmVisualization
         return new AlgorithmVisualizationStageStatVO(matchLevel, matchLabel(matchLevel), countByLevel.getOrDefault(matchLevel, 0L));
     }
 
-    private List<AlgorithmVisualizationPipelineStepVO> pipeline() {
+    private List<AlgorithmVisualizationPipelineStepVO> pipeline(
+            RecommendRecord record,
+            UserDemandVO demand,
+            List<RecommendItemSnapshot> snapshots,
+            WeightSnapshot weights) {
+        long strictCount = snapshots.stream()
+                .filter(snapshot -> MatchLevel.STRICT.getCode().equals(snapshot.matchLevel()))
+                .count();
+        long fallbackCount = snapshots.size() - strictCount;
+        String topCar = snapshots.isEmpty()
+                ? "本次记录没有推荐明细"
+                : "#" + snapshots.get(0).rankNo() + " " + snapshots.get(0).brand() + " " + snapshots.get(0).modelName();
+        String budget = formatNullableWan(demand.getBudgetMin()) + " - " + formatNullableWan(demand.getBudgetMax());
+        String alphaText = weights.alpha() == null ? "未记录" : weights.alpha().stripTrailingZeros().toPlainString();
         return List.of(
-                new AlgorithmVisualizationPipelineStepVO(1, "读取用户需求", "按 demandId 读取 user_demand，取得预算、车型、动力、场景和排除项。"),
-                new AlgorithmVisualizationPipelineStepVO(2, "解析硬约束", "解析预算上限、车型集合、动力集合、最低座位数、排除品牌和排除车型。"),
-                new AlgorithmVisualizationPipelineStepVO(3, "形成用户主观权重", "根据 factorWeights 或 scenes 模板得到 subjectiveWeight。"),
-                new AlgorithmVisualizationPipelineStepVO(4, "加载候选车型和特征评分", "读取审核通过车型及 car_feature_score，车型评分由 car_param 规则计算得到。"),
-                new AlgorithmVisualizationPipelineStepVO(5, "STRICT / 降级候选集", "按 STRICT、RELAX_BUDGET、RELAX_BODY_TYPE、RELAX_ENERGY_TYPE、SIMILAR_RECOMMEND 分阶段补充。"),
-                new AlgorithmVisualizationPipelineStepVO(6, "动态价格分", "为每个候选按预算区间计算 priceScore，价格分只存在于推荐阶段。"),
-                new AlgorithmVisualizationPipelineStepVO(7, "九维决策矩阵", "用 priceScore 加八个静态评分构造 price 到 popularity 的 9 维矩阵。"),
-                new AlgorithmVisualizationPipelineStepVO(8, "熵权 objectiveWeight", "根据候选矩阵差异度计算 objectiveWeight，候选过少时退化。"),
-                new AlgorithmVisualizationPipelineStepVO(9, "合成 finalWeight", "按 alpha 组合 subjectiveWeight 和 objectiveWeight 后再次归一化。"),
-                new AlgorithmVisualizationPipelineStepVO(10, "Pareto 非支配识别", "在展示组内使用 finalWeight 最高的前 4 个维度标记被支配车型。"),
-                new AlgorithmVisualizationPipelineStepVO(11, "TOPSIS 推荐分", "计算候选接近正理想解、远离负理想解的程度，得到 totalScore。"),
-                new AlgorithmVisualizationPipelineStepVO(12, "分组与 rankNo", "STRICT 组在前，推荐组在后，组内按 Pareto 和 TOPSIS 排序并写入 rankNo。"),
-                new AlgorithmVisualizationPipelineStepVO(13, "推荐解释", "依据贡献度和理想解差距形成 tags、reasonText 和 weaknessText。"),
-                new AlgorithmVisualizationPipelineStepVO(14, "推荐快照持久化", "recommend_record 与 recommend_item 记录当次权重、分数、解释和匹配状态。"),
-                new AlgorithmVisualizationPipelineStepVO(15, "返回推荐结果", "用户端按 rankNo 展示，历史详情和本页面均读取保存快照。"));
+                new AlgorithmVisualizationPipelineStepVO(
+                        1,
+                        "读取用户需求",
+                        "根据推荐记录中的 demandId 读取 user_demand，恢复用户预算、车型、动力、场景和排除项。",
+                        "recommend_record.demand_id、user_demand",
+                        "结构化用户需求 demand 与画像文本 profileText",
+                        "demandId=" + record.getDemandId() + "，预算=" + budget + "万元，场景=" + joinOrAny(demand.getScenes(), "未设置"),
+                        "RecommendationRecordServiceImpl / UserProfileServiceImpl"),
+                new AlgorithmVisualizationPipelineStepVO(
+                        2,
+                        "解析硬性约束",
+                        "把预算上限、车型类型、动力类型、最低座位、排除品牌和排除车型拆成候选过滤条件。",
+                        "budgetMax、bodyTypes、energyTypes、minSeats、excludedBrands、excludedCarIds",
+                        "STRICT 阶段硬约束和后续降级阶段保留约束",
+                        "车型=" + joinOrAny(demand.getBodyTypes(), "不限") + "，动力=" + joinOrAny(demand.getEnergyTypes(), "不限")
+                                + "，最低座位=" + (demand.getMinSeats() == null ? "未设置" : demand.getMinSeats() + "座"),
+                        "RecommendationCandidateService"),
+                new AlgorithmVisualizationPipelineStepVO(
+                        3,
+                        "生成用户主观权重 subjectiveWeight",
+                        "根据用户显式 factorWeights 或使用场景模板生成九维用户主观权重，并归一化到总和为 1。",
+                        "user_demand.factor_weights、user_demand.scenes",
+                        "subjectiveWeight",
+                        "本次 subjectiveWeight 已返回 " + weights.subjectiveWeight().size() + " 个维度，最高维度为 "
+                                + topWeightLabel(weights.subjectiveWeight()),
+                        "UserProfileServiceImpl / RecommendationWeightService"),
+                new AlgorithmVisualizationPipelineStepVO(
+                        4,
+                        "加载候选车型和车型特征评分",
+                        "读取审核通过车型、car_param 和 car_feature_score。八维车型特征评分由车型参数规则计算，priceScore 不在该表保存。",
+                        "car_model、car_param、car_feature_score",
+                        "候选车型基础信息与八维静态评分",
+                        "本次可视化推荐明细共 " + snapshots.size() + " 条，rankNo=1 车型用于评分示例：" + topCar,
+                        "CarFeatureScoreCalculator / CarFeatureScoreService"),
+                new AlgorithmVisualizationPipelineStepVO(
+                        5,
+                        "生成 STRICT / 降级候选集",
+                        "先生成完全满足硬约束的 STRICT 候选；不足时按预算、车型、动力、相似推荐顺序补充候选。",
+                        "用户硬约束、审核通过车型、排除项",
+                        "带 matchLevel 的候选集合",
+                        "STRICT=" + strictCount + " 条，补充推荐=" + fallbackCount + " 条，推荐状态=" + record.getRecommendStatus(),
+                        "RecommendationCandidateService"),
+                new AlgorithmVisualizationPipelineStepVO(
+                        6,
+                        "计算动态价格分 priceScore",
+                        "根据用户预算区间和车型指导价临时计算 priceScore；预算下限只影响价格匹配分，不过滤候选。",
+                        "budgetMin、budgetMax、car_model.guide_price",
+                        "每个候选车的 priceScore",
+                        snapshots.isEmpty()
+                                ? "本次记录无 priceScore"
+                                : topCar + " 的 priceScore=" + formatDecimal(snapshots.get(0).priceScore()),
+                        "PriceScoreCalculator"),
+                new AlgorithmVisualizationPipelineStepVO(
+                        7,
+                        "构造九维评分矩阵",
+                        "将动态 priceScore 与八维车型特征评分合并，形成 price、space、safety、energy、intelligence、comfort、power、reputation、popularity 九维矩阵。",
+                        "recommend_item 快照中的九维分数",
+                        "用于权重、Pareto 和 TOPSIS 的决策矩阵",
+                        "本次矩阵行数=" + snapshots.size() + "，列数=" + RecommendationDimension.ORDERED.size() + "，按 rankNo 升序展示",
+                        "RecommendationServiceImpl / TopsisRanker"),
+                new AlgorithmVisualizationPipelineStepVO(
+                        8,
+                        "计算熵权法客观权重 objectiveWeight",
+                        "熵权法根据候选车型九维指标差异计算客观权重；差异越能区分候选车，客观权重越高。",
+                        "九维评分矩阵",
+                        "objectiveWeight",
+                        "本次 objectiveWeight 已返回 " + weights.objectiveWeight().size() + " 个维度，最高维度为 "
+                                + topWeightLabel(weights.objectiveWeight()),
+                        "RecommendationWeightService"),
+                new AlgorithmVisualizationPipelineStepVO(
+                        9,
+                        "合成主客观组合权重 finalWeight",
+                        "用 alpha 组合 subjectiveWeight 与 objectiveWeight，再归一化形成最终排序权重 finalWeight。",
+                        "subjectiveWeight、objectiveWeight、alpha",
+                        "finalWeight",
+                        "alpha=" + alphaText + "，本次 finalWeight 最高维度为 " + topWeightLabel(weights.finalWeight()),
+                        "RecommendationWeightService"),
+                new AlgorithmVisualizationPipelineStepVO(
+                        10,
+                        "识别 Pareto 非支配车型",
+                        "在 STRICT 组和补充推荐组内分别比较候选车高权重维度，标记被其他车型全面压制的车型。",
+                        "分组候选矩阵、finalWeight",
+                        "paretoDominated 布尔标记",
+                        "本次 Pareto 标记基于快照矩阵临时重构，仅用于答辩展示。",
+                        "ParetoAnalyzer"),
+                new AlgorithmVisualizationPipelineStepVO(
+                        11,
+                        "计算 TOPSIS 推荐分 totalScore",
+                        "TOPSIS 比较候选车与正理想解、负理想解的距离；越接近正理想解且越远离负理想解，推荐分越高。",
+                        "归一化九维矩阵、finalWeight、正理想解、负理想解",
+                        "closeness、positiveDistance、negativeDistance、totalScore",
+                        snapshots.isEmpty()
+                                ? "本次记录无 TOPSIS 结果"
+                                : topCar + " 的快照 totalScore=" + formatDecimal(snapshots.get(0).totalScore()),
+                        "TopsisRanker"),
+                new AlgorithmVisualizationPipelineStepVO(
+                        12,
+                        "按 matchLevel 分组并写入 rankNo",
+                        "推荐生成时先展示 STRICT 组，再展示补充推荐组；组内依据 Pareto 标记和 TOPSIS 分数排序，生成 rankNo。",
+                        "matchLevel、paretoDominated、totalScore",
+                        "按 rankNo 排序的推荐明细",
+                        "本页面不重新排序，直接按 recommend_item.rank_no 展示；第一名为 " + topCar,
+                        "RecommendationServiceImpl"),
+                new AlgorithmVisualizationPipelineStepVO(
+                        13,
+                        "生成推荐解释",
+                        "根据高贡献维度生成 tags 和 reasonText，根据高权重但差距较大的维度生成 weaknessText。",
+                        "finalWeight、TOPSIS 贡献度、理想解差距、车型九维分数",
+                        "tags、reasonText、weaknessText",
+                        snapshots.isEmpty()
+                                ? "本次记录无解释文本"
+                                : "rankNo=1 已保存 tags、reasonText、weaknessText，页面按快照读取。",
+                        "RecommendationExplanationService"),
+                new AlgorithmVisualizationPipelineStepVO(
+                        14,
+                        "保存推荐快照",
+                        "推荐生成阶段把需求、权重、分数、解释和匹配状态写入 recommend_record 与 recommend_item，供历史追溯。",
+                        "推荐响应对象、权重快照、推荐明细",
+                        "recommend_record 与 recommend_item 历史快照",
+                        "本接口只读取已存在快照，不执行任何写入或删除。",
+                        "RecommendationRecordServiceImpl / RecommendationServiceImpl"),
+                new AlgorithmVisualizationPipelineStepVO(
+                        15,
+                        "返回推荐结果",
+                        "普通用户端只展示易懂的推荐结果；管理端和答辩页可以展示算法细节和中间过程。",
+                        "recommend_record、recommend_item、车型关联信息",
+                        "推荐结果页、历史详情、算法可视化答辩页",
+                        "本页面仅服务答辩展示，不影响 /recommend 普通用户推荐页。",
+                        "RecommendationController / AlgorithmVisualizationController"));
     }
 
     private List<AlgorithmVisualizationMatrixRowVO> buildMatrixRows(List<RecommendItemSnapshot> snapshots) {
@@ -289,6 +425,383 @@ public class AlgorithmVisualizationServiceImpl implements AlgorithmVisualization
                     sourceState.note()));
         }
         return items;
+    }
+
+    private AlgorithmVisualizationFeatureScoreExampleVO buildFeatureScoreExample(List<RecommendItemSnapshot> snapshots) {
+        RecommendItemSnapshot snapshot = snapshots.stream()
+                .filter(item -> item.rankNo() != null && item.rankNo() == 1)
+                .findFirst()
+                .orElse(snapshots.isEmpty() ? null : snapshots.get(0));
+        if (snapshot == null) {
+            return null;
+        }
+        CarModel carModel = carModelMapper.findById(snapshot.carId()).orElse(null);
+        CarParam param = carParamMapper.findByCarId(snapshot.carId()).orElse(null);
+        int maxSalesVolume = carModelMapper.findMaxSalesVolume();
+        return new AlgorithmVisualizationFeatureScoreExampleVO(
+                snapshot.carId(),
+                snapshot.brand(),
+                snapshot.modelName(),
+                snapshot.guidePrice(),
+                snapshot.bodyType(),
+                snapshot.energyType(),
+                snapshot.seats(),
+                featureParams(carModel, param, maxSalesVolume),
+                featureScores(snapshot),
+                featureScoreBreakdown(snapshot, carModel, param, maxSalesVolume));
+    }
+
+    private Map<String, Object> featureParams(CarModel carModel, CarParam param, int maxSalesVolume) {
+        Map<String, Object> params = new LinkedHashMap<>();
+        params.put("lengthMm", param == null ? null : param.getLengthMm());
+        params.put("wheelbaseMm", param == null ? null : param.getWheelbaseMm());
+        params.put("fuelConsumption", param == null ? null : param.getFuelConsumption());
+        params.put("electricRangeKm", param == null ? null : param.getElectricRangeKm());
+        params.put("totalRangeKm", param == null ? null : param.getTotalRangeKm());
+        params.put("acceleration100", param == null ? null : param.getAcceleration100());
+        params.put("airbagCount", param == null ? null : param.getAirbagCount());
+        params.put("hasAbs", param == null ? null : param.getHasAbs());
+        params.put("hasEsp", param == null ? null : param.getHasEsp());
+        params.put("hasActiveBrake", param == null ? null : param.getHasActiveBrake());
+        params.put("hasLaneKeep", param == null ? null : param.getHasLaneKeep());
+        params.put("hasAdaptiveCruise", param == null ? null : param.getHasAdaptiveCruise());
+        params.put("hasBlindSpot", param == null ? null : param.getHasBlindSpot());
+        params.put("hasReverseCamera", param == null ? null : param.getHasReverseCamera());
+        params.put("has360Camera", param == null ? null : param.getHas360Camera());
+        params.put("hasOta", param == null ? null : param.getHasOta());
+        params.put("hasVoiceControl", param == null ? null : param.getHasVoiceControl());
+        params.put("hasAutoParking", param == null ? null : param.getHasAutoParking());
+        params.put("screenSize", param == null ? null : param.getScreenSize());
+        params.put("assistDriveLevel", param == null ? null : param.getAssistDriveLevel());
+        params.put("salesVolume", carModel == null ? null : carModel.getSalesVolume());
+        params.put("maxSalesVolume", maxSalesVolume);
+        params.put("userRating", carModel == null ? null : carModel.getUserRating());
+        return params;
+    }
+
+    private Map<String, BigDecimal> featureScores(RecommendItemSnapshot snapshot) {
+        Map<String, BigDecimal> scores = new LinkedHashMap<>();
+        scores.put("space", snapshot.spaceScore());
+        scores.put("safety", snapshot.safetyScore());
+        scores.put("energy", snapshot.energyScore());
+        scores.put("intelligence", snapshot.intelligenceScore());
+        scores.put("comfort", snapshot.comfortScore());
+        scores.put("power", snapshot.powerScore());
+        scores.put("reputation", snapshot.reputationScore());
+        scores.put("popularity", snapshot.popularityScore());
+        return scores;
+    }
+
+    private List<AlgorithmVisualizationScoreBreakdownVO> featureScoreBreakdown(
+            RecommendItemSnapshot snapshot,
+            CarModel carModel,
+            CarParam param,
+            int maxSalesVolume) {
+        return List.of(
+                spaceBreakdown(snapshot, param),
+                safetyBreakdown(snapshot, param),
+                energyBreakdown(snapshot, param),
+                intelligenceBreakdown(snapshot, param),
+                comfortBreakdown(snapshot),
+                powerBreakdown(snapshot, param),
+                reputationBreakdown(snapshot, carModel),
+                popularityBreakdown(snapshot, carModel, maxSalesVolume));
+    }
+
+    private AlgorithmVisualizationScoreBreakdownVO spaceBreakdown(RecommendItemSnapshot snapshot, CarParam param) {
+        List<AlgorithmVisualizationMatchedRuleVO> rules = new ArrayList<>();
+        Integer wheelbase = param == null ? null : param.getWheelbaseMm();
+        if (wheelbase == null) {
+            rules.add(rule("轴距缺失，使用默认空间基础分", 60, "没有 wheelbaseMm 时空间基础分按 60 处理。"));
+        } else if (wheelbase < 2600) {
+            rules.add(rule("轴距 < 2600mm", 50, "轴距较短，空间基础分为 50。"));
+        } else if (wheelbase < 2700) {
+            rules.add(rule("2600mm <= 轴距 < 2700mm", 65, "轴距进入紧凑级区间，空间基础分为 65。"));
+        } else if (wheelbase < 2800) {
+            rules.add(rule("2700mm <= 轴距 < 2800mm", 80, "轴距进入主流家用区间，空间基础分为 80。"));
+        } else if (wheelbase < 2900) {
+            rules.add(rule("2800mm <= 轴距 < 2900mm", 90, "轴距较长，空间基础分为 90。"));
+        } else {
+            rules.add(rule("轴距 >= 2900mm", 95, "轴距很长，空间基础分为 95。"));
+        }
+        if ("SUV".equals(snapshot.bodyType())) {
+            rules.add(rule("SUV 车型加分", 3, "SUV 对家庭和通过性场景更友好，空间分增加 3。"));
+        } else if ("MPV".equals(snapshot.bodyType())) {
+            rules.add(rule("MPV 车型加分", 8, "MPV 对多人乘坐和载物更友好，空间分增加 8。"));
+        }
+        if (snapshot.seats() != null && snapshot.seats() >= 7) {
+            rules.add(rule("座位数 >= 7", 5, "七座及以上满足多人出行，空间分增加 5。"));
+        }
+        Integer length = param == null ? null : param.getLengthMm();
+        if (length != null && length > 4800) {
+            rules.add(rule("车长 > 4800mm", 5, "车长较大，空间分增加 5。"));
+        }
+        return breakdown(
+                "space",
+                "空间分 spaceScore",
+                snapshot.spaceScore(),
+                "轴距决定基础分，SUV/MPV、七座和长车身继续加分，最后截断到 0-100。",
+                rules,
+                "rankNo=1 车型的空间分以 recommend_item.space_score 快照为准；上述规则用于展示该分数来源。");
+    }
+
+    private AlgorithmVisualizationScoreBreakdownVO safetyBreakdown(RecommendItemSnapshot snapshot, CarParam param) {
+        List<AlgorithmVisualizationMatchedRuleVO> rules = new ArrayList<>();
+        rules.add(rule("安全基础分", 30, "安全维度从基础分 30 开始累加配置。"));
+        if (param == null) {
+            rules.add(rule("参数缺失", 0, "没有 car_param 时只能展示推荐快照保存的 safetyScore。"));
+        } else {
+            if (Boolean.TRUE.equals(param.getHasAbs())) {
+                rules.add(rule("ABS 防抱死", 10, "配置 ABS，安全分增加 10。"));
+            }
+            if (Boolean.TRUE.equals(param.getHasEsp())) {
+                rules.add(rule("ESP 车身稳定系统", 15, "配置 ESP，安全分增加 15。"));
+            }
+            if (param.getAirbagCount() != null && param.getAirbagCount() >= 6) {
+                rules.add(rule("气囊数量 >= 6", 20, "气囊数量达到 6 个及以上，安全分增加 20。"));
+            }
+            if (Boolean.TRUE.equals(param.getHasActiveBrake())) {
+                rules.add(rule("主动刹车", 15, "配置主动刹车，安全分增加 15。"));
+            }
+            if (Boolean.TRUE.equals(param.getHasLaneKeep())) {
+                rules.add(rule("车道保持", 10, "配置车道保持，安全分增加 10。"));
+            }
+            if (Boolean.TRUE.equals(param.getHasAdaptiveCruise())) {
+                rules.add(rule("自适应巡航", 10, "配置自适应巡航，安全分增加 10。"));
+            }
+            if (Boolean.TRUE.equals(param.getHasBlindSpot())) {
+                rules.add(rule("盲区监测", 5, "配置盲区监测，安全分增加 5。"));
+            }
+        }
+        return breakdown(
+                "safety",
+                "安全分 safetyScore",
+                snapshot.safetyScore(),
+                "基础 30 分，按安全配置累加，最后截断到 0-100。",
+                rules,
+                "安全分展示 ABS、ESP、气囊和主动安全配置的累计贡献。");
+    }
+
+    private AlgorithmVisualizationScoreBreakdownVO energyBreakdown(RecommendItemSnapshot snapshot, CarParam param) {
+        List<AlgorithmVisualizationMatchedRuleVO> rules = new ArrayList<>();
+        String energyType = snapshot.energyType();
+        if (param == null) {
+            rules.add(rule("参数缺失兜底", 60, "没有 car_param 时能耗分按兜底值说明，推荐仍使用快照 energyScore。"));
+        } else if ("燃油".equals(energyType)) {
+            BigDecimal consumption = param.getFuelConsumption();
+            rules.add(energyRuleByFuelConsumption(consumption));
+        } else if ("纯电".equals(energyType)) {
+            Integer range = param.getElectricRangeKm();
+            rules.add(energyRuleByElectricRange(range));
+        } else if ("插混".equals(energyType) || "增程".equals(energyType)) {
+            Integer range = param.getTotalRangeKm();
+            rules.add(energyRuleByTotalRange(range));
+        } else {
+            rules.add(rule("未知动力类型兜底", 60, "动力类型未命中燃油、纯电、插混或增程，能耗分按 60 说明。"));
+        }
+        return breakdown(
+                "energy",
+                "能耗分 energyScore",
+                snapshot.energyScore(),
+                "按动力类型分档：燃油看油耗，纯电看纯电续航，插混/增程看综合续航。",
+                rules,
+                "能耗分不是前端计算结果；本页只按当前参数解释快照中的 energyScore。");
+    }
+
+    private AlgorithmVisualizationScoreBreakdownVO intelligenceBreakdown(RecommendItemSnapshot snapshot, CarParam param) {
+        List<AlgorithmVisualizationMatchedRuleVO> rules = new ArrayList<>();
+        if (param == null) {
+            rules.add(rule("参数缺失兜底", 50, "没有 car_param 时智能分按兜底值说明，推荐仍使用快照 intelligenceScore。"));
+        } else {
+            if (Boolean.TRUE.equals(param.getHasVoiceControl())) {
+                rules.add(rule("语音控制", 10, "支持语音控制，智能分增加 10。"));
+            }
+            if (Boolean.TRUE.equals(param.getHasOta())) {
+                rules.add(rule("OTA 升级", 10, "支持 OTA，智能分增加 10。"));
+            }
+            if (param.getScreenSize() != null && param.getScreenSize().doubleValue() >= 12) {
+                rules.add(rule("屏幕尺寸 >= 12 英寸", 10, "中控屏尺寸达到 12 英寸及以上，智能分增加 10。"));
+            }
+            if (Boolean.TRUE.equals(param.getHasReverseCamera())) {
+                rules.add(rule("倒车影像", 8, "配置倒车影像，智能分增加 8。"));
+            }
+            if (Boolean.TRUE.equals(param.getHas360Camera())) {
+                rules.add(rule("360 全景影像", 12, "配置 360 全景影像，智能分增加 12。"));
+            }
+            if ("L2".equalsIgnoreCase(param.getAssistDriveLevel())) {
+                rules.add(rule("L2 辅助驾驶", 20, "辅助驾驶等级为 L2，智能分增加 20。"));
+            }
+            if (Boolean.TRUE.equals(param.getHasAutoParking())) {
+                rules.add(rule("自动泊车", 10, "配置自动泊车，智能分增加 10。"));
+            }
+            if (rules.isEmpty()) {
+                rules.add(rule("未命中智能配置", 0, "没有命中语音、OTA、影像、辅助驾驶或自动泊车配置。"));
+            }
+        }
+        return breakdown(
+                "intelligence",
+                "智能分 intelligenceScore",
+                snapshot.intelligenceScore(),
+                "从 0 分开始按智能座舱和辅助驾驶配置累加，最后截断到 0-100。",
+                rules,
+                "智能分展示车机能力、影像配置和辅助驾驶配置的累计贡献。");
+    }
+
+    private AlgorithmVisualizationScoreBreakdownVO comfortBreakdown(RecommendItemSnapshot snapshot) {
+        List<AlgorithmVisualizationMatchedRuleVO> rules = List.of(
+                rule("空间分贡献", value(snapshot.spaceScore()).doubleValue() * 0.5,
+                        "comfortScore 中空间分占 50%，本车贡献 " + formatDecimal(value(snapshot.spaceScore()).multiply(new BigDecimal("0.5"))) + "。"),
+                rule("智能分贡献", value(snapshot.intelligenceScore()).doubleValue() * 0.2,
+                        "comfortScore 中智能分占 20%，本车贡献 " + formatDecimal(value(snapshot.intelligenceScore()).multiply(new BigDecimal("0.2"))) + "。"),
+                rule("口碑分贡献", value(snapshot.reputationScore()).doubleValue() * 0.3,
+                        "comfortScore 中口碑分占 30%，本车贡献 " + formatDecimal(value(snapshot.reputationScore()).multiply(new BigDecimal("0.3"))) + "。"));
+        return breakdown(
+                "comfort",
+                "舒适分 comfortScore",
+                snapshot.comfortScore(),
+                "comfortScore = spaceScore * 0.5 + intelligenceScore * 0.2 + reputationScore * 0.3。",
+                rules,
+                "舒适分是组合指标，直接使用推荐快照中的空间、智能和口碑分进行解释。");
+    }
+
+    private AlgorithmVisualizationScoreBreakdownVO powerBreakdown(RecommendItemSnapshot snapshot, CarParam param) {
+        List<AlgorithmVisualizationMatchedRuleVO> rules = new ArrayList<>();
+        BigDecimal acceleration = param == null ? null : param.getAcceleration100();
+        if (acceleration == null) {
+            rules.add(rule("百公里加速缺失兜底", 60, "没有 acceleration100 时动力分按 60 说明。"));
+        } else {
+            double value = acceleration.doubleValue();
+            if (value <= 4) {
+                rules.add(rule("0-100km/h 加速 <= 4s", 100, "加速性能极强，动力分为 100。"));
+            } else if (value <= 6) {
+                rules.add(rule("0-100km/h 加速 <= 6s", 90, "加速性能优秀，动力分为 90。"));
+            } else if (value <= 8) {
+                rules.add(rule("0-100km/h 加速 <= 8s", 80, "加速性能较好，动力分为 80。"));
+            } else if (value <= 10) {
+                rules.add(rule("0-100km/h 加速 <= 10s", 70, "加速性能满足日常使用，动力分为 70。"));
+            } else if (value <= 12) {
+                rules.add(rule("0-100km/h 加速 <= 12s", 60, "加速偏保守，动力分为 60。"));
+            } else {
+                rules.add(rule("0-100km/h 加速 > 12s", 50, "加速较慢，动力分为 50。"));
+            }
+        }
+        return breakdown(
+                "power",
+                "动力分 powerScore",
+                snapshot.powerScore(),
+                "按百公里加速时间分档，时间越短得分越高。",
+                rules,
+                "动力分展示车辆加速性能对推荐矩阵的贡献。");
+    }
+
+    private AlgorithmVisualizationScoreBreakdownVO reputationBreakdown(RecommendItemSnapshot snapshot, CarModel carModel) {
+        List<AlgorithmVisualizationMatchedRuleVO> rules = new ArrayList<>();
+        BigDecimal rating = carModel == null ? null : carModel.getUserRating();
+        if (rating == null) {
+            rules.add(rule("用户评分缺失兜底", 60, "没有 user_rating 时口碑分按 60 说明。"));
+        } else {
+            rules.add(rule("用户评分换算", rating.doubleValue() / 5.0 * 100,
+                    "user_rating=" + rating.stripTrailingZeros().toPlainString() + "，按 5 分制换算到 0-100。"));
+        }
+        return breakdown(
+                "reputation",
+                "口碑分 reputationScore",
+                snapshot.reputationScore(),
+                "reputationScore = user_rating / 5 * 100，并截断到 0-100。",
+                rules,
+                "口碑分反映车型库中的用户评分，不由前端计算。");
+    }
+
+    private AlgorithmVisualizationScoreBreakdownVO popularityBreakdown(
+            RecommendItemSnapshot snapshot,
+            CarModel carModel,
+            int maxSalesVolume) {
+        List<AlgorithmVisualizationMatchedRuleVO> rules = new ArrayList<>();
+        Integer salesVolume = carModel == null ? null : carModel.getSalesVolume();
+        if (salesVolume == null || maxSalesVolume <= 0) {
+            rules.add(rule("销量缺失兜底", 0, "没有 sales_volume 或最大销量为 0 时热度分按 0 说明。"));
+        } else {
+            rules.add(rule("销量相对最大值归一化", salesVolume * 100.0 / maxSalesVolume,
+                    "sales_volume=" + salesVolume + "，当前最大销量=" + maxSalesVolume + "，按比例换算到 0-100。"));
+        }
+        return breakdown(
+                "popularity",
+                "热度分 popularityScore",
+                snapshot.popularityScore(),
+                "popularityScore = sales_volume / maxSalesVolume * 100，并截断到 0-100。",
+                rules,
+                "热度分反映当前车型库销量相对水平。");
+    }
+
+    private AlgorithmVisualizationMatchedRuleVO energyRuleByFuelConsumption(BigDecimal consumption) {
+        if (consumption == null) {
+            return rule("燃油油耗缺失兜底", 60, "燃油车缺少 fuelConsumption，能耗分按 60 说明。");
+        }
+        double value = consumption.doubleValue();
+        if (value <= 5) {
+            return rule("燃油油耗 <= 5L/100km", 95, "燃油经济性优秀，能耗分为 95。");
+        } else if (value <= 6) {
+            return rule("燃油油耗 <= 6L/100km", 85, "燃油经济性较好，能耗分为 85。");
+        } else if (value <= 7) {
+            return rule("燃油油耗 <= 7L/100km", 75, "燃油经济性中等，能耗分为 75。");
+        } else if (value <= 8) {
+            return rule("燃油油耗 <= 8L/100km", 65, "燃油经济性偏一般，能耗分为 65。");
+        } else if (value <= 10) {
+            return rule("燃油油耗 <= 10L/100km", 55, "燃油经济性偏弱，能耗分为 55。");
+        }
+        return rule("燃油油耗 > 10L/100km", 45, "油耗较高，能耗分为 45。");
+    }
+
+    private AlgorithmVisualizationMatchedRuleVO energyRuleByElectricRange(Integer range) {
+        if (range == null) {
+            return rule("纯电续航缺失兜底", 60, "纯电车缺少 electricRangeKm，能耗分按 60 说明。");
+        }
+        if (range >= 700) {
+            return rule("纯电续航 >= 700km", 95, "纯电续航很强，能耗分为 95。");
+        } else if (range >= 600) {
+            return rule("纯电续航 >= 600km", 90, "纯电续航优秀，能耗分为 90。");
+        } else if (range >= 500) {
+            return rule("纯电续航 >= 500km", 80, "纯电续航较好，能耗分为 80。");
+        } else if (range >= 400) {
+            return rule("纯电续航 >= 400km", 70, "纯电续航满足日常，能耗分为 70。");
+        } else if (range >= 300) {
+            return rule("纯电续航 >= 300km", 60, "纯电续航偏入门，能耗分为 60。");
+        }
+        return rule("纯电续航 < 300km", 50, "纯电续航较短，能耗分为 50。");
+    }
+
+    private AlgorithmVisualizationMatchedRuleVO energyRuleByTotalRange(Integer range) {
+        if (range == null) {
+            return rule("综合续航缺失兜底", 60, "插混/增程车型缺少 totalRangeKm，能耗分按 60 说明。");
+        }
+        if (range >= 1000) {
+            return rule("综合续航 >= 1000km", 95, "长途能力很强，能耗分为 95。");
+        } else if (range >= 800) {
+            return rule("综合续航 >= 800km", 85, "长途能力较好，能耗分为 85。");
+        } else if (range >= 600) {
+            return rule("综合续航 >= 600km", 75, "综合续航满足大部分场景，能耗分为 75。");
+        }
+        return rule("综合续航 < 600km", 65, "综合续航偏保守，能耗分为 65。");
+    }
+
+    private AlgorithmVisualizationScoreBreakdownVO breakdown(
+            String dimension,
+            String label,
+            BigDecimal finalScore,
+            String formulaText,
+            List<AlgorithmVisualizationMatchedRuleVO> matchedRules,
+            String explanation) {
+        return new AlgorithmVisualizationScoreBreakdownVO(
+                dimension,
+                label,
+                scoreValue(finalScore),
+                formulaText,
+                matchedRules,
+                explanation);
+    }
+
+    private AlgorithmVisualizationMatchedRuleVO rule(String ruleName, double delta, String reason) {
+        return new AlgorithmVisualizationMatchedRuleVO(ruleName, scoreValue(BigDecimal.valueOf(delta)), reason);
     }
 
     private SourceState sourceState(RecommendItemSnapshot snapshot) {
@@ -603,8 +1116,42 @@ public class AlgorithmVisualizationServiceImpl implements AlgorithmVisualization
                 .toPlainString();
     }
 
+    private String formatNullableWan(BigDecimal value) {
+        return value == null ? "未设置" : formatWan(value);
+    }
+
+    private String formatDecimal(BigDecimal value) {
+        return scoreValue(value).stripTrailingZeros().toPlainString();
+    }
+
+    private String topWeightLabel(Map<String, BigDecimal> weights) {
+        return weights.entrySet().stream()
+                .max(Map.Entry.comparingByValue())
+                .map(entry -> dimensionLabel(entry.getKey()) + "=" + formatDecimal(entry.getValue()))
+                .orElse("未记录");
+    }
+
+    private String dimensionLabel(String key) {
+        return switch (key) {
+            case "price" -> "价格";
+            case "space" -> "空间";
+            case "safety" -> "安全";
+            case "energy" -> "能耗";
+            case "intelligence" -> "智能";
+            case "comfort" -> "舒适";
+            case "power" -> "动力";
+            case "reputation" -> "口碑";
+            case "popularity" -> "热度";
+            default -> key;
+        };
+    }
+
     private BigDecimal value(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value;
+    }
+
+    private BigDecimal scoreValue(BigDecimal value) {
+        return value(value).setScale(2, RoundingMode.HALF_UP);
     }
 
     private BigDecimal decimal(double value, int scale) {

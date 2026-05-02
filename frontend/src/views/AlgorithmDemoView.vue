@@ -64,11 +64,11 @@
       <div class="overview-grid">
         <div class="panel hero-panel">
           <div class="panel__body">
-            <p class="eyebrow">算法版本</p>
+            <p class="eyebrow">算法版本 algorithmVersion</p>
             <h2>{{ detail.algorithmVersion }}</h2>
             <div class="hero-metrics">
               <div>
-                <span>alpha</span>
+                <span>组合系数 alpha</span>
                 <strong>{{ formatAlpha(detail.alpha) }}</strong>
               </div>
               <div>
@@ -100,15 +100,35 @@
         <div class="panel__body">
           <div class="section-head">
             <div>
-              <p class="eyebrow">算法流程总览</p>
-              <h2>15 步推荐计算链路</h2>
+              <p class="eyebrow">算法流程详解</p>
+              <h2>15 步算法流程详解</h2>
             </div>
           </div>
-          <div class="pipeline-grid">
-            <div v-for="step in detail.pipeline" :key="step.step" class="pipeline-step">
-              <span>{{ step.step }}</span>
-              <strong>{{ step.title }}</strong>
-              <p>{{ step.description }}</p>
+          <div class="pipeline-detail-list">
+            <div v-for="step in detail.pipeline" :key="step.step" class="pipeline-step pipeline-step--detail">
+              <div class="pipeline-step__head">
+                <span>{{ step.step }}</span>
+                <strong>{{ step.title }}</strong>
+              </div>
+              <p class="pipeline-description">{{ step.description }}</p>
+              <div class="pipeline-facts">
+                <div>
+                  <b>输入数据</b>
+                  <p>{{ step.inputSummary }}</p>
+                </div>
+                <div>
+                  <b>输出数据</b>
+                  <p>{{ step.outputSummary }}</p>
+                </div>
+                <div>
+                  <b>本次记录结果摘要</b>
+                  <p>{{ step.recordResult }}</p>
+                </div>
+                <div>
+                  <b>对应代码模块</b>
+                  <p>{{ step.codeModule }}</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -161,21 +181,89 @@
         </div>
       </section>
 
+      <section v-if="featureExample" class="panel section-panel">
+        <div class="panel__body">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">车型特征评分示例</p>
+              <h2>rankNo = 1 车型评分拆解</h2>
+            </div>
+            <span class="section-meta">示例只读展示，不覆盖推荐快照</span>
+          </div>
+
+          <div class="feature-example">
+            <div class="feature-summary">
+              <div>
+                <p class="eyebrow">示例车型</p>
+                <h3>{{ featureExample.brand }} {{ featureExample.modelName }}</h3>
+                <div class="feature-tags">
+                  <el-tag effect="plain">{{ featureExample.bodyType || '车型未知' }}</el-tag>
+                  <el-tag effect="plain">{{ featureExample.energyType || '动力未知' }}</el-tag>
+                  <el-tag effect="plain">{{ featureExample.seats || '未知' }} 座</el-tag>
+                </div>
+              </div>
+              <div class="feature-price">
+                <span>指导价</span>
+                <strong>{{ formatWan(featureExample.guidePrice) }}</strong>
+              </div>
+            </div>
+
+            <div class="feature-param-grid">
+              <div v-for="row in featureParamRows" :key="row.key">
+                <span>{{ row.label }}</span>
+                <strong>{{ row.value }}</strong>
+              </div>
+            </div>
+
+            <div class="feature-score-grid">
+              <div v-for="score in featureScoreRows" :key="score.key" class="feature-score-card">
+                <span>{{ score.label }}</span>
+                <strong>{{ formatScore(score.value) }}</strong>
+                <div class="score-track">
+                  <i :style="{ width: `${Math.min(100, Number(score.value || 0))}%` }" />
+                </div>
+              </div>
+            </div>
+
+            <div class="breakdown-list">
+              <article v-for="breakdown in featureExample.scoreBreakdown" :key="breakdown.dimension" class="breakdown-card">
+                <div class="breakdown-card__head">
+                  <div>
+                    <span>{{ breakdown.label }}</span>
+                    <h3>{{ formatScore(breakdown.finalScore) }}</h3>
+                  </div>
+                  <small>{{ breakdown.dimension }}</small>
+                </div>
+                <p class="formula-text">{{ breakdown.formulaText }}</p>
+                <div class="matched-rule-list">
+                  <div v-for="rule in breakdown.matchedRules" :key="`${breakdown.dimension}-${rule.ruleName}`">
+                    <strong>{{ rule.ruleName }}</strong>
+                    <b>+{{ formatScore(rule.delta) }}</b>
+                    <p>{{ rule.reason }}</p>
+                  </div>
+                </div>
+                <p class="breakdown-explain">{{ breakdown.explanation }}</p>
+              </article>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section class="panel section-panel">
         <div class="panel__body">
           <div class="section-head">
             <div>
               <p class="eyebrow">权重可视化</p>
-              <h2>subjectiveWeight / objectiveWeight / finalWeight</h2>
+              <h2>用户主观权重 subjectiveWeight / 熵权法客观权重 objectiveWeight / 主客观组合权重 finalWeight</h2>
             </div>
-            <span class="section-meta">alpha {{ formatAlpha(detail.alpha) }}</span>
+            <span class="section-meta">组合系数 alpha {{ formatAlpha(detail.alpha) }}</span>
           </div>
           <div class="weight-table">
             <div class="weight-table__head">
               <span>维度</span>
-              <span>subjectiveWeight</span>
-              <span>objectiveWeight</span>
-              <span>finalWeight</span>
+              <span>用户主观权重 subjectiveWeight</span>
+              <span>熵权法客观权重 objectiveWeight</span>
+              <span>主客观组合权重 finalWeight</span>
             </div>
             <div v-for="row in weightRows" :key="row.key" class="weight-compare-row">
               <strong>{{ row.label }}</strong>
@@ -260,14 +348,14 @@
           </p>
           <div class="ranking-table">
             <div class="ranking-row ranking-row--head">
-              <span>rankNo</span>
+              <span>排序 rankNo</span>
               <span>车型</span>
-              <span>matchLevel</span>
-              <span>Pareto</span>
-              <span>totalScore</span>
-              <span>closeness</span>
-              <span>D+</span>
-              <span>D-</span>
+              <span>匹配阶段 matchLevel</span>
+              <span>Pareto 标记</span>
+              <span>综合匹配度 totalScore</span>
+              <span>接近度 closeness</span>
+              <span>正理想距离 D+</span>
+              <span>负理想距离 D-</span>
             </div>
             <div v-for="item in rankingItems" :key="`rank-${item.rankNo}`" class="ranking-row">
               <strong>#{{ item.rankNo }}</strong>
@@ -288,7 +376,7 @@
           <div class="section-head">
             <div>
               <p class="eyebrow">推荐解释区</p>
-              <h2>tags / reasonText / weaknessText</h2>
+              <h2>推荐标签 tags / 推荐理由 reasonText / 不足提醒 weaknessText</h2>
             </div>
             <span class="section-meta">展示前 {{ explanationItems.length }} 条</span>
           </div>
@@ -434,6 +522,36 @@ const maxStageCount = computed(() =>
 )
 
 const items = computed(() => detail.value?.items || [])
+const featureExample = computed(() => detail.value?.featureScoreExample || null)
+
+const featureParamRows = computed(() => {
+  const params = featureExample.value?.params || {}
+  return [
+    { key: 'wheelbaseMm', label: '轴距', value: unitText(params.wheelbaseMm, 'mm') },
+    { key: 'lengthMm', label: '车长', value: unitText(params.lengthMm, 'mm') },
+    { key: 'airbagCount', label: '气囊数量', value: unitText(params.airbagCount, '个') },
+    { key: 'totalRangeKm', label: '综合续航', value: unitText(params.totalRangeKm, 'km') },
+    { key: 'electricRangeKm', label: '纯电续航', value: unitText(params.electricRangeKm, 'km') },
+    { key: 'fuelConsumption', label: '燃油油耗', value: unitText(params.fuelConsumption, 'L/100km') },
+    { key: 'acceleration100', label: '百公里加速', value: unitText(params.acceleration100, 's') },
+    { key: 'assistDriveLevel', label: '辅助驾驶', value: params.assistDriveLevel || '未记录' },
+    { key: 'screenSize', label: '屏幕尺寸', value: unitText(params.screenSize, '英寸') },
+    { key: 'userRating', label: '用户评分', value: unitText(params.userRating, '分') },
+    { key: 'salesVolume', label: '销量', value: unitText(params.salesVolume, '辆') },
+    { key: 'maxSalesVolume', label: '库内最大销量', value: unitText(params.maxSalesVolume, '辆') },
+  ]
+})
+
+const featureScoreRows = computed(() => {
+  const scores = featureExample.value?.scores || {}
+  return fallbackDimensions
+    .filter((dimension) => dimension.key !== 'price')
+    .map((dimension) => ({
+      key: dimension.key,
+      label: `${dimension.label} ${dimension.key}Score`,
+      value: scores[dimension.key],
+    }))
+})
 
 const filteredMatrixItems = computed(() => {
   if (matrixFilter.value === 'strict') {
@@ -557,6 +675,11 @@ function formatWan(value) {
 
 function arrayText(values, fallback) {
   return Array.isArray(values) && values.length ? values.join(' / ') : fallback
+}
+
+function unitText(value, unit) {
+  if (value === null || value === undefined || value === '') return '未记录'
+  return `${value} ${unit}`
 }
 
 function formatDate(value) {
@@ -725,12 +848,28 @@ function formatDate(value) {
   gap: 12px;
 }
 
+.pipeline-detail-list {
+  display: grid;
+  gap: 12px;
+}
+
 .pipeline-step {
   min-height: 132px;
   padding: 14px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: #f9fafb;
+}
+
+.pipeline-step--detail {
+  min-height: 0;
+  background: #fff;
+}
+
+.pipeline-step__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .pipeline-step span {
@@ -751,6 +890,10 @@ function formatDate(value) {
   color: var(--color-primary-dark);
 }
 
+.pipeline-step__head strong {
+  margin-top: 0;
+}
+
 .pipeline-step p,
 .constraint-row p,
 .rule-row p {
@@ -758,6 +901,29 @@ function formatDate(value) {
   color: var(--color-muted);
   font-size: 12px;
   line-height: 1.6;
+}
+
+.pipeline-description {
+  font-size: 13px;
+}
+
+.pipeline-facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.pipeline-facts div {
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  background: #f8fafc;
+}
+
+.pipeline-facts b {
+  display: block;
+  color: var(--color-primary-dark);
+  font-size: 12px;
 }
 
 .constraint-list,
@@ -787,6 +953,168 @@ function formatDate(value) {
   border-left: 3px solid var(--color-accent);
   border-radius: var(--radius-sm);
   background: #f9fafb;
+}
+
+.feature-example {
+  display: grid;
+  gap: 16px;
+}
+
+.feature-summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, #f8fafc, #ecfeff);
+}
+
+.feature-summary h3 {
+  margin: 6px 0 0;
+  color: var(--color-primary-dark);
+  font-size: 22px;
+}
+
+.feature-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.feature-price span,
+.feature-price strong {
+  display: block;
+  text-align: right;
+}
+
+.feature-price span {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.feature-price strong {
+  margin-top: 6px;
+  color: var(--color-primary);
+  font-size: 26px;
+}
+
+.feature-param-grid,
+.feature-score-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.feature-param-grid div,
+.feature-score-card {
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+}
+
+.feature-param-grid span,
+.feature-score-card span {
+  display: block;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.feature-param-grid strong,
+.feature-score-card strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--color-primary-dark);
+}
+
+.score-track {
+  height: 7px;
+  overflow: hidden;
+  margin-top: 10px;
+  border-radius: 999px;
+  background: #e5e7eb;
+}
+
+.score-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--color-accent), var(--color-warning));
+}
+
+.breakdown-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.breakdown-card {
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+}
+
+.breakdown-card__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.breakdown-card__head span,
+.breakdown-card__head small {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.breakdown-card__head h3 {
+  margin: 5px 0 0;
+  color: var(--color-primary);
+  font-size: 24px;
+}
+
+.formula-text,
+.breakdown-explain {
+  margin: 10px 0 0;
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.matched-rule-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.matched-rule-list div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 54px;
+  gap: 6px 10px;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  background: #f8fafc;
+}
+
+.matched-rule-list strong {
+  color: var(--color-primary-dark);
+  font-size: 12px;
+}
+
+.matched-rule-list b {
+  color: var(--color-accent);
+  font-size: 12px;
+  text-align: right;
+}
+
+.matched-rule-list p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 .weight-table {
@@ -1020,6 +1348,10 @@ function formatDate(value) {
   .overview-grid,
   .two-column,
   .pipeline-grid,
+  .pipeline-facts,
+  .feature-param-grid,
+  .feature-score-grid,
+  .breakdown-list,
   .stage-grid,
   .explanation-grid,
   .reason-grid {
@@ -1027,8 +1359,15 @@ function formatDate(value) {
   }
 
   .control-row,
-  .section-head {
+  .section-head,
+  .feature-summary {
     display: block;
+  }
+
+  .feature-price span,
+  .feature-price strong {
+    margin-top: 10px;
+    text-align: left;
   }
 
   .record-picker,
