@@ -14,6 +14,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -65,7 +67,7 @@ class RecommendationControllerTest {
         assertEquals("已为您找到完全匹配车型", broadRecommend.path("fallbackMessage").asText());
         assertEquals(120, broadRecommend.path("items").size());
         assertAllMatchLevel(broadRecommend.path("items"), "STRICT");
-        assertGroupedAndSorted(broadRecommend.path("items"));
+        assertGroupedAndSorted(broadRecommend);
         assertRankNoAscending(broadRecommend.path("items"));
 
         JsonNode familyDemand = postDemand("""
@@ -91,7 +93,7 @@ class RecommendationControllerTest {
         assertFalse(familyRecommend.path("fallbackMessage").asText().contains("未找到完全匹配车型"));
         assertTrue(countMatchLevel(familyRecommend.path("items"), "STRICT") > 0);
         assertTrue(containsNonStrictMatchLevel(familyRecommend.path("items")));
-        assertGroupedAndSorted(familyRecommend.path("items"));
+        assertGroupedAndSorted(familyRecommend);
         assertNoTechnicalTags(familyRecommend.path("items"));
         assertTotalScoreMatchesFormula(familyDemand, familyRecommend.path("items").get(0));
         assertRecordAndItemSnapshotsSaved(familyRecommend, "FALLBACK");
@@ -367,7 +369,9 @@ class RecommendationControllerTest {
         assertEquals(0, expected.compareTo(item.path("totalScore").decimalValue()));
     }
 
-    private void assertGroupedAndSorted(JsonNode items) {
+    private void assertGroupedAndSorted(JsonNode recommend) throws Exception {
+        JsonNode items = recommend.path("items");
+        JsonNode finalWeight = readFinalWeight(recommend.path("recordId").asLong());
         boolean seenNonStrict = false;
         for (JsonNode item : items) {
             if ("STRICT".equals(item.path("matchLevel").asText())) {
@@ -376,8 +380,20 @@ class RecommendationControllerTest {
                 seenNonStrict = true;
             }
         }
-        assertSorted(filterByStrict(items, true));
-        assertSorted(filterByStrict(items, false));
+        assertSorted(filterByStrict(items, true), finalWeight);
+        assertSorted(filterByStrict(items, false), finalWeight);
+    }
+
+    private JsonNode readFinalWeight(long recordId) throws Exception {
+        String json = jdbcTemplate.queryForObject(
+                "SELECT weight_snapshot FROM recommend_record WHERE id = ?",
+                String.class,
+                recordId);
+        JsonNode snapshot = objectMapper.readTree(json);
+        if (snapshot.isTextual()) {
+            snapshot = objectMapper.readTree(snapshot.asText());
+        }
+        return snapshot.path("finalWeight");
     }
 
     private JsonNode filterByStrict(JsonNode items, boolean strict) {
@@ -394,23 +410,93 @@ class RecommendationControllerTest {
         return result;
     }
 
-    private void assertSorted(JsonNode items) {
+    private void assertSorted(JsonNode items, JsonNode finalWeight) {
+        List<Boolean> dominatedFlags = paretoDominatedFlags(items, topParetoDimensions(finalWeight));
+        boolean seenDominated = false;
+        for (Boolean dominated : dominatedFlags) {
+            if (dominated) {
+                seenDominated = true;
+            } else {
+                assertFalse(seenDominated, "Pareto non-dominated item must stay before dominated items");
+            }
+        }
+
         for (int i = 1; i < items.size(); i++) {
             JsonNode previous = items.get(i - 1);
             JsonNode current = items.get(i);
-            int totalCompare = previous.path("totalScore").decimalValue()
-                    .compareTo(current.path("totalScore").decimalValue());
-            assertTrue(totalCompare >= 0);
-            if (totalCompare == 0) {
-                int reputationCompare = previous.path("reputationScore").decimalValue()
-                        .compareTo(current.path("reputationScore").decimalValue());
-                assertTrue(reputationCompare >= 0);
-                if (reputationCompare == 0) {
-                    assertTrue(previous.path("popularityScore").decimalValue()
-                            .compareTo(current.path("popularityScore").decimalValue()) >= 0);
+            if (dominatedFlags.get(i - 1).equals(dominatedFlags.get(i))) {
+                assertScoreOrder(previous, current);
+            }
+        }
+    }
+
+    private void assertScoreOrder(JsonNode previous, JsonNode current) {
+        int totalCompare = previous.path("totalScore").decimalValue()
+                .compareTo(current.path("totalScore").decimalValue());
+        assertTrue(totalCompare >= 0);
+        if (totalCompare == 0) {
+            int reputationCompare = previous.path("reputationScore").decimalValue()
+                    .compareTo(current.path("reputationScore").decimalValue());
+            assertTrue(reputationCompare >= 0);
+            if (reputationCompare == 0) {
+                assertTrue(previous.path("popularityScore").decimalValue()
+                        .compareTo(current.path("popularityScore").decimalValue()) >= 0);
+            }
+        }
+    }
+
+    private List<Boolean> paretoDominatedFlags(JsonNode items, List<String> dimensions) {
+        List<JsonNode> itemList = stream(items);
+        List<Boolean> dominatedFlags = new ArrayList<>();
+        for (int index = 0; index < itemList.size(); index++) {
+            dominatedFlags.add(false);
+        }
+        for (int candidateIndex = 0; candidateIndex < itemList.size(); candidateIndex++) {
+            for (int comparedIndex = 0; comparedIndex < itemList.size(); comparedIndex++) {
+                if (candidateIndex == comparedIndex) {
+                    continue;
+                }
+                if (dominates(itemList.get(candidateIndex), itemList.get(comparedIndex), dimensions)) {
+                    dominatedFlags.set(comparedIndex, true);
                 }
             }
         }
+        return dominatedFlags;
+    }
+
+    private List<String> topParetoDimensions(JsonNode finalWeight) {
+        List<String> dimensions = new ArrayList<>(List.of(
+                "price",
+                "space",
+                "safety",
+                "energy",
+                "intelligence",
+                "comfort",
+                "power",
+                "reputation",
+                "popularity"));
+        dimensions.sort((left, right) -> finalWeight.path(right).decimalValue()
+                .compareTo(finalWeight.path(left).decimalValue()));
+        return dimensions.subList(0, 4);
+    }
+
+    private boolean dominates(JsonNode candidate, JsonNode compared, List<String> dimensions) {
+        boolean hasBetterDimension = false;
+        for (String dimension : dimensions) {
+            int scoreCompare = score(candidate, dimension).compareTo(score(compared, dimension));
+            if (scoreCompare < 0) {
+                return false;
+            }
+            if (scoreCompare > 0) {
+                hasBetterDimension = true;
+            }
+        }
+        return hasBetterDimension;
+    }
+
+    private BigDecimal score(JsonNode item, String dimension) {
+        String fieldName = "price".equals(dimension) ? "priceScore" : dimension + "Score";
+        return item.path(fieldName).decimalValue();
     }
 
     private void assertAllMatchLevel(JsonNode items, String matchLevel) {

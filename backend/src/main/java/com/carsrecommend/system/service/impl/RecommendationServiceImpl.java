@@ -50,6 +50,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     private final PriceScoreCalculator priceScoreCalculator;
     private final RecommendationCandidateService recommendationCandidateService;
     private final RecommendationWeightService recommendationWeightService;
+    private final ParetoAnalyzer paretoAnalyzer;
     private final ObjectMapper objectMapper;
 
     public RecommendationServiceImpl(
@@ -59,6 +60,7 @@ public class RecommendationServiceImpl implements RecommendationService {
             PriceScoreCalculator priceScoreCalculator,
             RecommendationCandidateService recommendationCandidateService,
             RecommendationWeightService recommendationWeightService,
+            ParetoAnalyzer paretoAnalyzer,
             ObjectMapper objectMapper) {
         this.userDemandMapper = userDemandMapper;
         this.recommendRecordMapper = recommendRecordMapper;
@@ -66,6 +68,7 @@ public class RecommendationServiceImpl implements RecommendationService {
         this.priceScoreCalculator = priceScoreCalculator;
         this.recommendationCandidateService = recommendationCandidateService;
         this.recommendationWeightService = recommendationWeightService;
+        this.paretoAnalyzer = paretoAnalyzer;
         this.objectMapper = objectMapper;
     }
 
@@ -80,8 +83,15 @@ public class RecommendationServiceImpl implements RecommendationService {
         }
 
         RecommendationCandidateGroups candidates = recommendationCandidateService.generateCandidates(demand);
-        List<ScoredRecommendation> scoredItems = generateRecommendationItems(candidates, demand);
-        RecommendationWeightSnapshot weightSnapshot = recommendationWeightService.calculate(demand, scoreVectors(scoredItems));
+        List<ScoredRecommendation> strictItems = scoreCandidates(candidates.strictCandidates(), demand);
+        List<ScoredRecommendation> recommendationItems = scoreCandidates(candidates.recommendationCandidates(), demand);
+        RecommendationWeightSnapshot weightSnapshot = recommendationWeightService.calculate(
+                demand,
+                scoreVectors(combine(strictItems, recommendationItems)));
+        List<ScoredRecommendation> scoredItems = sortRecommendationItems(
+                strictItems,
+                recommendationItems,
+                weightSnapshot);
         String recommendStatus = buildRecommendStatus(scoredItems);
         String fallbackMessage = buildFallbackMessage(scoredItems, recommendStatus);
 
@@ -122,24 +132,50 @@ public class RecommendationServiceImpl implements RecommendationService {
         return resolvedUserId;
     }
 
-    private List<ScoredRecommendation> generateRecommendationItems(
-            RecommendationCandidateGroups candidates,
+    private List<ScoredRecommendation> scoreCandidates(
+            List<RecommendationCandidate> candidates,
             UserDemand demand) {
-        List<ScoredRecommendation> strictItems = new ArrayList<>();
-        List<ScoredRecommendation> recommendationItems = new ArrayList<>();
-        for (RecommendationCandidate candidate : candidates.strictCandidates()) {
-            strictItems.add(toScoredRecommendation(candidate, demand));
+        List<ScoredRecommendation> scoredItems = new ArrayList<>();
+        for (RecommendationCandidate candidate : candidates) {
+            scoredItems.add(toScoredRecommendation(candidate, demand));
         }
-        strictItems.sort(recommendationComparator());
+        return scoredItems;
+    }
 
-        for (RecommendationCandidate candidate : candidates.recommendationCandidates()) {
-            recommendationItems.add(toScoredRecommendation(candidate, demand));
-        }
+    private List<ScoredRecommendation> sortRecommendationItems(
+            List<ScoredRecommendation> strictItems,
+            List<ScoredRecommendation> recommendationItems,
+            RecommendationWeightSnapshot weightSnapshot) {
+        strictItems = markParetoDominated(strictItems, weightSnapshot);
+        recommendationItems = markParetoDominated(recommendationItems, weightSnapshot);
+
+        strictItems.sort(recommendationComparator());
         recommendationItems.sort(recommendationComparator());
 
         List<ScoredRecommendation> finalItems = new ArrayList<>(strictItems);
         finalItems.addAll(recommendationItems);
         return finalItems;
+    }
+
+    private List<ScoredRecommendation> markParetoDominated(
+            List<ScoredRecommendation> items,
+            RecommendationWeightSnapshot weightSnapshot) {
+        ParetoAnalyzer.ParetoResult paretoResult = paretoAnalyzer.analyze(
+                scoreVectors(items),
+                weightSnapshot.finalWeight());
+        List<ScoredRecommendation> markedItems = new ArrayList<>();
+        for (int index = 0; index < items.size(); index++) {
+            markedItems.add(items.get(index).withParetoDominated(paretoResult.dominatedFlags().get(index)));
+        }
+        return markedItems;
+    }
+
+    private List<ScoredRecommendation> combine(
+            List<ScoredRecommendation> strictItems,
+            List<ScoredRecommendation> recommendationItems) {
+        List<ScoredRecommendation> combined = new ArrayList<>(strictItems);
+        combined.addAll(recommendationItems);
+        return combined;
     }
 
     private List<RecommendationScoreVector> scoreVectors(List<ScoredRecommendation> scoredItems) {
@@ -173,7 +209,8 @@ public class RecommendationServiceImpl implements RecommendationService {
                 candidate.matchLevel(),
                 tags,
                 reasonText,
-                weaknessText);
+                weaknessText,
+                false);
     }
 
     private BigDecimal calculateTotalScore(BigDecimal priceScore, CarFeatureScore score, UserDemand demand) {
@@ -354,7 +391,8 @@ public class RecommendationServiceImpl implements RecommendationService {
     }
 
     private Comparator<ScoredRecommendation> recommendationComparator() {
-        return Comparator.comparing(ScoredRecommendation::totalScore, Comparator.reverseOrder())
+        return Comparator.comparing(ScoredRecommendation::paretoDominated)
+                .thenComparing(ScoredRecommendation::totalScore, Comparator.reverseOrder())
                 .thenComparing(item -> item.featureScore().getReputationScore(), Comparator.reverseOrder())
                 .thenComparing(item -> item.featureScore().getPopularityScore(), Comparator.reverseOrder());
     }
@@ -453,7 +491,21 @@ public class RecommendationServiceImpl implements RecommendationService {
             MatchLevel matchLevel,
             List<String> tags,
             String reasonText,
-            String weaknessText) {
+            String weaknessText,
+            boolean paretoDominated) {
+
+        private ScoredRecommendation withParetoDominated(boolean paretoDominated) {
+            return new ScoredRecommendation(
+                    car,
+                    featureScore,
+                    priceScore,
+                    totalScore,
+                    matchLevel,
+                    tags,
+                    reasonText,
+                    weaknessText,
+                    paretoDominated);
+        }
     }
 
     private record DimensionScore(
