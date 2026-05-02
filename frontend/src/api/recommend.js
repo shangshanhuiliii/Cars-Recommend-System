@@ -19,3 +19,11 @@ export function fetchRecommendationDetail(recordId, params = {}) {
 export function fetchRecommendationHistory(params = {}) {
   return http.get('/recommend/history', { params })
 }
+
+export function submitRecommendationFeedback(recordId, data) {
+  return http.post(`/recommend/${recordId}/feedback`, data)
+}
+
+export function fetchRecommendationFeedback(recordId, params = {}) {
+  return http.get(`/recommend/${recordId}/feedback`, { params })
+}

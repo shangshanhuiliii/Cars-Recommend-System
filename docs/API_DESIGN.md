@@ -607,31 +607,113 @@ POST /api/user/demand/parse-text
 ### 3.2 车型对比
 
 ```text
-POST /api/car/compare
+GET /api/car/compare?carIds=1,2,3
 ```
 
-请求：
+要求：
+
+- `carIds` 至少 2 个、最多 3 个，重复 ID 去重后不足 2 个返回 400。
+- 只读取未删除车型。
+- 只读取 `car_model`、`car_param`、`car_feature_score` 当前快照。
+- 不触发车型评分重算。
+- 不生成推荐记录，不写入推荐明细。
+- 对比维度只使用八维车型静态评分：空间、安全、能耗、智能、舒适、动力、口碑、热度；价格只作为基础信息展示。
+
+响应示例：
 
 ```json
 {
-  "carIds": [1, 2, 3]
+  "carIds": [1, 2, 3],
+  "dimensions": [
+    { "key": "space", "label": "空间" },
+    { "key": "safety", "label": "安全" }
+  ],
+  "cars": [
+    {
+      "carId": 1,
+      "brand": "比亚迪",
+      "series": "秦PLUS",
+      "modelName": "秦PLUS DM-i 120KM 卓越型",
+      "guidePrice": 99800,
+      "bodyType": "轿车",
+      "energyType": "插混",
+      "seats": 5,
+      "param": {},
+      "scores": {
+        "space": 78,
+        "safety": 86,
+        "energy": 95,
+        "intelligence": 80,
+        "comfort": 82,
+        "power": 75,
+        "reputation": 90,
+        "popularity": 88
+      }
+    }
+  ]
 }
 ```
 
-响应应包含基础参数、评分维度和简短结论。
+如果某车型尚无评分，`scores` 返回 `null`，前端显示“暂无评分，请在管理端重算评分”。
 
 ### 3.3 收藏
 
 ```text
-POST   /api/favorite/{carId}
-DELETE /api/favorite/{carId}
-GET    /api/favorite/list
+POST   /api/user/favorites/{carId}
+DELETE /api/user/favorites/{carId}
+GET    /api/user/favorites?page=1&size=10
+GET    /api/user/favorites/status?carIds=1,2,3
+```
+
+要求：
+
+- `userId` 可作为查询参数传入；为空时使用默认演示用户 `app_user.id = 1`。
+- 收藏已收藏车型时幂等返回成功。
+- 取消未收藏车型时幂等返回成功。
+- 只允许收藏未删除车型。
+- 收藏列表只返回未删除车型，并包含车型基础信息和评分摘要。
+
+收藏列表响应使用通用分页结构：
+
+```json
+{
+  "records": [
+    {
+      "favoriteId": 1,
+      "carId": 2,
+      "brand": "比亚迪",
+      "modelName": "宋PLUS DM-i 110KM 旗舰型",
+      "guidePrice": 159800,
+      "bodyType": "SUV",
+      "energyType": "插混",
+      "seats": 5,
+      "scoreSummary": {
+        "space": 83,
+        "safety": 91
+      },
+      "favoriteTime": "2026-05-02T20:30:00"
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "size": 10
+}
+```
+
+收藏状态响应：
+
+```json
+[
+  { "carId": 1, "favorited": true },
+  { "carId": 2, "favorited": false }
+]
 ```
 
 ### 3.4 反馈
 
 ```text
-POST /api/feedback
+POST /api/recommend/{recordId}/feedback
+GET  /api/recommend/{recordId}/feedback
 ```
 
 请求：
@@ -639,10 +721,37 @@ POST /api/feedback
 ```json
 {
   "userId": 1,
+  "satisfactionScore": 4,
+  "reasonTags": ["推荐有帮助", "解释清楚"],
+  "comment": "推荐结果比较符合家用需求"
+}
+```
+
+要求：
+
+- `userId` 为空时使用默认演示用户 `app_user.id = 1`。
+- 只能反馈自己的推荐记录。
+- `satisfactionScore` 范围为 1-5。
+- `satisfactionLevel` 由后端按分数生成：4-5 为 `SATISFIED`，3 为 `NEUTRAL`，1-2 为 `DISSATISFIED`。
+- `reasonTags` 保存为 JSON 数组。
+- `comment` 最大 500 字。
+- 不允许反馈不存在或不属于当前用户的 `recordId`。
+- 第一版同一用户同一推荐记录只保留一条反馈，重复提交会覆盖原反馈。
+- 反馈不修改 `recommend_record` 和 `recommend_item`，不改变推荐排序或权重。
+
+响应示例：
+
+```json
+{
+  "id": 1,
+  "userId": 1,
   "recordId": 100,
   "satisfactionScore": 4,
-  "reasonType": "价格偏高",
-  "feedbackText": "推荐结果还可以，但预算稍高。"
+  "satisfactionLevel": "SATISFIED",
+  "reasonTags": ["推荐有帮助", "解释清楚"],
+  "comment": "推荐结果比较符合家用需求",
+  "createTime": "2026-05-02T20:30:00",
+  "updateTime": "2026-05-02T20:30:00"
 }
 ```
 
@@ -664,8 +773,10 @@ GET /api/admin/stat/feedback
 - 推荐状态分布
 - 动力类型偏好分布
 - 车型类型偏好分布
-- 满意度分布，反馈表未实现前返回空数组
-- 不满意原因分布，反馈表未实现前返回空数组
+- 满意度分布
+- 原因标签分布
+- 反馈数量
+- 平均满意度
 
 统计图表统一使用 `{ "name": "...", "value": 0 }` 结构，便于前端 ECharts 直接渲染：
 
@@ -678,8 +789,10 @@ GET /api/admin/stat/feedback
   "recommendStatusDistribution": [{ "name": "FALLBACK", "value": 3 }],
   "energyTypeDistribution": [{ "name": "插混", "value": 5 }],
   "bodyTypeDistribution": [{ "name": "SUV", "value": 7 }],
-  "satisfactionDistribution": [],
-  "feedbackReasonDistribution": []
+  "satisfactionDistribution": [{ "name": "5分", "value": 2 }],
+  "feedbackReasonDistribution": [{ "name": "推荐有帮助", "value": 2 }],
+  "feedbackCount": 2,
+  "averageSatisfaction": 4.50
 }
 ```
 

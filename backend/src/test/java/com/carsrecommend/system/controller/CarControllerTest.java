@@ -99,6 +99,56 @@ class CarControllerTest {
                         .param("keyword", "无参数评分测试车"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.length()").value(0));
+
+        compareCarsReturnsModelParamScoreAndDoesNotWriteRecommendationData();
+    }
+
+    private void compareCarsReturnsModelParamScoreAndDoesNotWriteRecommendationData() throws Exception {
+        mockMvc.perform(post("/api/admin/cars/{id}/score/recalculate", 1))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/admin/cars/{id}/score/recalculate", 2))
+                .andExpect(status().isOk());
+
+        assertEquals(2, count("SELECT COUNT(*) FROM car_feature_score"));
+        assertEquals(0, count("SELECT COUNT(*) FROM recommend_record"));
+        assertEquals(0, count("SELECT COUNT(*) FROM recommend_item"));
+        assertEquals(0, count("SELECT COUNT(*) FROM user_demand"));
+
+        mockMvc.perform(get("/api/car/compare").param("carIds", "1,2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.carIds.length()").value(2))
+                .andExpect(jsonPath("$.data.dimensions.length()").value(8))
+                .andExpect(jsonPath("$.data.dimensions[0].key").value("space"))
+                .andExpect(jsonPath("$.data.cars.length()").value(2))
+                .andExpect(jsonPath("$.data.cars[0].carId").value(1))
+                .andExpect(jsonPath("$.data.cars[0].brand").value("比亚迪"))
+                .andExpect(jsonPath("$.data.cars[0].param.carId").value(1))
+                .andExpect(jsonPath("$.data.cars[0].scores.space").isNumber())
+                .andExpect(jsonPath("$.data.cars[1].carId").value(2))
+                .andExpect(jsonPath("$.data.cars[1].param.wheelbaseMm").value(2765))
+                .andExpect(jsonPath("$.data.cars[1].scores.safety").isNumber());
+
+        mockMvc.perform(get("/api/car/compare").param("carIds", "1,2,3"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.cars.length()").value(3))
+                .andExpect(jsonPath("$.data.cars[2].carId").value(3))
+                .andExpect(jsonPath("$.data.cars[2].scores").doesNotExist());
+
+        assertEquals(2, count("SELECT COUNT(*) FROM car_feature_score"));
+        assertEquals(0, count("SELECT COUNT(*) FROM recommend_record"));
+        assertEquals(0, count("SELECT COUNT(*) FROM recommend_item"));
+        assertEquals(0, count("SELECT COUNT(*) FROM user_demand"));
+
+        mockMvc.perform(get("/api/car/compare").param("carIds", "1"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400));
+        mockMvc.perform(get("/api/car/compare").param("carIds", "1,2,3,4"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400));
+        mockMvc.perform(get("/api/car/compare").param("carIds", "1,1"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400));
     }
 
     private int count(String sql) {

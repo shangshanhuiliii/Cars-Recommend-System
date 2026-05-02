@@ -68,10 +68,17 @@ class DatabaseSchemaSeedTest {
                     "SELECT total_score, price_score, space_score, safety_score, energy_score, intelligence_score, "
                             + "comfort_score, power_score, reputation_score, popularity_score, match_level, "
                             + "reason_text, weakness_text FROM recommend_item WHERE 1 = 0");
+            assertColumnSelectable(connection,
+                    "SELECT user_id, car_id, deleted, create_time, update_time FROM user_favorite WHERE 1 = 0");
+            assertColumnSelectable(connection,
+                    "SELECT user_id, record_id, satisfaction_score, satisfaction_level, reason_tags, comment "
+                            + "FROM recommend_feedback WHERE 1 = 0");
 
             assertEquals(0, count(connection, "SELECT COUNT(*) FROM car_feature_score"));
             assertEquals(0, count(connection, "SELECT COUNT(*) FROM recommend_record"));
             assertEquals(0, count(connection, "SELECT COUNT(*) FROM recommend_item"));
+            assertEquals(0, count(connection, "SELECT COUNT(*) FROM user_favorite"));
+            assertEquals(0, count(connection, "SELECT COUNT(*) FROM recommend_feedback"));
 
             execute(connection,
                     "INSERT INTO user_demand (user_id, energy_types) VALUES (1, '[\"新能源\"]')");

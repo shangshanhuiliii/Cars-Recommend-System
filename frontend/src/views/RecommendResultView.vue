@@ -68,6 +68,15 @@
         </div>
       </div>
 
+      <el-alert
+        v-if="favoriteLoadError"
+        class="state-alert"
+        type="warning"
+        :closable="false"
+        :title="favoriteLoadError"
+        show-icon
+      />
+
       <div v-if="detail.recommendStatus === 'EMPTY' || !detail.items?.length" class="panel empty-panel">
         <div class="panel__body">
           <el-empty description="暂未找到合适车型">
@@ -135,10 +144,66 @@
 
               <div class="card-actions">
                 <el-button type="primary" plain @click="openCarDetail(item.carId)">查看车型详情</el-button>
+                <el-button @click="addToCompare(item.carId)">加入对比</el-button>
+                <el-button
+                  :type="isFavorited(item.carId) ? 'warning' : 'default'"
+                  :loading="favoriteOperatingId === item.carId"
+                  @click="toggleFavorite(item.carId)"
+                >
+                  {{ isFavorited(item.carId) ? '已收藏' : '收藏' }}
+                </el-button>
               </div>
             </div>
           </article>
         </section>
+      </div>
+
+      <div v-if="detail.recommendStatus !== 'EMPTY'" class="panel feedback-panel">
+        <div class="panel__body">
+          <div class="feedback-head">
+            <div>
+              <h2>推荐反馈</h2>
+              <p>反馈只进入统计分析，当前版本不会自动调整推荐权重或排序。</p>
+            </div>
+            <el-tag v-if="feedbackSaved" type="success" effect="light">反馈已记录</el-tag>
+          </div>
+
+          <el-skeleton v-if="feedbackLoading" :rows="4" animated />
+          <el-alert
+            v-else-if="feedbackError"
+            type="warning"
+            :closable="false"
+            :title="feedbackError"
+            show-icon
+          />
+          <div v-else class="feedback-form">
+            <div class="feedback-score">
+              <span>满意度</span>
+              <el-rate v-model="feedbackForm.satisfactionScore" :max="5" />
+            </div>
+            <el-checkbox-group v-model="feedbackForm.reasonTags" class="reason-tags">
+              <el-checkbox-button v-for="tag in feedbackReasonOptions" :key="tag" :label="tag" />
+            </el-checkbox-group>
+            <el-input
+              v-model="feedbackForm.comment"
+              type="textarea"
+              :rows="3"
+              maxlength="500"
+              show-word-limit
+              placeholder="可以补充推荐是否符合预算、车型、空间、动力或解释是否清楚"
+            />
+            <div class="feedback-actions">
+              <el-button
+                type="primary"
+                :loading="feedbackSubmitting"
+                :disabled="!feedbackForm.satisfactionScore"
+                @click="submitFeedback"
+              >
+                提交反馈
+              </el-button>
+            </div>
+          </div>
+        </div>
       </div>
     </template>
 
@@ -176,6 +241,20 @@
           </div>
         </div>
 
+        <div class="drawer-actions">
+          <el-button @click="addToCompare(selectedCar.id)">加入对比</el-button>
+          <el-button
+            :type="isFavorited(selectedCar.id) ? 'warning' : 'default'"
+            :loading="favoriteOperatingId === selectedCar.id"
+            @click="toggleFavorite(selectedCar.id)"
+          >
+            {{ isFavorited(selectedCar.id) ? '已收藏' : '收藏' }}
+          </el-button>
+          <el-button type="primary" plain @click="$router.push(`/car/${selectedCar.id}?recordId=${detail.recordId}`)">
+            打开详情页
+          </el-button>
+        </div>
+
         <h3>特征评分</h3>
         <template v-if="selectedScore">
           <div v-for="row in detailScoreRows" :key="row.key" class="score-row drawer-score-row">
@@ -207,15 +286,19 @@
 </template>
 
 <script setup>
+import { ElMessage } from 'element-plus'
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 import { fetchCarDetail } from '@/api/cars'
-import { fetchRecommendationDetail } from '@/api/recommend'
+import { addFavorite, fetchFavoriteStatus, removeFavorite } from '@/api/favorites'
+import { fetchRecommendationDetail, fetchRecommendationFeedback, submitRecommendationFeedback } from '@/api/recommend'
 import { carImageSrc, fallbackCarImage } from '@/utils/carImage'
+import { addCompareId, compareQuery } from '@/utils/compareSelection'
 import { displayTags, rankOrderedItems } from '@/utils/recommendPresentation'
 
 const route = useRoute()
+const router = useRouter()
 const loading = ref(false)
 const error = ref('')
 const detail = ref(null)
@@ -223,6 +306,18 @@ const carDrawerVisible = ref(false)
 const carDetailLoading = ref(false)
 const carDetailError = ref('')
 const selectedCarDetail = ref(null)
+const favoriteStatus = ref({})
+const favoriteOperatingId = ref(null)
+const favoriteLoadError = ref('')
+const feedbackLoading = ref(false)
+const feedbackSubmitting = ref(false)
+const feedbackError = ref('')
+const feedbackSaved = ref(false)
+const feedbackForm = ref({
+  satisfactionScore: 0,
+  reasonTags: [],
+  comment: '',
+})
 
 const recordId = computed(() => route.params.recordId)
 const selectedCar = computed(() => selectedCarDetail.value?.carModel || {})
@@ -262,6 +357,16 @@ const featureScoreConfig = [
   ['powerScore', '动力'],
   ['reputationScore', '口碑'],
   ['popularityScore', '热度'],
+]
+
+const feedbackReasonOptions = [
+  '推荐有帮助',
+  '解释清楚',
+  '推荐太贵',
+  '车型不合适',
+  '动力不符合',
+  '空间不足',
+  '解释不清楚',
 ]
 
 const weightRows = computed(() =>
@@ -323,6 +428,8 @@ async function loadDetail() {
   try {
     const response = await fetchRecommendationDetail(recordId.value)
     detail.value = response.data
+    loadFavoriteStatuses()
+    loadFeedback()
   } catch (requestError) {
     detail.value = null
     if (requestError?.response?.status === 404) {
@@ -332,6 +439,50 @@ async function loadDetail() {
     }
   } finally {
     loading.value = false
+  }
+}
+
+async function loadFavoriteStatuses() {
+  favoriteLoadError.value = ''
+  const ids = (detail.value?.items || []).map((item) => item.carId)
+  if (!ids.length) {
+    favoriteStatus.value = {}
+    return
+  }
+  try {
+    const response = await fetchFavoriteStatus(ids)
+    favoriteStatus.value = Object.fromEntries((response.data || []).map((item) => [item.carId, item.favorited]))
+  } catch {
+    favoriteStatus.value = {}
+    favoriteLoadError.value = '收藏状态加载失败，不影响推荐结果展示。'
+  }
+}
+
+async function loadFeedback() {
+  if (!recordId.value) return
+  feedbackLoading.value = true
+  feedbackError.value = ''
+  feedbackSaved.value = false
+  try {
+    const response = await fetchRecommendationFeedback(recordId.value)
+    if (response.data) {
+      feedbackForm.value = {
+        satisfactionScore: Number(response.data.satisfactionScore || 0),
+        reasonTags: response.data.reasonTags || [],
+        comment: response.data.comment || '',
+      }
+      feedbackSaved.value = true
+    } else {
+      feedbackForm.value = {
+        satisfactionScore: 0,
+        reasonTags: [],
+        comment: '',
+      }
+    }
+  } catch (requestError) {
+    feedbackError.value = requestError?.response?.data?.message || requestError?.message || '反馈状态加载失败。'
+  } finally {
+    feedbackLoading.value = false
   }
 }
 
@@ -347,6 +498,58 @@ async function openCarDetail(carId) {
     carDetailError.value = requestError?.response?.data?.message || requestError?.message || '车型详情加载失败。'
   } finally {
     carDetailLoading.value = false
+  }
+}
+
+async function toggleFavorite(carId) {
+  favoriteOperatingId.value = carId
+  try {
+    if (isFavorited(carId)) {
+      await removeFavorite(carId)
+      favoriteStatus.value = { ...favoriteStatus.value, [carId]: false }
+      ElMessage.success('已取消收藏')
+    } else {
+      await addFavorite(carId)
+      favoriteStatus.value = { ...favoriteStatus.value, [carId]: true }
+      ElMessage.success('已收藏')
+    }
+  } catch (requestError) {
+    ElMessage.error(requestError?.response?.data?.message || requestError?.message || '收藏操作失败')
+  } finally {
+    favoriteOperatingId.value = null
+  }
+}
+
+function isFavorited(carId) {
+  return Boolean(favoriteStatus.value?.[carId])
+}
+
+function addToCompare(carId) {
+  const result = addCompareId(carId)
+  if (!result.ok) {
+    ElMessage.warning(result.reason)
+    return
+  }
+  ElMessage.success(result.reason)
+  router.push({ path: '/compare', query: compareQuery(result.ids) })
+}
+
+async function submitFeedback() {
+  feedbackSubmitting.value = true
+  feedbackError.value = ''
+  try {
+    const response = await submitRecommendationFeedback(recordId.value, feedbackForm.value)
+    feedbackForm.value = {
+      satisfactionScore: Number(response.data.satisfactionScore || 0),
+      reasonTags: response.data.reasonTags || [],
+      comment: response.data.comment || '',
+    }
+    feedbackSaved.value = true
+    ElMessage.success('反馈已记录')
+  } catch (requestError) {
+    feedbackError.value = requestError?.response?.data?.message || requestError?.message || '反馈提交失败。'
+  } finally {
+    feedbackSubmitting.value = false
   }
 }
 
@@ -686,7 +889,66 @@ function formatDate(value) {
 
 .card-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.feedback-panel {
+  margin-top: 22px;
+}
+
+.feedback-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.feedback-head h2 {
+  margin: 0 0 6px;
+  color: var(--color-primary-dark);
+  font-size: 18px;
+}
+
+.feedback-head p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
+.feedback-form {
+  display: grid;
+  gap: 14px;
+}
+
+.feedback-score {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.feedback-score span {
+  color: var(--color-primary-dark);
+  font-weight: 700;
+}
+
+.reason-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.feedback-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.drawer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-top: 16px;
 }
 

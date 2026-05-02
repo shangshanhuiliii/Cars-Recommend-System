@@ -5,6 +5,8 @@ import AdminDashboardView from '@/views/AdminDashboardView.vue'
 import AdminRecommendRecordsView from '@/views/AdminRecommendRecordsView.vue'
 import AlgorithmDemoView from '@/views/AlgorithmDemoView.vue'
 import CarDetailView from '@/views/CarDetailView.vue'
+import CarCompareView from '@/views/CarCompareView.vue'
+import FavoritesView from '@/views/FavoritesView.vue'
 import HistoryView from '@/views/HistoryView.vue'
 import HomeView from '@/views/HomeView.vue'
 import RecommendDemandView from '@/views/RecommendDemandView.vue'
@@ -32,6 +34,16 @@ const router = createRouter({
       path: '/car/:id',
       name: 'car-detail',
       component: CarDetailView,
+    },
+    {
+      path: '/compare',
+      name: 'car-compare',
+      component: CarCompareView,
+    },
+    {
+      path: '/favorites',
+      name: 'favorites',
+      component: FavoritesView,
     },
     {
       path: '/history',

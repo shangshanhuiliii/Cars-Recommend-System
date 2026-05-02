@@ -7,6 +7,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -54,8 +55,10 @@ public class AdminStatServiceImpl implements AdminStatService {
         vo.setRecommendStatusDistribution(groupRecommendStatus());
         vo.setEnergyTypeDistribution(groupDemandArrayColumn("energy_types"));
         vo.setBodyTypeDistribution(groupDemandArrayColumn("body_types"));
-        vo.setSatisfactionDistribution(List.of());
-        vo.setFeedbackReasonDistribution(List.of());
+        vo.setSatisfactionDistribution(satisfactionDistribution());
+        vo.setFeedbackReasonDistribution(feedbackReasonDistribution());
+        vo.setFeedbackCount(feedbackCount());
+        vo.setAverageSatisfaction(averageSatisfaction());
         return vo;
     }
 
@@ -161,6 +164,50 @@ public class AdminStatServiceImpl implements AdminStatService {
                     counts.put(label, counts.getOrDefault(label, 0L) + 1);
                 }
             });
+        }
+        return sortedStatItems(counts);
+    }
+
+    private Long feedbackCount() {
+        Long count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM recommend_feedback WHERE deleted = FALSE",
+                Long.class);
+        return count == null ? 0L : count;
+    }
+
+    private BigDecimal averageSatisfaction() {
+        BigDecimal average = jdbcTemplate.queryForObject(
+                "SELECT AVG(satisfaction_score) FROM recommend_feedback WHERE deleted = FALSE",
+                BigDecimal.class);
+        if (average == null) {
+            return null;
+        }
+        return average.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private List<StatItemVO> satisfactionDistribution() {
+        return jdbcTemplate.query(
+                """
+                        SELECT satisfaction_score AS score, COUNT(*) AS item_count
+                        FROM recommend_feedback
+                        WHERE deleted = FALSE
+                        GROUP BY satisfaction_score
+                        ORDER BY satisfaction_score ASC
+                        """,
+                (resultSet, rowNum) -> new StatItemVO(
+                        resultSet.getInt("score") + "分",
+                        resultSet.getLong("item_count")));
+    }
+
+    private List<StatItemVO> feedbackReasonDistribution() {
+        List<String> jsonValues = jdbcTemplate.queryForList(
+                "SELECT reason_tags FROM recommend_feedback WHERE deleted = FALSE",
+                String.class);
+        Map<String, Long> counts = new LinkedHashMap<>();
+        for (String json : jsonValues) {
+            for (String value : readStringList(json)) {
+                counts.put(value, counts.getOrDefault(value, 0L) + 1);
+            }
         }
         return sortedStatItems(counts);
     }

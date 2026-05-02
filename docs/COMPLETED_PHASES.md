@@ -690,6 +690,63 @@
 - 不保存解析记录；如后续需要记录解析历史，必须先确认数据库结构变更。
 - 未操作真实 MySQL；真实演示数据联调仍需用户单独确认。
 
+## 阶段 11：车型对比、收藏、用户反馈
+
+### 阶段目标
+
+在不修改 `pareto-topsis-v1` 推荐算法主链路的前提下，补充用户闭环增强功能：车型横向对比、演示用户收藏和推荐结果反馈统计。
+
+### 已完成内容
+
+- 新增车型对比接口 `GET /api/car/compare?carIds=1,2,3`，最多 3 款、至少 2 款。
+- 对比接口只读取未删除车型、车型参数和车型静态评分，不触发评分重算，不写推荐记录。
+- 新增 `/compare` 页面，使用 SVG 雷达图展示八维静态评分，基础表和参数表展示价格、尺寸、续航、配置等差异。
+- 新增 `user_favorite` 表和收藏接口：收藏、取消收藏、收藏列表、收藏状态。
+- 推荐结果页、车型详情页和收藏页提供收藏与加入对比入口。
+- 新增 `/favorites` 页面，展示演示用户收藏车型，支持取消收藏和进入车型详情。
+- 新增 `recommend_feedback` 表和反馈接口：提交反馈、查询反馈。
+- 推荐结果页和历史详情页底部展示反馈卡片，支持 1-5 分满意度、原因标签和文字反馈。
+- 管理端统计总览新增反馈总数、平均满意度、满意度分布和原因标签分布。
+- 第一版同一用户同一推荐记录重复提交反馈按覆盖处理。
+
+### 主要接口或页面
+
+- `GET /api/car/compare`
+- `POST /api/user/favorites/{carId}`
+- `DELETE /api/user/favorites/{carId}`
+- `GET /api/user/favorites`
+- `GET /api/user/favorites/status`
+- `POST /api/recommend/{recordId}/feedback`
+- `GET /api/recommend/{recordId}/feedback`
+- `/compare`
+- `/favorites`
+- `/recommend/result/:recordId`
+- `/car/:id`
+- `/admin/dashboard`
+
+### 主要数据表或字段变化
+
+- 新增 `user_favorite`，通过 `user_id + car_id` 唯一约束保证收藏幂等。
+- 新增 `recommend_feedback`，通过 `user_id + record_id` 唯一约束保证同一推荐记录只保留一条用户反馈。
+- 不修改 `recommend_record`、`recommend_item`、`user_demand` 或车型评分表结构。
+
+### 测试与验证结果
+
+- 定向后端测试通过：`CarControllerTest,UserFavoriteControllerTest,RecommendationFeedbackControllerTest,AdminStatControllerTest,DatabaseSchemaSeedTest`。
+- `mvn -DskipTests compile` 通过。
+- `npm run build` 通过，Vite 仍仅提示现有 chunk 偏大。
+- `node scripts/verifyStage11Features.mjs` 通过。
+
+### 是否达到最低完成标准
+
+是。车型对比、收藏、反馈和反馈统计均已完成，并保持推荐算法、推荐排序和自然语言解析逻辑不变。
+
+### 遗留问题或后续注意事项
+
+- 本阶段只修改初始化脚本，没有操作真实 MySQL；真实库如需使用新增表，需要用户单独确认迁移或重建。
+- 反馈第一版只做统计，不做在线学习，不自动更新用户权重或车型评分。
+- 浏览器侧仍建议进行一次手工验收，重点检查移动端对比表横向滚动、收藏状态提示和反馈提交状态。
+
 ## 当前 MVP 状态
 
 当前系统已经可以完成完整 MVP 主链路：
@@ -712,16 +769,15 @@
 - 管理端车型管理、推荐记录追溯和统计仪表盘。
 - 独立算法可视化答辩页，可基于推荐快照展示权重、候选阶段、九维矩阵、Pareto、TOPSIS、解释和追溯边界。
 - 规则词典式自然语言解析入口，可辅助填写结构化购车需求表单。
+- 车型对比、收藏和用户反馈闭环。
+- 管理端反馈统计。
 
 仍未完成的内容：
 
-- 车型对比雷达图。
-- 收藏。
-- 用户反馈。
 - 图片上传。
 - 复杂权限。
 - Redis。
 - 深度学习推荐。
 - 在线学习推荐。
 
-建议下一步进入阶段 11：车型对比、收藏或用户反馈。后续增强仍不得绕过结构化需求确认和当前推荐主链路。
+建议下一步进入阶段 12：统计与答辩打磨。后续增强仍不得绕过结构化需求确认和当前推荐主链路。

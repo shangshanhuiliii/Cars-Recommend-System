@@ -11,3 +11,7 @@ export function fetchCarBrands() {
 export function fetchCarOptions(params = {}) {
   return http.get('/car/options', { params })
 }
+
+export function fetchCarCompare(carIds = []) {
+  return http.get('/car/compare', { params: { carIds: carIds.join(',') } })
+}

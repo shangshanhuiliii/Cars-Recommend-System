@@ -9,12 +9,18 @@ import com.carsrecommend.system.mapper.CarFeatureScoreMapper;
 import com.carsrecommend.system.mapper.CarModelMapper;
 import com.carsrecommend.system.mapper.CarParamMapper;
 import com.carsrecommend.system.service.CarDetailService;
+import com.carsrecommend.system.vo.CarCompareCarVO;
+import com.carsrecommend.system.vo.CarCompareDimensionVO;
+import com.carsrecommend.system.vo.CarCompareVO;
 import com.carsrecommend.system.vo.CarDetailVO;
 import com.carsrecommend.system.vo.CarFeatureScoreVO;
 import com.carsrecommend.system.vo.CarModelVO;
 import com.carsrecommend.system.vo.CarOptionVO;
 import com.carsrecommend.system.vo.CarParamVO;
+import java.math.BigDecimal;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +31,17 @@ public class CarDetailServiceImpl implements CarDetailService {
 
     private static final int DEFAULT_OPTION_LIMIT = 20;
     private static final int MAX_OPTION_LIMIT = 100;
+    private static final int MIN_COMPARE_COUNT = 2;
+    private static final int MAX_COMPARE_COUNT = 3;
+    private static final List<CarCompareDimensionVO> COMPARE_DIMENSIONS = List.of(
+            new CarCompareDimensionVO("space", "空间"),
+            new CarCompareDimensionVO("safety", "安全"),
+            new CarCompareDimensionVO("energy", "能耗"),
+            new CarCompareDimensionVO("intelligence", "智能"),
+            new CarCompareDimensionVO("comfort", "舒适"),
+            new CarCompareDimensionVO("power", "动力"),
+            new CarCompareDimensionVO("reputation", "口碑"),
+            new CarCompareDimensionVO("popularity", "热度"));
 
     private final CarModelMapper carModelMapper;
     private final CarParamMapper carParamMapper;
@@ -48,6 +65,17 @@ public class CarDetailServiceImpl implements CarDetailService {
         vo.setCarModel(toCarModelVO(carModel));
         vo.setCarParam(carParamMapper.findByCarId(carId).map(this::toCarParamVO).orElse(null));
         vo.setCarFeatureScore(carFeatureScoreMapper.findByCarId(carId).map(this::toCarFeatureScoreVO).orElse(null));
+        return vo;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CarCompareVO compareCars(List<Long> carIds) {
+        List<Long> normalizedIds = normalizeCompareIds(carIds);
+        CarCompareVO vo = new CarCompareVO();
+        vo.setCarIds(normalizedIds);
+        vo.setDimensions(COMPARE_DIMENSIONS);
+        vo.setCars(normalizedIds.stream().map(this::toCompareCarVO).toList());
         return vo;
     }
 
@@ -78,6 +106,55 @@ public class CarDetailServiceImpl implements CarDetailService {
             throw new BusinessException("limit must be between 1 and 100");
         }
         return limit;
+    }
+
+    private List<Long> normalizeCompareIds(List<Long> carIds) {
+        if (carIds == null || carIds.isEmpty()) {
+            throw new BusinessException("carIds must contain 2 to 3 cars");
+        }
+        List<Long> normalizedIds = carIds.stream()
+                .filter(id -> id != null && id > 0)
+                .distinct()
+                .toList();
+        if (normalizedIds.size() < MIN_COMPARE_COUNT) {
+            throw new BusinessException("carIds must contain at least 2 different cars");
+        }
+        if (normalizedIds.size() > MAX_COMPARE_COUNT) {
+            throw new BusinessException("carIds can contain at most 3 cars");
+        }
+        return normalizedIds;
+    }
+
+    private CarCompareCarVO toCompareCarVO(Long carId) {
+        CarModel carModel = carModelMapper.findById(carId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "car model not found: " + carId));
+        CarCompareCarVO vo = new CarCompareCarVO();
+        vo.setCarId(carModel.getId());
+        vo.setBrand(carModel.getBrand());
+        vo.setSeries(carModel.getSeries());
+        vo.setModelName(carModel.getModelName());
+        vo.setGuidePrice(carModel.getGuidePrice());
+        vo.setBodyType(carModel.getBodyType());
+        vo.setEnergyType(carModel.getEnergyType());
+        vo.setSeats(carModel.getSeats());
+        vo.setLaunchYear(carModel.getLaunchYear());
+        vo.setImageUrl(carModel.getImageUrl());
+        vo.setParam(carParamMapper.findByCarId(carId).map(this::toCarParamVO).orElse(null));
+        vo.setScores(carFeatureScoreMapper.findByCarId(carId).map(this::toScoreMap).orElse(null));
+        return vo;
+    }
+
+    private Map<String, BigDecimal> toScoreMap(CarFeatureScore score) {
+        Map<String, BigDecimal> scores = new LinkedHashMap<>();
+        scores.put("space", score.getSpaceScore());
+        scores.put("safety", score.getSafetyScore());
+        scores.put("energy", score.getEnergyScore());
+        scores.put("intelligence", score.getIntelligenceScore());
+        scores.put("comfort", score.getComfortScore());
+        scores.put("power", score.getPowerScore());
+        scores.put("reputation", score.getReputationScore());
+        scores.put("popularity", score.getPopularityScore());
+        return scores;
     }
 
     private CarModelVO toCarModelVO(CarModel carModel) {

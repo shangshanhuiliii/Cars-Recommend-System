@@ -74,7 +74,24 @@ class AdminStatControllerTest {
                 .andExpect(jsonPath("$.data.bodyTypeDistribution[?(@.name=='SUV')].value", contains(1)))
                 .andExpect(jsonPath("$.data.bodyTypeDistribution[?(@.name=='MPV')].value", contains(1)))
                 .andExpect(jsonPath("$.data.satisfactionDistribution.length()").value(0))
-                .andExpect(jsonPath("$.data.feedbackReasonDistribution.length()").value(0));
+                .andExpect(jsonPath("$.data.feedbackReasonDistribution.length()").value(0))
+                .andExpect(jsonPath("$.data.feedbackCount").value(0))
+                .andExpect(jsonPath("$.data.averageSatisfaction").doesNotExist());
+
+        insertFeedback(301, 201, 5, "SATISFIED", "[\"推荐有帮助\", \"解释清楚\"]");
+        insertFeedback(302, 202, 2, "DISSATISFIED", "[\"推荐太贵\", \"车型不合适\"]");
+
+        mockMvc.perform(get("/api/admin/stat/overview")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.feedbackCount").value(2))
+                .andExpect(jsonPath("$.data.averageSatisfaction").value(3.5))
+                .andExpect(jsonPath("$.data.satisfactionDistribution[?(@.name=='2分')].value", contains(1)))
+                .andExpect(jsonPath("$.data.satisfactionDistribution[?(@.name=='5分')].value", contains(1)))
+                .andExpect(jsonPath("$.data.feedbackReasonDistribution[?(@.name=='推荐有帮助')].value", contains(1)))
+                .andExpect(jsonPath("$.data.feedbackReasonDistribution[?(@.name=='解释清楚')].value", contains(1)))
+                .andExpect(jsonPath("$.data.feedbackReasonDistribution[?(@.name=='推荐太贵')].value", contains(1)))
+                .andExpect(jsonPath("$.data.feedbackReasonDistribution[?(@.name=='车型不合适')].value", contains(1)));
     }
 
     private void insertDemand(
@@ -118,5 +135,13 @@ class AdminStatControllerTest {
                     82.00, 78.00, 90.00, 70.00, '["安全配置高"]', 'STRICT',
                     'reason snapshot', 'weakness snapshot')
                 """, recordId, carId, rankNo);
+    }
+
+    private void insertFeedback(long id, long recordId, int score, String level, String reasonTags) {
+        jdbcTemplate.update("""
+                INSERT INTO recommend_feedback (
+                    id, user_id, record_id, satisfaction_score, satisfaction_level, reason_tags, comment
+                ) VALUES (?, 1, ?, ?, ?, ?, 'feedback')
+                """, id, recordId, score, level, reasonTags);
     }
 }

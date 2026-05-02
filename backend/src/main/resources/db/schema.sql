@@ -197,3 +197,39 @@ CREATE TABLE IF NOT EXISTS recommend_item (
 
 CREATE INDEX idx_recommend_item_record_id ON recommend_item (record_id);
 CREATE INDEX idx_recommend_item_car_id ON recommend_item (car_id);
+
+CREATE TABLE IF NOT EXISTS user_favorite (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    car_id BIGINT NOT NULL,
+    deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_user_favorite_user_id FOREIGN KEY (user_id) REFERENCES app_user (id),
+    CONSTRAINT fk_user_favorite_car_id FOREIGN KEY (car_id) REFERENCES car_model (id),
+    CONSTRAINT uk_user_favorite_user_car UNIQUE (user_id, car_id)
+);
+
+CREATE INDEX idx_user_favorite_user_id ON user_favorite (user_id);
+CREATE INDEX idx_user_favorite_car_id ON user_favorite (car_id);
+
+CREATE TABLE IF NOT EXISTS recommend_feedback (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    record_id BIGINT NOT NULL,
+    satisfaction_score INT NOT NULL,
+    satisfaction_level VARCHAR(16) NOT NULL,
+    reason_tags JSON,
+    comment VARCHAR(500),
+    deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_recommend_feedback_user_id FOREIGN KEY (user_id) REFERENCES app_user (id),
+    CONSTRAINT fk_recommend_feedback_record_id FOREIGN KEY (record_id) REFERENCES recommend_record (id),
+    CONSTRAINT uk_recommend_feedback_user_record UNIQUE (user_id, record_id),
+    CONSTRAINT ck_recommend_feedback_score CHECK (satisfaction_score BETWEEN 1 AND 5),
+    CONSTRAINT ck_recommend_feedback_level CHECK (satisfaction_level IN ('SATISFIED', 'NEUTRAL', 'DISSATISFIED'))
+);
+
+CREATE INDEX idx_recommend_feedback_user_id ON recommend_feedback (user_id);
+CREATE INDEX idx_recommend_feedback_record_id ON recommend_feedback (record_id);

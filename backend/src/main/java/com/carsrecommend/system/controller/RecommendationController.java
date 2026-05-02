@@ -3,8 +3,11 @@ package com.carsrecommend.system.controller;
 import com.carsrecommend.system.common.ApiResponse;
 import com.carsrecommend.system.common.PageResult;
 import com.carsrecommend.system.dto.RecommendationGenerateRequest;
+import com.carsrecommend.system.dto.RecommendationFeedbackRequest;
+import com.carsrecommend.system.service.RecommendationFeedbackService;
 import com.carsrecommend.system.service.RecommendationRecordService;
 import com.carsrecommend.system.service.RecommendationService;
+import com.carsrecommend.system.vo.RecommendationFeedbackVO;
 import com.carsrecommend.system.vo.RecommendationHistoryDetailVO;
 import com.carsrecommend.system.vo.RecommendationHistoryItemVO;
 import com.carsrecommend.system.vo.RecommendationResponseVO;
@@ -28,12 +31,15 @@ public class RecommendationController {
 
     private final RecommendationService recommendationService;
     private final RecommendationRecordService recommendationRecordService;
+    private final RecommendationFeedbackService recommendationFeedbackService;
 
     public RecommendationController(
             RecommendationService recommendationService,
-            RecommendationRecordService recommendationRecordService) {
+            RecommendationRecordService recommendationRecordService,
+            RecommendationFeedbackService recommendationFeedbackService) {
         this.recommendationService = recommendationService;
         this.recommendationRecordService = recommendationRecordService;
+        this.recommendationFeedbackService = recommendationFeedbackService;
     }
 
     @PostMapping("/generate")
@@ -54,5 +60,19 @@ public class RecommendationController {
             @PathVariable @Positive Long recordId,
             @RequestParam(required = false) Long userId) {
         return ApiResponse.success(recommendationRecordService.detail(recordId, userId));
+    }
+
+    @PostMapping("/{recordId}/feedback")
+    public ApiResponse<RecommendationFeedbackVO> submitFeedback(
+            @PathVariable @Positive Long recordId,
+            @Valid @RequestBody RecommendationFeedbackRequest request) {
+        return ApiResponse.success(recommendationFeedbackService.submit(recordId, request));
+    }
+
+    @GetMapping("/{recordId}/feedback")
+    public ApiResponse<RecommendationFeedbackVO> feedback(
+            @PathVariable @Positive Long recordId,
+            @RequestParam(required = false) Long userId) {
+        return ApiResponse.success(recommendationFeedbackService.get(recordId, userId));
     }
 }

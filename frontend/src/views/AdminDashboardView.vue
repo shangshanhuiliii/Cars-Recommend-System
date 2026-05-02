@@ -40,6 +40,16 @@
           <strong>{{ totalOf(overview.popularCars) }}</strong>
           <p>来自 recommend_item</p>
         </div>
+        <div class="metric-card">
+          <span>反馈总数</span>
+          <strong>{{ overview.feedbackCount || 0 }}</strong>
+          <p>来自 recommend_feedback</p>
+        </div>
+        <div class="metric-card">
+          <span>平均满意度</span>
+          <strong>{{ formatAverage(overview.averageSatisfaction) }}</strong>
+          <p>1-5 分满意度</p>
+        </div>
       </div>
 
       <div class="chart-grid">
@@ -125,6 +135,18 @@ const chartCards = computed(() => [
     source: 'user_demand.body_types',
     items: overview.value.bodyTypeDistribution,
   },
+  {
+    key: 'satisfaction',
+    title: '满意度分布',
+    source: 'recommend_feedback.satisfaction_score',
+    items: overview.value.satisfactionDistribution,
+  },
+  {
+    key: 'feedbackReason',
+    title: '原因标签分布',
+    source: 'recommend_feedback.reason_tags',
+    items: overview.value.feedbackReasonDistribution,
+  },
 ])
 
 onMounted(loadOverview)
@@ -157,6 +179,8 @@ function emptyOverview() {
     bodyTypeDistribution: [],
     satisfactionDistribution: [],
     feedbackReasonDistribution: [],
+    feedbackCount: 0,
+    averageSatisfaction: null,
   }
 }
 
@@ -169,6 +193,11 @@ function barWidth(value, items) {
   if (!maxValue) return '0%'
   return `${(Number(value || 0) / maxValue) * 100}%`
 }
+
+function formatAverage(value) {
+  if (value === null || value === undefined) return '暂无'
+  return Number(value || 0).toFixed(2)
+}
 </script>
 
 <style scoped>
@@ -178,7 +207,7 @@ function barWidth(value, items) {
 
 .metric-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 16px;
   margin-bottom: 18px;
 }

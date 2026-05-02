@@ -19,6 +19,8 @@
         >
           <el-menu-item index="/">首页</el-menu-item>
           <el-menu-item index="/recommend">购车推荐</el-menu-item>
+          <el-menu-item index="/compare">车型对比</el-menu-item>
+          <el-menu-item index="/favorites">我的收藏</el-menu-item>
           <el-menu-item index="/history">推荐历史</el-menu-item>
           <el-sub-menu index="/admin">
             <template #title>管理端</template>

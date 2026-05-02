@@ -1,5 +1,6 @@
 package com.carsrecommend.system.vo;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 public class AdminStatOverviewVO {
@@ -13,6 +14,8 @@ public class AdminStatOverviewVO {
     private List<StatItemVO> bodyTypeDistribution;
     private List<StatItemVO> satisfactionDistribution;
     private List<StatItemVO> feedbackReasonDistribution;
+    private Long feedbackCount;
+    private BigDecimal averageSatisfaction;
 
     public List<StatItemVO> getBudgetDistribution() {
         return budgetDistribution;
@@ -84,5 +87,21 @@ public class AdminStatOverviewVO {
 
     public void setFeedbackReasonDistribution(List<StatItemVO> feedbackReasonDistribution) {
         this.feedbackReasonDistribution = feedbackReasonDistribution;
+    }
+
+    public Long getFeedbackCount() {
+        return feedbackCount;
+    }
+
+    public void setFeedbackCount(Long feedbackCount) {
+        this.feedbackCount = feedbackCount;
+    }
+
+    public BigDecimal getAverageSatisfaction() {
+        return averageSatisfaction;
+    }
+
+    public void setAverageSatisfaction(BigDecimal averageSatisfaction) {
+        this.averageSatisfaction = averageSatisfaction;
     }
 }

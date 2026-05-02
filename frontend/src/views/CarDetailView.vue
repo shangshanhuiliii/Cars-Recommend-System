@@ -46,6 +46,17 @@
                 <strong>{{ car.userRating || '暂无' }}</strong>
               </div>
             </div>
+            <div class="detail-actions">
+              <el-button @click="addToCompare(car.id)">加入对比</el-button>
+              <el-button
+                :type="favorited ? 'warning' : 'default'"
+                :loading="favoriteOperating"
+                @click="toggleFavorite"
+              >
+                {{ favorited ? '已收藏' : '收藏' }}
+              </el-button>
+              <el-button v-if="!recordId" type="primary" plain @click="$router.push('/recommend')">开始推荐</el-button>
+            </div>
           </div>
         </div>
       </div>
@@ -124,16 +135,22 @@
 </template>
 
 <script setup>
+import { ElMessage } from 'element-plus'
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 import { fetchCarDetail } from '@/api/cars'
+import { addFavorite, fetchFavoriteStatus, removeFavorite } from '@/api/favorites'
 import { carImageSrc, fallbackCarImage } from '@/utils/carImage'
+import { addCompareId, compareQuery } from '@/utils/compareSelection'
 
 const route = useRoute()
+const router = useRouter()
 const loading = ref(false)
 const error = ref('')
 const detail = ref(null)
+const favorited = ref(false)
+const favoriteOperating = ref(false)
 
 const carId = computed(() => route.params.id)
 const recordId = computed(() => route.query.recordId)
@@ -205,6 +222,7 @@ async function loadCar() {
   try {
     const response = await fetchCarDetail(carId.value)
     detail.value = response.data
+    loadFavoriteStatus()
   } catch (requestError) {
     detail.value = null
     if (requestError?.response?.status === 404) {
@@ -215,6 +233,45 @@ async function loadCar() {
   } finally {
     loading.value = false
   }
+}
+
+async function loadFavoriteStatus() {
+  favorited.value = false
+  try {
+    const response = await fetchFavoriteStatus([Number(carId.value)])
+    favorited.value = Boolean(response.data?.[0]?.favorited)
+  } catch {
+    ElMessage.warning('收藏状态加载失败，不影响车型详情展示')
+  }
+}
+
+async function toggleFavorite() {
+  favoriteOperating.value = true
+  try {
+    if (favorited.value) {
+      await removeFavorite(carId.value)
+      favorited.value = false
+      ElMessage.success('已取消收藏')
+    } else {
+      await addFavorite(carId.value)
+      favorited.value = true
+      ElMessage.success('已收藏')
+    }
+  } catch (requestError) {
+    ElMessage.error(requestError?.response?.data?.message || requestError?.message || '收藏操作失败')
+  } finally {
+    favoriteOperating.value = false
+  }
+}
+
+function addToCompare(id) {
+  const result = addCompareId(id)
+  if (!result.ok) {
+    ElMessage.warning(result.reason)
+    return
+  }
+  ElMessage.success(result.reason)
+  router.push({ path: '/compare', query: compareQuery(result.ids) })
 }
 
 function scoreStatus(value) {
@@ -314,6 +371,14 @@ function formatDate(value) {
   margin-top: 8px;
   color: var(--color-primary-dark);
   font-size: 20px;
+}
+
+.detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 18px;
 }
 
 .section-title {

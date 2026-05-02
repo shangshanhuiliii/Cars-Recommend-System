@@ -25,8 +25,8 @@
 | `recommend_record` | 必须 | 一次推荐任务的总体记录 |
 | `recommend_item` | 必须 | 推荐结果明细和解释依据 |
 | `text_demand_parse_record` | 建议 | 自然语言解析记录 |
-| `favorite` | 建议 | 用户收藏车型 |
-| `feedback` | 建议 | 用户推荐反馈 |
+| `user_favorite` | 建议 | 用户收藏车型 |
+| `recommend_feedback` | 建议 | 用户推荐反馈 |
 
 ## 3. 账户表
 
@@ -334,13 +334,29 @@ EMPTY：所有阶段都没有候选结果。
 | `create_time` | 创建时间 |
 | `update_time` | 更新时间 |
 
-### 7.2 `favorite`
+### 7.2 `user_favorite`
 
 用户收藏表。
 
-关键字段：`id`、`user_id`、`car_id`、`deleted`、`create_time`、`update_time`。
+关键字段：
 
-### 7.3 `feedback`
+| 字段 | 说明 |
+| --- | --- |
+| `id` | 主键 |
+| `user_id` | 用户 ID；演示模式默认 `app_user.id = 1` |
+| `car_id` | 收藏车型 ID |
+| `deleted` | 软删除；取消收藏不物理删除 |
+| `create_time` | 创建时间 |
+| `update_time` | 更新时间 |
+
+约束：
+
+- `user_id` 引用 `app_user.id`。
+- `car_id` 引用 `car_model.id`。
+- `user_id + car_id` 唯一，避免重复收藏；重复收藏时恢复软删除记录或保持已收藏状态。
+- 收藏不参与推荐排序，不写入推荐权重。
+
+### 7.3 `recommend_feedback`
 
 用户反馈表。
 
@@ -352,11 +368,19 @@ EMPTY：所有阶段都没有候选结果。
 | `user_id` | 用户 ID |
 | `record_id` | 推荐记录 ID |
 | `satisfaction_score` | 满意度 1-5 |
-| `reason_type` | 不满意原因 |
-| `feedback_text` | 文字反馈 |
+| `satisfaction_level` | `SATISFIED` / `NEUTRAL` / `DISSATISFIED` |
+| `reason_tags` | 原因标签 JSON 数组 |
+| `comment` | 文字反馈，最长 500 字 |
 | `deleted` | 软删除 |
 | `create_time` | 创建时间 |
 | `update_time` | 更新时间 |
+
+约束：
+
+- `user_id` 引用 `app_user.id`。
+- `record_id` 引用 `recommend_record.id`。
+- `user_id + record_id` 唯一；第一版重复提交按覆盖处理。
+- 反馈只进入统计分析，不自动修改用户权重、车型评分、推荐记录或推荐明细。
 
 ## 8. 数据关系
 
@@ -367,9 +391,9 @@ recommend_record 1 - n recommend_item
 car_model 1 - 1 car_param
 car_model 1 - 1 car_feature_score
 car_model 1 - n recommend_item
-recommend_record 1 - n feedback
-app_user 1 - n favorite
-car_model 1 - n favorite
+recommend_record 1 - n recommend_feedback
+app_user 1 - n user_favorite
+car_model 1 - n user_favorite
 ```
 
 ## 9. 种子数据要求
@@ -412,4 +436,5 @@ car_model 1 - n favorite
 - `recommend_record(user_id)`
 - `recommend_record(demand_id)`
 - `recommend_item(record_id)`
-- `favorite(user_id, car_id)` 唯一索引
+- `user_favorite(user_id, car_id)` 唯一索引
+- `recommend_feedback(user_id, record_id)` 唯一索引
