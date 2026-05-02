@@ -163,16 +163,20 @@ public class RecommendationRecordServiceImpl implements RecommendationRecordServ
 
     private DemandWeightsVO readWeights(String json) {
         JsonNode node = readJsonNode(json);
+        JsonNode weightNode = node.path("finalWeight");
+        if (!weightNode.isObject()) {
+            weightNode = node;
+        }
         DemandWeightsVO vo = new DemandWeightsVO();
-        vo.setPrice(readDecimal(node, "price"));
-        vo.setSpace(readDecimal(node, "space"));
-        vo.setSafety(readDecimal(node, "safety"));
-        vo.setEnergy(readDecimal(node, "energy"));
-        vo.setIntelligence(readDecimal(node, "intelligence"));
-        vo.setComfort(readDecimal(node, "comfort"));
-        vo.setPower(readDecimal(node, "power"));
-        vo.setReputation(readDecimal(node, "reputation"));
-        vo.setPopularity(readDecimal(node, "popularity"));
+        vo.setPrice(readDecimal(weightNode, "price"));
+        vo.setSpace(readDecimal(weightNode, "space"));
+        vo.setSafety(readDecimal(weightNode, "safety"));
+        vo.setEnergy(readDecimal(weightNode, "energy"));
+        vo.setIntelligence(readDecimal(weightNode, "intelligence"));
+        vo.setComfort(readDecimal(weightNode, "comfort"));
+        vo.setPower(readDecimal(weightNode, "power"));
+        vo.setReputation(readDecimal(weightNode, "reputation"));
+        vo.setPopularity(readDecimal(weightNode, "popularity"));
         return vo;
     }
 

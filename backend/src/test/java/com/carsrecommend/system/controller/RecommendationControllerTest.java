@@ -217,6 +217,14 @@ class RecommendationControllerTest {
         assertRankNoAscending(detail.path("items"));
 
         jdbcTemplate.update(
+                "UPDATE recommend_record SET weight_snapshot = ? WHERE id = ?",
+                objectMapper.writeValueAsString(familyDemand.path("weights")),
+                familyRecordId);
+        JsonNode legacySnapshotDetail = getJson("/api/recommend/" + familyRecordId);
+        assertEquals(0, familyDemand.path("weights").path("space").decimalValue()
+                .compareTo(legacySnapshotDetail.path("weights").path("space").decimalValue()));
+
+        jdbcTemplate.update(
                 "INSERT INTO app_user (id, username, password, nickname, phone) VALUES (2, 'other_user', 'pwd', 'Other', '')");
         JsonNode otherUserHistory = getJson("/api/recommend/history?userId=2&page=1&size=10");
         assertEquals(0, otherUserHistory.path("total").asLong());
@@ -267,10 +275,11 @@ class RecommendationControllerTest {
         return objectMapper.readTree(result.getResponse().getContentAsString(StandardCharsets.UTF_8)).path("data");
     }
 
-    private void assertRecordAndItemSnapshotsSaved(JsonNode recommend, String recommendStatus) {
+    private void assertRecordAndItemSnapshotsSaved(JsonNode recommend, String recommendStatus) throws Exception {
         long recordId = recommend.path("recordId").asLong();
         assertEquals(1, count("SELECT COUNT(*) FROM recommend_record WHERE id = ? AND recommend_status = ?",
                 recordId, recommendStatus));
+        assertNewWeightSnapshotSaved(recordId);
         assertEquals(recommend.path("items").size(), count("""
                 SELECT COUNT(*) FROM recommend_item
                 WHERE record_id = ?
@@ -292,6 +301,39 @@ class RecommendationControllerTest {
                   AND tags IS NOT NULL
                   AND tags <> ''
                 """, recordId));
+    }
+
+    private void assertNewWeightSnapshotSaved(long recordId) throws Exception {
+        String json = jdbcTemplate.queryForObject(
+                "SELECT weight_snapshot FROM recommend_record WHERE id = ?",
+                String.class,
+                recordId);
+        JsonNode snapshot = objectMapper.readTree(json);
+        if (snapshot.isTextual()) {
+            snapshot = objectMapper.readTree(snapshot.asText());
+        }
+        assertEquals("pareto-topsis-v1", snapshot.path("algorithmVersion").asText());
+        assertEquals(0, new BigDecimal("0.75").compareTo(snapshot.path("alpha").decimalValue()));
+        assertTrue(snapshot.path("subjectiveWeight").path("space").isNumber());
+        assertTrue(snapshot.path("objectiveWeight").path("space").isNumber());
+        assertTrue(snapshot.path("finalWeight").path("space").isNumber());
+        assertWeightSumIsOne(snapshot.path("subjectiveWeight"));
+        assertWeightSumIsOne(snapshot.path("objectiveWeight"));
+        assertWeightSumIsOne(snapshot.path("finalWeight"));
+    }
+
+    private void assertWeightSumIsOne(JsonNode weights) {
+        BigDecimal sum = BigDecimal.ZERO
+                .add(weights.path("price").decimalValue())
+                .add(weights.path("space").decimalValue())
+                .add(weights.path("safety").decimalValue())
+                .add(weights.path("energy").decimalValue())
+                .add(weights.path("intelligence").decimalValue())
+                .add(weights.path("comfort").decimalValue())
+                .add(weights.path("power").decimalValue())
+                .add(weights.path("reputation").decimalValue())
+                .add(weights.path("popularity").decimalValue());
+        assertEquals(0, new BigDecimal("1.000000").compareTo(sum));
     }
 
     private void assertSavedRecommendationItemTexts(JsonNode recommend) {

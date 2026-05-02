@@ -23,10 +23,8 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
@@ -51,6 +49,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     private final RecommendItemMapper recommendItemMapper;
     private final PriceScoreCalculator priceScoreCalculator;
     private final RecommendationCandidateService recommendationCandidateService;
+    private final RecommendationWeightService recommendationWeightService;
     private final ObjectMapper objectMapper;
 
     public RecommendationServiceImpl(
@@ -59,12 +58,14 @@ public class RecommendationServiceImpl implements RecommendationService {
             RecommendItemMapper recommendItemMapper,
             PriceScoreCalculator priceScoreCalculator,
             RecommendationCandidateService recommendationCandidateService,
+            RecommendationWeightService recommendationWeightService,
             ObjectMapper objectMapper) {
         this.userDemandMapper = userDemandMapper;
         this.recommendRecordMapper = recommendRecordMapper;
         this.recommendItemMapper = recommendItemMapper;
         this.priceScoreCalculator = priceScoreCalculator;
         this.recommendationCandidateService = recommendationCandidateService;
+        this.recommendationWeightService = recommendationWeightService;
         this.objectMapper = objectMapper;
     }
 
@@ -80,6 +81,7 @@ public class RecommendationServiceImpl implements RecommendationService {
 
         RecommendationCandidateGroups candidates = recommendationCandidateService.generateCandidates(demand);
         List<ScoredRecommendation> scoredItems = generateRecommendationItems(candidates, demand);
+        RecommendationWeightSnapshot weightSnapshot = recommendationWeightService.calculate(demand, scoreVectors(scoredItems));
         String recommendStatus = buildRecommendStatus(scoredItems);
         String fallbackMessage = buildFallbackMessage(scoredItems, recommendStatus);
 
@@ -87,7 +89,7 @@ public class RecommendationServiceImpl implements RecommendationService {
         record.setUserId(userId);
         record.setDemandId(demand.getId());
         record.setProfileText(demand.getProfileText());
-        record.setWeightSnapshot(toJson(weightSnapshot(demand)));
+        record.setWeightSnapshot(toJson(weightSnapshot));
         record.setFallbackMessage(fallbackMessage);
         record.setRecommendStatus(recommendStatus);
         recommendRecordMapper.insert(record);
@@ -138,6 +140,21 @@ public class RecommendationServiceImpl implements RecommendationService {
         List<ScoredRecommendation> finalItems = new ArrayList<>(strictItems);
         finalItems.addAll(recommendationItems);
         return finalItems;
+    }
+
+    private List<RecommendationScoreVector> scoreVectors(List<ScoredRecommendation> scoredItems) {
+        return scoredItems.stream()
+                .map(item -> new RecommendationScoreVector(
+                        item.priceScore(),
+                        item.featureScore().getSpaceScore(),
+                        item.featureScore().getSafetyScore(),
+                        item.featureScore().getEnergyScore(),
+                        item.featureScore().getIntelligenceScore(),
+                        item.featureScore().getComfortScore(),
+                        item.featureScore().getPowerScore(),
+                        item.featureScore().getReputationScore(),
+                        item.featureScore().getPopularityScore()))
+                .toList();
     }
 
     private ScoredRecommendation toScoredRecommendation(
@@ -412,20 +429,6 @@ public class RecommendationServiceImpl implements RecommendationService {
         vo.setReasonText(scoredItem.reasonText());
         vo.setWeaknessText(scoredItem.weaknessText());
         return vo;
-    }
-
-    private Map<String, BigDecimal> weightSnapshot(UserDemand demand) {
-        Map<String, BigDecimal> weights = new LinkedHashMap<>();
-        weights.put("price", demand.getWeightPrice());
-        weights.put("space", demand.getWeightSpace());
-        weights.put("safety", demand.getWeightSafety());
-        weights.put("energy", demand.getWeightEnergy());
-        weights.put("intelligence", demand.getWeightIntelligence());
-        weights.put("comfort", demand.getWeightComfort());
-        weights.put("power", demand.getWeightPower());
-        weights.put("reputation", demand.getWeightReputation());
-        weights.put("popularity", demand.getWeightPopularity());
-        return weights;
     }
 
     private String toJson(Object value) {
