@@ -3,6 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import AdminCarsView from '@/views/AdminCarsView.vue'
 import AdminDashboardView from '@/views/AdminDashboardView.vue'
 import AdminRecommendRecordsView from '@/views/AdminRecommendRecordsView.vue'
+import AlgorithmDemoView from '@/views/AlgorithmDemoView.vue'
 import CarDetailView from '@/views/CarDetailView.vue'
 import HistoryView from '@/views/HistoryView.vue'
 import HomeView from '@/views/HomeView.vue'
@@ -36,6 +37,11 @@ const router = createRouter({
       path: '/history',
       name: 'history',
       component: HistoryView,
+    },
+    {
+      path: '/algorithm-demo',
+      name: 'algorithm-demo',
+      component: AlgorithmDemoView,
     },
     {
       path: '/admin/cars',

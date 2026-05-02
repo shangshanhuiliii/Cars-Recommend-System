@@ -21,6 +21,7 @@
 - 权重可解释：用户显式偏好或场景模板生成 `subjectiveWeight`，熵权法生成 `objectiveWeight`，再通过 `alpha` 得到 `finalWeight`。
 - 排序更稳健：Pareto 非支配优先避免单一高分掩盖重点维度短板，TOPSIS 计算相对正负理想解的接近度。
 - 结果可追溯：推荐记录保存算法版本、权重快照、分数快照、理由、不足、标签和匹配状态。
+- 阶段 9.8 新增 `/algorithm-demo` 答辩页，通过只读接口展示权重、候选阶段、九维矩阵、Pareto、TOPSIS、解释和快照追溯，不改变推荐主链路。
 
 ## 4. 为什么不用深度学习或协同过滤
 
@@ -39,6 +40,7 @@
 9. 后端按 `STRICT` 组在前、推荐组在后生成 `rankNo`。
 10. 生成 `tags`、`reasonText`、`weaknessText` 并保存推荐快照。
 11. 前端只按“完全匹配车型 / 推荐”分组和后端 `rankNo` 展示，不重新排序。
+12. 答辩时可进入 `/algorithm-demo` 选择推荐记录，展示推荐快照对应的算法过程和临时重构的 Pareto-TOPSIS 中间值。
 
 ## 6. 三个答辩演示案例
 
@@ -122,6 +124,10 @@
 
 推荐理由来自贡献度较高的维度，例如最终权重高且车型标准化表现好的维度；不足提醒来自用户关注维度中与正理想解差距较大的维度。
 
+### 算法可视化页会不会重新生成推荐？
+
+不会。阶段 9.8 的算法可视化页只调用 `GET /api/recommend/{recordId}/algorithm-visualization`，读取已保存的 `recommend_record`、`recommend_item` 和关联需求、车型数据。页面展示的排序、`totalScore`、`tags`、`reasonText` 和 `weaknessText` 以历史快照为准，Pareto 标记和 TOPSIS 距离只基于快照矩阵临时重构用于答辩展示，不写入数据库。
+
 ### 历史推荐为什么可以追溯？
 
 每次推荐都会保存 `recommend_record` 和 `recommend_item` 快照，包括算法版本、权重快照、总分、维度分、标签、理由、不足和 `matchLevel`。历史详情读取快照，不重新计算。
@@ -140,4 +146,5 @@ TOPSIS 分数依赖当前候选集，候选集变化会影响综合匹配度；�
 - 收藏、用户反馈和车型对比属于后续增强功能。
 - 演示车型数据用于系统验证，不代表真实市场结论。
 - `paretoDominated`、TOPSIS 距离等中间结果第一版不单独入库，管理端主要通过权重快照、维度分、`totalScore` 和 `rankNo` 追溯。
+- 阶段 9.8 答辩页会基于历史快照临时重构 `paretoDominated`、TOPSIS 距离、贡献度和差距，用于展示算法过程；这些中间值仍不持久化。
 - 后续可补充论文正文草稿、演示截图清单和答辩演示脚本。

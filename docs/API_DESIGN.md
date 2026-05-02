@@ -399,6 +399,7 @@ GET  /api/user/demand/{id}
 POST /api/recommend/generate
 GET  /api/recommend/{recordId}
 GET  /api/recommend/history
+GET  /api/recommend/{recordId}/algorithm-visualization
 ```
 
 推荐生成请求：
@@ -521,6 +522,29 @@ GET  /api/recommend/history
 `GET /api/recommend/{recordId}` 支持查询参数 `userId`，为空时使用默认演示用户 `app_user.id = 1`。接口只返回当前用户自己的推荐记录；查询其他用户的记录应返回无权限或未找到。
 
 该接口返回完整历史详情，结构与推荐生成响应保持一致，并额外返回 `weights`、`demand` 和 `createTime`。其中 `weights` 表示当次推荐最终权重；新版快照读取 `finalWeight`，旧版扁平快照直接读取九维权重。历史详情中的 `items[].tags`、分数、理由、不足和 `matchLevel` 必须来自保存的推荐快照，不允许重新计算。
+
+`GET /api/recommend/{recordId}/algorithm-visualization` 是阶段 9.8 新增的只读答辩展示接口。它只读取 `recommend_record`、`recommend_item`、`user_demand`、`car_model`、`car_param` 和 `car_feature_score`，用于展示推荐算法过程，不重新生成推荐，不写入 `recommend_record`、`recommend_item` 或 `user_demand`，也不覆盖历史快照。
+
+该接口返回结构包含：
+
+| 字段 | 说明 |
+| --- | --- |
+| `recordId` / `demandId` / `userId` | 推荐记录、需求和演示用户标识 |
+| `algorithmVersion` / `alpha` | 从 `weight_snapshot` 解析的算法版本和组合系数；旧快照兼容显示 `weighted-sum-v1` |
+| `demand` / `constraints` | 当次用户需求和硬性约束、软偏好说明 |
+| `dimensions` | 九维指标来源说明 |
+| `weights.subjectiveWeight` / `objectiveWeight` / `finalWeight` | 主观权重、客观权重和最终权重；旧快照用扁平权重兜底 |
+| `stageStats` | `STRICT`、预算放宽、车型放宽、动力放宽和相似推荐数量 |
+| `pipeline` | 答辩页展示的 15 步算法流程 |
+| `matrixRows` / `items[].scores` | 基于 `recommend_item` 快照构造的九维评分矩阵 |
+| `items[].paretoDominated` | 基于快照矩阵临时重构的 Pareto 被支配标记，不入库 |
+| `items[].topsis` | 基于快照矩阵临时重构的 `closeness`、`positiveDistance`、`negativeDistance`，展示分仍以快照 `totalScore` 为准 |
+| `items[].contribution` / `gap` | 基于 TOPSIS 加权归一化矩阵重构的贡献度和理想解差距 |
+| `items[].tags` / `reasonText` / `weaknessText` | 来自推荐明细快照，不重新生成 |
+| `featureScoreRules` | 车型特征评分规则摘要 |
+| `snapshotNote` / `compatibilityNote` | 快照边界说明和旧记录兼容提示 |
+
+该接口服务于 `/algorithm-demo` 答辩页。普通用户推荐结果页仍保持简洁，不展示 TOPSIS 距离、Pareto 标记和熵权细节。
 
 ## 3. 第二档接口
 

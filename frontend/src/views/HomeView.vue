@@ -44,6 +44,11 @@
         <h2>维护车型数据</h2>
         <p>进入管理端维护车型基础信息、参数和特征评分。</p>
       </button>
+      <button class="entry-card entry-card--secondary" type="button" @click="$router.push('/algorithm-demo')">
+        <span>04</span>
+        <h2>算法可视化演示</h2>
+        <p>读取已保存推荐快照，展示权重、候选阶段、Pareto-TOPSIS 和解释过程。</p>
+      </button>
     </div>
 
     <div class="status-grid home-status">
@@ -152,7 +157,7 @@ onMounted(() => {
 
 .entry-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 18px;
   margin-top: 24px;
 }
@@ -184,6 +189,11 @@ onMounted(() => {
   margin: 0;
   color: var(--color-muted);
   line-height: 1.7;
+}
+
+.entry-card--secondary {
+  border-color: rgba(8, 145, 178, 0.28);
+  background: linear-gradient(180deg, #ffffff, #f0fdfa);
 }
 
 .home-status {

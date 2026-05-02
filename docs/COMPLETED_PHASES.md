@@ -583,6 +583,62 @@
 - Pareto 第一版不持久化 `paretoDominated`，历史通过 `rankNo`、`totalScore`、维度分和权重快照追溯用户可见排序。
 - 自然语言解析尚未实现，阶段 10 必须输出当前新字段，不得恢复旧字段或固定 TopK 规则。
 
+## 阶段 9.8：推荐算法可视化答辩页
+
+### 阶段目标
+
+新增独立答辩展示页，用只读方式展示当前推荐算法从用户需求、候选生成、动态价格分、九维矩阵、主客观组合权重、Pareto、TOPSIS、推荐解释到快照追溯的完整过程，不改变推荐主链路。
+
+### 已完成内容
+
+- 新增只读接口 `GET /api/recommend/{recordId}/algorithm-visualization`。
+- 新增前端页面 `/algorithm-demo`。
+- 首页新增低优先级入口“算法可视化演示”。
+- 接口读取 `recommend_record`、`recommend_item`、`user_demand`、`car_model`、`car_param` 和 `car_feature_score`。
+- 接口返回算法版本、`alpha`、需求、约束、九维指标说明、主观权重、客观权重、最终权重、候选阶段统计、15 步流程、九维矩阵、推荐项、车型评分规则和快照说明。
+- 基于推荐明细快照临时重构 `paretoDominated`、TOPSIS `closeness`、`positiveDistance`、`negativeDistance`、贡献度和理想解差距。
+- 推荐排序、`totalScore`、九维分数、`tags`、`reasonText`、`weaknessText` 和 `matchLevel` 仍以历史快照为准。
+- 旧 `weight_snapshot` 兼容显示为 `weighted-sum-v1`，并用扁平权重作为展示兜底。
+- 前端使用 Element Plus、CSS 条形图、热力矩阵和阶段卡片展示，不新增图表依赖。
+- 普通用户推荐结果页不展示 TOPSIS、Pareto、熵权等复杂术语。
+
+### 主要接口或页面
+
+- `GET /api/recommend/{recordId}/algorithm-visualization`
+- `/algorithm-demo`
+- 首页 `/` 的低优先级入口。
+
+### 主要数据表或字段变化
+
+- 不新增数据库表。
+- 不新增数据库字段。
+- 不修改数据库结构。
+- 不写入 `recommend_record`、`recommend_item` 或 `user_demand`。
+- 不覆盖历史推荐快照。
+
+### 测试与验证结果
+
+- `mvn test "-Dtest=AlgorithmVisualizationControllerTest"` 通过。
+- `mvn test` 通过。
+- `mvn package` 通过。
+- `npm run build` 通过，Vite 仅提示现有打包 chunk 偏大。
+- `node scripts/verifyRecommendPresentation.mjs` 通过。
+- `node scripts/verifyAlgorithmDemo.mjs` 通过。
+- `git diff --check` 通过，仅输出 Windows 工作区 LF/CRLF 提示。
+- 搜索确认新增可视化接口未调用推荐生成或推荐记录写入逻辑。
+- 搜索确认 `/algorithm-demo` 页面未调用 `recommend/generate` 或 `generateRecommendation`。
+- 搜索确认技术状态词只出现在答辩页、管理端、过滤名单、匹配状态展示和算法说明中，未作为推荐标签生成逻辑写入。
+
+### 是否达到最低完成标准
+
+是。阶段 9.8 已完成只读算法可视化接口、独立前端页面、首页入口、文档同步和全量回归验证。
+
+### 遗留问题或后续注意事项
+
+- 本阶段未操作真实 MySQL；真实演示数据仍需用户单独确认后再联调。
+- `/algorithm-demo` 暂不引入 ECharts，复杂图表可作为后续答辩增强。
+- 自然语言解析尚未实现，下一阶段仍建议进入阶段 10。
+
 ## 当前 MVP 状态
 
 当前系统已经可以完成完整 MVP 主链路：
@@ -603,6 +659,7 @@
 - 推荐记录和推荐明细快照保存。
 - 用户端需求页、推荐结果页、车型详情页和历史页。
 - 管理端车型管理、推荐记录追溯和统计仪表盘。
+- 独立算法可视化答辩页，可基于推荐快照展示权重、候选阶段、九维矩阵、Pareto、TOPSIS、解释和追溯边界。
 
 仍未完成的内容：
 
