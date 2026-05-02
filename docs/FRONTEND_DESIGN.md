@@ -392,7 +392,7 @@ ECharts 图表建议使用固定色板：
 推荐
 ```
 
-如果某组为空，不展示该组标题。每组内部按 `totalScore`、`reputationScore`、`popularityScore` 倒序展示。
+如果某组为空，不展示该组标题。每组内部不再由前端按 `totalScore`、`reputationScore`、`popularityScore` 二次排序，必须按后端返回的 `rankNo` 升序展示。后端 `rankNo` 是推荐排序的唯一权威来源，用于保留 Pareto-TOPSIS 排序结果；前端只负责分组和展示，不重新计算、不重新排序推荐结果。
 
 ### 7.5 推荐卡片必展示内容
 
