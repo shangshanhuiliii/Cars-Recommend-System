@@ -10,8 +10,6 @@ import com.carsrecommend.system.entity.CarModel;
 import com.carsrecommend.system.entity.RecommendItem;
 import com.carsrecommend.system.entity.RecommendRecord;
 import com.carsrecommend.system.entity.UserDemand;
-import com.carsrecommend.system.mapper.CarFeatureScoreMapper;
-import com.carsrecommend.system.mapper.CarModelMapper;
 import com.carsrecommend.system.mapper.RecommendItemMapper;
 import com.carsrecommend.system.mapper.RecommendRecordMapper;
 import com.carsrecommend.system.mapper.UserDemandMapper;
@@ -19,14 +17,12 @@ import com.carsrecommend.system.service.RecommendationService;
 import com.carsrecommend.system.vo.RecommendationItemVO;
 import com.carsrecommend.system.vo.RecommendationResponseVO;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -35,7 +31,6 @@ import java.util.Set;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 
 @Service
 @ConditionalOnProperty(prefix = "spring.datasource", name = "url")
@@ -52,24 +47,24 @@ public class RecommendationServiceImpl implements RecommendationService {
     private static final String DEFAULT_WEAKNESS_TEXT = "该车型整体匹配较均衡，暂无明显短板。";
 
     private final UserDemandMapper userDemandMapper;
-    private final CarModelMapper carModelMapper;
-    private final CarFeatureScoreMapper carFeatureScoreMapper;
     private final RecommendRecordMapper recommendRecordMapper;
     private final RecommendItemMapper recommendItemMapper;
+    private final PriceScoreCalculator priceScoreCalculator;
+    private final RecommendationCandidateService recommendationCandidateService;
     private final ObjectMapper objectMapper;
 
     public RecommendationServiceImpl(
             UserDemandMapper userDemandMapper,
-            CarModelMapper carModelMapper,
-            CarFeatureScoreMapper carFeatureScoreMapper,
             RecommendRecordMapper recommendRecordMapper,
             RecommendItemMapper recommendItemMapper,
+            PriceScoreCalculator priceScoreCalculator,
+            RecommendationCandidateService recommendationCandidateService,
             ObjectMapper objectMapper) {
         this.userDemandMapper = userDemandMapper;
-        this.carModelMapper = carModelMapper;
-        this.carFeatureScoreMapper = carFeatureScoreMapper;
         this.recommendRecordMapper = recommendRecordMapper;
         this.recommendItemMapper = recommendItemMapper;
+        this.priceScoreCalculator = priceScoreCalculator;
+        this.recommendationCandidateService = recommendationCandidateService;
         this.objectMapper = objectMapper;
     }
 
@@ -83,7 +78,7 @@ public class RecommendationServiceImpl implements RecommendationService {
             throw new BusinessException("demand does not belong to current user");
         }
 
-        List<CandidateCar> candidates = loadCandidatesWithScores();
+        RecommendationCandidateGroups candidates = recommendationCandidateService.generateCandidates(demand);
         List<ScoredRecommendation> scoredItems = generateRecommendationItems(candidates, demand);
         String recommendStatus = buildRecommendStatus(scoredItems);
         String fallbackMessage = buildFallbackMessage(scoredItems, recommendStatus);
@@ -125,60 +120,30 @@ public class RecommendationServiceImpl implements RecommendationService {
         return resolvedUserId;
     }
 
-    private List<CandidateCar> loadCandidatesWithScores() {
-        List<CandidateCar> candidates = new ArrayList<>();
-        for (CarModel car : carModelMapper.findApprovedRecommendationCandidates()) {
-            carFeatureScoreMapper.findByCarId(car.getId())
-                    .ifPresent(score -> candidates.add(new CandidateCar(car, score)));
-        }
-        return candidates;
-    }
-
     private List<ScoredRecommendation> generateRecommendationItems(
-            List<CandidateCar> candidates,
+            RecommendationCandidateGroups candidates,
             UserDemand demand) {
         List<ScoredRecommendation> strictItems = new ArrayList<>();
         List<ScoredRecommendation> recommendationItems = new ArrayList<>();
-        Set<Long> addedCarIds = new HashSet<>();
-
-        addStageRecommendations(candidates, demand, MatchLevel.STRICT, strictItems, addedCarIds);
+        for (RecommendationCandidate candidate : candidates.strictCandidates()) {
+            strictItems.add(toScoredRecommendation(candidate, demand));
+        }
         strictItems.sort(recommendationComparator());
 
-        for (MatchLevel matchLevel : List.of(
-                MatchLevel.RELAX_BUDGET,
-                MatchLevel.RELAX_BODY_TYPE,
-                MatchLevel.RELAX_ENERGY_TYPE,
-                MatchLevel.SIMILAR_RECOMMEND)) {
-            addStageRecommendations(candidates, demand, matchLevel, recommendationItems, addedCarIds);
+        for (RecommendationCandidate candidate : candidates.recommendationCandidates()) {
+            recommendationItems.add(toScoredRecommendation(candidate, demand));
         }
-
         recommendationItems.sort(recommendationComparator());
+
         List<ScoredRecommendation> finalItems = new ArrayList<>(strictItems);
         finalItems.addAll(recommendationItems);
         return finalItems;
     }
 
-    private void addStageRecommendations(
-            List<CandidateCar> candidates,
-            UserDemand demand,
-            MatchLevel matchLevel,
-            List<ScoredRecommendation> resultItems,
-            Set<Long> addedCarIds) {
-        for (CandidateCar candidate : candidates) {
-            Long carId = candidate.car().getId();
-            if (addedCarIds.contains(carId) || !matchesDemand(candidate.car(), demand, matchLevel)) {
-                continue;
-            }
-            resultItems.add(toScoredRecommendation(candidate, demand, matchLevel));
-            addedCarIds.add(carId);
-        }
-    }
-
     private ScoredRecommendation toScoredRecommendation(
-            CandidateCar candidate,
-            UserDemand demand,
-            MatchLevel matchLevel) {
-        BigDecimal priceScore = calculatePriceScore(candidate.car().getGuidePrice(), demand);
+            RecommendationCandidate candidate,
+            UserDemand demand) {
+        BigDecimal priceScore = priceScoreCalculator.calculate(candidate.car().getGuidePrice(), demand);
         BigDecimal totalScore = calculateTotalScore(priceScore, candidate.featureScore(), demand);
         List<String> tags = generateTags(priceScore, candidate.featureScore());
         String reasonText = generateReasonText(priceScore, candidate.featureScore(), demand);
@@ -188,197 +153,10 @@ public class RecommendationServiceImpl implements RecommendationService {
                 candidate.featureScore(),
                 priceScore,
                 totalScore,
-                matchLevel,
+                candidate.matchLevel(),
                 tags,
                 reasonText,
                 weaknessText);
-    }
-
-    private boolean matchesDemand(CarModel car, UserDemand demand, MatchLevel matchLevel) {
-        if (!matchesCommonFilters(car, demand)) {
-            return false;
-        }
-        return switch (matchLevel) {
-            case STRICT -> matchesStrictFilters(car, demand);
-            case RELAX_BUDGET -> matchesRelaxBudgetFilters(car, demand);
-            case RELAX_BODY_TYPE -> matchesRelaxBodyTypeFilters(car, demand);
-            case RELAX_ENERGY_TYPE -> matchesRelaxEnergyTypeFilters(car, demand);
-            case SIMILAR_RECOMMEND -> true;
-        };
-    }
-
-    private boolean matchesCommonFilters(CarModel car, UserDemand demand) {
-        Set<String> excludedBrands = new HashSet<>(readStringList(demand.getExcludedBrands()));
-        if (excludedBrands.contains(car.getBrand())) {
-            return false;
-        }
-        Set<Long> excludedCarIds = new HashSet<>(readLongList(demand.getExcludedCarIds()));
-        if (excludedCarIds.contains(car.getId())) {
-            return false;
-        }
-        if (demand.getMinSeats() != null && (car.getSeats() == null || car.getSeats() < demand.getMinSeats())) {
-            return false;
-        }
-        return true;
-    }
-
-    private boolean matchesStrictFilters(CarModel car, UserDemand demand) {
-        return matchesStrictBudget(car, demand)
-                && matchesStrictBodyType(car, demand)
-                && matchesStrictEnergyType(car, demand);
-    }
-
-    private boolean matchesRelaxBudgetFilters(CarModel car, UserDemand demand) {
-        if (demand.getBudgetMax() == null) {
-            return false;
-        }
-        BigDecimal relaxedBudgetMax = demand.getBudgetMax().multiply(new BigDecimal("1.10"));
-        return car.getGuidePrice().compareTo(demand.getBudgetMax()) > 0
-                && car.getGuidePrice().compareTo(relaxedBudgetMax) <= 0
-                && matchesStrictBodyType(car, demand)
-                && matchesStrictEnergyType(car, demand);
-    }
-
-    private boolean matchesRelaxBodyTypeFilters(CarModel car, UserDemand demand) {
-        Set<String> strictBodyTypes = demandBodyTypes(demand);
-        if (strictBodyTypes.isEmpty()) {
-            return false;
-        }
-        return matchesStrictBudget(car, demand)
-                && relaxedBodyTypes(strictBodyTypes).contains(car.getBodyType())
-                && matchesStrictEnergyType(car, demand);
-    }
-
-    private boolean matchesRelaxEnergyTypeFilters(CarModel car, UserDemand demand) {
-        Set<String> strictEnergyTypes = expandedDemandEnergyTypes(demand);
-        if (strictEnergyTypes.isEmpty()) {
-            return false;
-        }
-        return matchesStrictBudget(car, demand)
-                && matchesStrictBodyType(car, demand)
-                && relaxedEnergyTypes(readStringList(demand.getEnergyTypes()), strictEnergyTypes).contains(car.getEnergyType());
-    }
-
-    private boolean matchesStrictBudget(CarModel car, UserDemand demand) {
-        return demand.getBudgetMax() == null || car.getGuidePrice().compareTo(demand.getBudgetMax()) <= 0;
-    }
-
-    private boolean matchesStrictBodyType(CarModel car, UserDemand demand) {
-        Set<String> bodyTypes = demandBodyTypes(demand);
-        return bodyTypes.isEmpty() || bodyTypes.contains(car.getBodyType());
-    }
-
-    private boolean matchesStrictEnergyType(CarModel car, UserDemand demand) {
-        Set<String> energyTypes = expandedDemandEnergyTypes(demand);
-        return energyTypes.isEmpty() || energyTypes.contains(car.getEnergyType());
-    }
-
-    private Set<String> demandBodyTypes(UserDemand demand) {
-        return new LinkedHashSet<>(readStringList(demand.getBodyTypes()));
-    }
-
-    private Set<String> relaxedBodyTypes(Set<String> bodyTypes) {
-        Set<String> relaxed = new LinkedHashSet<>();
-        for (String bodyType : bodyTypes) {
-            switch (bodyType) {
-                case "SUV" -> relaxed.add("MPV");
-                case "MPV" -> relaxed.add("SUV");
-                case "轿车" -> relaxed.add("SUV");
-                default -> {
-                }
-            }
-        }
-        relaxed.removeAll(bodyTypes);
-        return relaxed;
-    }
-
-    private Set<String> expandedDemandEnergyTypes(UserDemand demand) {
-        Set<String> expanded = new LinkedHashSet<>();
-        for (String energyType : readStringList(demand.getEnergyTypes())) {
-            if ("新能源".equals(energyType)) {
-                expanded.add("纯电");
-                expanded.add("插混");
-                expanded.add("增程");
-            } else {
-                expanded.add(energyType);
-            }
-        }
-        return expanded;
-    }
-
-    private Set<String> relaxedEnergyTypes(List<String> energyTypes, Set<String> strictEnergyTypes) {
-        Set<String> relaxed = new LinkedHashSet<>();
-        for (String energyType : energyTypes) {
-            switch (energyType) {
-                case "纯电" -> {
-                    relaxed.add("插混");
-                    relaxed.add("增程");
-                }
-                case "插混" -> {
-                    relaxed.add("增程");
-                    relaxed.add("纯电");
-                }
-                case "增程" -> {
-                    relaxed.add("插混");
-                    relaxed.add("纯电");
-                }
-                case "燃油" -> relaxed.add("插混");
-                case "新能源" -> {
-                    relaxed.add("纯电");
-                    relaxed.add("插混");
-                    relaxed.add("增程");
-                }
-                default -> {
-                }
-            }
-        }
-        relaxed.removeAll(strictEnergyTypes);
-        return relaxed;
-    }
-
-    private BigDecimal calculatePriceScore(BigDecimal price, UserDemand demand) {
-        BigDecimal budgetMin = demand.getBudgetMin();
-        BigDecimal budgetMax = demand.getBudgetMax();
-        if (budgetMin == null && budgetMax == null) {
-            return score(75);
-        }
-        if (budgetMax == null) {
-            if (price.compareTo(budgetMin) < 0) {
-                return calculateBelowBudgetMinScore(price, budgetMin);
-            }
-            return score(90);
-        }
-        if (price.compareTo(budgetMax) > 0) {
-            return calculateAboveBudgetMaxScore(price, budgetMax);
-        }
-        if (budgetMin == null) {
-            budgetMin = BigDecimal.ZERO;
-        }
-        if (price.compareTo(budgetMin) < 0) {
-            return calculateBelowBudgetMinScore(price, budgetMin);
-        }
-        BigDecimal budgetMid = budgetMin.add(budgetMax).divide(new BigDecimal("2"), 8, RoundingMode.HALF_UP);
-        BigDecimal budgetRange = budgetMax.subtract(budgetMin);
-        BigDecimal halfRange = budgetRange.divide(new BigDecimal("2"), 8, RoundingMode.HALF_UP)
-                .max(BigDecimal.ONE);
-        BigDecimal distanceRatio = price.subtract(budgetMid).abs()
-                .divide(halfRange, 8, RoundingMode.HALF_UP);
-        BigDecimal value = new BigDecimal("100").subtract(distanceRatio.multiply(new BigDecimal("10")));
-        return score(value.max(new BigDecimal("90")));
-    }
-
-    private BigDecimal calculateBelowBudgetMinScore(BigDecimal price, BigDecimal budgetMin) {
-        BigDecimal denominator = budgetMin.max(BigDecimal.ONE);
-        BigDecimal lowerRatio = budgetMin.subtract(price).divide(denominator, 8, RoundingMode.HALF_UP);
-        BigDecimal value = new BigDecimal("90").subtract(lowerRatio.multiply(new BigDecimal("50")));
-        return score(value.max(new BigDecimal("75")));
-    }
-
-    private BigDecimal calculateAboveBudgetMaxScore(BigDecimal price, BigDecimal budgetMax) {
-        BigDecimal denominator = budgetMax.max(BigDecimal.ONE);
-        BigDecimal overRatio = price.subtract(budgetMax).divide(denominator, 8, RoundingMode.HALF_UP);
-        BigDecimal value = new BigDecimal("80").subtract(overRatio.multiply(new BigDecimal("100")));
-        return score(value.max(new BigDecimal("50")));
     }
 
     private BigDecimal calculateTotalScore(BigDecimal priceScore, CarFeatureScore score, UserDemand demand) {
@@ -650,43 +428,6 @@ public class RecommendationServiceImpl implements RecommendationService {
         return weights;
     }
 
-    private List<String> readStringList(String json) {
-        JsonNode node = readJsonArray(json);
-        List<String> values = new ArrayList<>();
-        for (JsonNode item : node) {
-            values.add(item.asText());
-        }
-        return values;
-    }
-
-    private List<Long> readLongList(String json) {
-        JsonNode node = readJsonArray(json);
-        List<Long> values = new ArrayList<>();
-        for (JsonNode item : node) {
-            if (item.canConvertToLong()) {
-                values.add(item.longValue());
-            } else if (StringUtils.hasText(item.asText())) {
-                values.add(Long.parseLong(item.asText()));
-            }
-        }
-        return values;
-    }
-
-    private JsonNode readJsonArray(String json) {
-        if (!StringUtils.hasText(json)) {
-            return objectMapper.createArrayNode();
-        }
-        try {
-            JsonNode node = objectMapper.readTree(json);
-            if (node.isTextual()) {
-                node = objectMapper.readTree(node.asText());
-            }
-            return node.isArray() ? node : objectMapper.createArrayNode();
-        } catch (JsonProcessingException exception) {
-            throw new IllegalStateException("failed to parse recommendation json field", exception);
-        }
-    }
-
     private String toJson(Object value) {
         try {
             return objectMapper.writeValueAsString(value);
@@ -695,19 +436,10 @@ public class RecommendationServiceImpl implements RecommendationService {
         }
     }
 
-    private BigDecimal score(double value) {
-        return score(BigDecimal.valueOf(value));
-    }
-
     private BigDecimal score(BigDecimal value) {
         return value.max(BigDecimal.ZERO)
                 .min(new BigDecimal("100"))
                 .setScale(2, RoundingMode.HALF_UP);
-    }
-
-    private record CandidateCar(
-            CarModel car,
-            CarFeatureScore featureScore) {
     }
 
     private record ScoredRecommendation(
