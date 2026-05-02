@@ -95,7 +95,7 @@ class RecommendationControllerTest {
         assertTrue(containsNonStrictMatchLevel(familyRecommend.path("items")));
         assertGroupedAndSorted(familyRecommend);
         assertNoTechnicalTags(familyRecommend.path("items"));
-        assertTotalScoreMatchesFormula(familyDemand, familyRecommend.path("items").get(0));
+        assertTotalScoreUsesTopsis(familyDemand, familyRecommend.path("items"));
         assertRecordAndItemSnapshotsSaved(familyRecommend, "FALLBACK");
         assertSavedRecommendationItemTexts(familyRecommend);
 
@@ -353,9 +353,22 @@ class RecommendationControllerTest {
                 """, recordId));
     }
 
-    private void assertTotalScoreMatchesFormula(JsonNode demand, JsonNode item) {
+    private void assertTotalScoreUsesTopsis(JsonNode demand, JsonNode items) {
+        boolean foundScoreDifferentFromWeightedSum = false;
+        for (JsonNode item : items) {
+            BigDecimal totalScore = item.path("totalScore").decimalValue();
+            assertTrue(totalScore.compareTo(BigDecimal.ZERO) >= 0);
+            assertTrue(totalScore.compareTo(new BigDecimal("100")) <= 0);
+            if (totalScore.compareTo(weightedUtilityScore(demand, item)) != 0) {
+                foundScoreDifferentFromWeightedSum = true;
+            }
+        }
+        assertTrue(foundScoreDifferentFromWeightedSum, "TOPSIS totalScore must not stay equal to weighted sum");
+    }
+
+    private BigDecimal weightedUtilityScore(JsonNode demand, JsonNode item) {
         JsonNode weights = demand.path("weights");
-        BigDecimal expected = BigDecimal.ZERO
+        return BigDecimal.ZERO
                 .add(item.path("priceScore").decimalValue().multiply(weights.path("price").decimalValue()))
                 .add(item.path("spaceScore").decimalValue().multiply(weights.path("space").decimalValue()))
                 .add(item.path("safetyScore").decimalValue().multiply(weights.path("safety").decimalValue()))
@@ -366,7 +379,6 @@ class RecommendationControllerTest {
                 .add(item.path("reputationScore").decimalValue().multiply(weights.path("reputation").decimalValue()))
                 .add(item.path("popularityScore").decimalValue().multiply(weights.path("popularity").decimalValue()))
                 .setScale(2, RoundingMode.HALF_UP);
-        assertEquals(0, expected.compareTo(item.path("totalScore").decimalValue()));
     }
 
     private void assertGroupedAndSorted(JsonNode recommend) throws Exception {

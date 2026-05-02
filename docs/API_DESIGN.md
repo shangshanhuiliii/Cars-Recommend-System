@@ -455,6 +455,8 @@ GET  /api/recommend/history
 
 其中 `tags` 由推荐算法按高分维度生成，并保存为 `recommend_item.tags` 快照。推荐历史查询时应返回保存的标签快照，不应每次查询时重新生成。标签只用于前端卡片快速展示，不替代 `reasonText` 和 `weaknessText`。
 
+`items[].totalScore` 字段继续保留。阶段 9.6-D 起，该字段表示基于主客观组合权重与 TOPSIS 相对接近度得到的推荐分，取值范围为 0-100，保留 2 位小数；不再表示旧版简单加权求和分。详细算法公式只维护在 `RECOMMENDATION_ALGORITHM_UPGRADE.md`。
+
 阶段 6 起推荐生成支持 `STRICT`、`RELAX_BUDGET`、`RELAX_BODY_TYPE`、`RELAX_ENERGY_TYPE`、`SIMILAR_RECOMMEND` 分级匹配。阶段 9.5 后系统不再按固定 TopK 截断结果：`STRICT` 组返回全部完全匹配候选，非 `STRICT` 组按放宽阶段补充全部推荐候选，并在每条推荐明细中保存对应 `matchLevel`，不覆盖已进入推荐集的严格匹配结果。
 
 `recommendStatus` 生成规则：

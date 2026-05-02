@@ -51,6 +51,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     private final RecommendationCandidateService recommendationCandidateService;
     private final RecommendationWeightService recommendationWeightService;
     private final ParetoAnalyzer paretoAnalyzer;
+    private final TopsisRanker topsisRanker;
     private final ObjectMapper objectMapper;
 
     public RecommendationServiceImpl(
@@ -61,6 +62,7 @@ public class RecommendationServiceImpl implements RecommendationService {
             RecommendationCandidateService recommendationCandidateService,
             RecommendationWeightService recommendationWeightService,
             ParetoAnalyzer paretoAnalyzer,
+            TopsisRanker topsisRanker,
             ObjectMapper objectMapper) {
         this.userDemandMapper = userDemandMapper;
         this.recommendRecordMapper = recommendRecordMapper;
@@ -69,6 +71,7 @@ public class RecommendationServiceImpl implements RecommendationService {
         this.recommendationCandidateService = recommendationCandidateService;
         this.recommendationWeightService = recommendationWeightService;
         this.paretoAnalyzer = paretoAnalyzer;
+        this.topsisRanker = topsisRanker;
         this.objectMapper = objectMapper;
     }
 
@@ -88,6 +91,11 @@ public class RecommendationServiceImpl implements RecommendationService {
         RecommendationWeightSnapshot weightSnapshot = recommendationWeightService.calculate(
                 demand,
                 scoreVectors(combine(strictItems, recommendationItems)));
+        List<ScoredRecommendation> topsisScoredItems = applyTopsisScore(
+                combine(strictItems, recommendationItems),
+                weightSnapshot);
+        strictItems = new ArrayList<>(topsisScoredItems.subList(0, strictItems.size()));
+        recommendationItems = new ArrayList<>(topsisScoredItems.subList(strictItems.size(), topsisScoredItems.size()));
         List<ScoredRecommendation> scoredItems = sortRecommendationItems(
                 strictItems,
                 recommendationItems,
@@ -157,6 +165,20 @@ public class RecommendationServiceImpl implements RecommendationService {
         return finalItems;
     }
 
+    private List<ScoredRecommendation> applyTopsisScore(
+            List<ScoredRecommendation> items,
+            RecommendationWeightSnapshot weightSnapshot) {
+        List<BigDecimal> topsisScores = topsisRanker.rank(
+                scoreVectors(items),
+                weightSnapshot.finalWeight(),
+                items.stream().map(ScoredRecommendation::fallbackScore).toList());
+        List<ScoredRecommendation> topsisScoredItems = new ArrayList<>();
+        for (int index = 0; index < items.size(); index++) {
+            topsisScoredItems.add(items.get(index).withTotalScore(topsisScores.get(index)));
+        }
+        return topsisScoredItems;
+    }
+
     private List<ScoredRecommendation> markParetoDominated(
             List<ScoredRecommendation> items,
             RecommendationWeightSnapshot weightSnapshot) {
@@ -197,7 +219,7 @@ public class RecommendationServiceImpl implements RecommendationService {
             RecommendationCandidate candidate,
             UserDemand demand) {
         BigDecimal priceScore = priceScoreCalculator.calculate(candidate.car().getGuidePrice(), demand);
-        BigDecimal totalScore = calculateTotalScore(priceScore, candidate.featureScore(), demand);
+        BigDecimal fallbackScore = calculateFallbackScore(priceScore, candidate.featureScore(), demand);
         List<String> tags = generateTags(priceScore, candidate.featureScore());
         String reasonText = generateReasonText(priceScore, candidate.featureScore(), demand);
         String weaknessText = generateWeaknessText(priceScore, candidate.featureScore(), demand);
@@ -205,7 +227,8 @@ public class RecommendationServiceImpl implements RecommendationService {
                 candidate.car(),
                 candidate.featureScore(),
                 priceScore,
-                totalScore,
+                fallbackScore,
+                fallbackScore,
                 candidate.matchLevel(),
                 tags,
                 reasonText,
@@ -213,7 +236,7 @@ public class RecommendationServiceImpl implements RecommendationService {
                 false);
     }
 
-    private BigDecimal calculateTotalScore(BigDecimal priceScore, CarFeatureScore score, UserDemand demand) {
+    private BigDecimal calculateFallbackScore(BigDecimal priceScore, CarFeatureScore score, UserDemand demand) {
         BigDecimal total = BigDecimal.ZERO;
         total = total.add(priceScore.multiply(weight(demand.getWeightPrice())));
         total = total.add(score.getSpaceScore().multiply(weight(demand.getWeightSpace())));
@@ -487,6 +510,7 @@ public class RecommendationServiceImpl implements RecommendationService {
             CarModel car,
             CarFeatureScore featureScore,
             BigDecimal priceScore,
+            BigDecimal fallbackScore,
             BigDecimal totalScore,
             MatchLevel matchLevel,
             List<String> tags,
@@ -494,11 +518,26 @@ public class RecommendationServiceImpl implements RecommendationService {
             String weaknessText,
             boolean paretoDominated) {
 
+        private ScoredRecommendation withTotalScore(BigDecimal totalScore) {
+            return new ScoredRecommendation(
+                    car,
+                    featureScore,
+                    priceScore,
+                    fallbackScore,
+                    totalScore,
+                    matchLevel,
+                    tags,
+                    reasonText,
+                    weaknessText,
+                    paretoDominated);
+        }
+
         private ScoredRecommendation withParetoDominated(boolean paretoDominated) {
             return new ScoredRecommendation(
                     car,
                     featureScore,
                     priceScore,
+                    fallbackScore,
                     totalScore,
                     matchLevel,
                     tags,
