@@ -261,8 +261,8 @@ public class RecommendationServiceImpl implements RecommendationService {
     }
 
     private Comparator<ScoredRecommendation> recommendationComparator() {
-        return Comparator.comparing(ScoredRecommendation::paretoDominated)
-                .thenComparing(ScoredRecommendation::totalScore, Comparator.reverseOrder())
+        return Comparator.comparing(ScoredRecommendation::totalScore, Comparator.reverseOrder())
+                .thenComparing(ScoredRecommendation::paretoDominated)
                 .thenComparing(item -> item.featureScore().getReputationScore(), Comparator.reverseOrder())
                 .thenComparing(item -> item.featureScore().getPopularityScore(), Comparator.reverseOrder());
     }

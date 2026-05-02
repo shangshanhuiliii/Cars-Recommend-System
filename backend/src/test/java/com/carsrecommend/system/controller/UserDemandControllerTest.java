@@ -1,6 +1,7 @@
 package com.carsrecommend.system.controller;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -44,8 +45,68 @@ class UserDemandControllerTest {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    private void assertParseTextReturnsDemandDraftWithoutPersistence() throws Exception {
+        int demandBefore = count("SELECT COUNT(*) FROM user_demand");
+        int recordBefore = count("SELECT COUNT(*) FROM recommend_record");
+        int itemBefore = count("SELECT COUNT(*) FROM recommend_item");
+
+        MvcResult result = mockMvc.perform(post("/api/user/demand/parse-text")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .characterEncoding(StandardCharsets.UTF_8)
+                        .content("""
+                                {
+                                  "userId": 1,
+                                  "text": "我想买10到15万的SUV或MPV，家用带娃，最好插混或增程，至少7座，空间大、安全、省油、舒适，智能车机要好"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.userId").value(1))
+                .andExpect(jsonPath("$.data.rawText").isString())
+                .andExpect(jsonPath("$.data.budgetMin").value(100000))
+                .andExpect(jsonPath("$.data.budgetMax").value(150000))
+                .andExpect(jsonPath("$.data.bodyTypes[0]").value("SUV"))
+                .andExpect(jsonPath("$.data.bodyTypes[1]").value("MPV"))
+                .andExpect(jsonPath("$.data.energyTypes[0]").value("插混"))
+                .andExpect(jsonPath("$.data.energyTypes[1]").value("增程"))
+                .andExpect(jsonPath("$.data.minSeats").value(7))
+                .andExpect(jsonPath("$.data.scenes[0]").value("家庭出行"))
+                .andExpect(jsonPath("$.data.factorWeights.space").value(8))
+                .andExpect(jsonPath("$.data.factorWeights.safety").value(8))
+                .andExpect(jsonPath("$.data.factorWeights.energy").value(8))
+                .andExpect(jsonPath("$.data.factorWeights.comfort").value(8))
+                .andExpect(jsonPath("$.data.factorWeights.intelligence").value(9))
+                .andExpect(jsonPath("$.data.profileText").isString())
+                .andExpect(jsonPath("$.data.unsupportedTerms").isArray())
+                .andExpect(jsonPath("$.data.ambiguousTerms").isArray())
+                .andExpect(jsonPath("$.data.confidenceScore").isNumber())
+                .andReturn();
+
+        JsonNode data = objectMapper.readTree(result.getResponse().getContentAsString(StandardCharsets.UTF_8)).path("data");
+        assertFalse(data.has("bodyType"));
+        assertFalse(data.has("energyType"));
+        assertFalse(data.has("scene"));
+        assertFalse(data.has("focusFactors"));
+        assertEquals(demandBefore, count("SELECT COUNT(*) FROM user_demand"));
+        assertEquals(recordBefore, count("SELECT COUNT(*) FROM recommend_record"));
+        assertEquals(itemBefore, count("SELECT COUNT(*) FROM recommend_item"));
+
+        mockMvc.perform(post("/api/user/demand/parse-text")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .characterEncoding(StandardCharsets.UTF_8)
+                        .content("""
+                                {
+                                  "text": "   "
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400));
+    }
+
     @Test
     void demandEndpointsPersistNewDemandModelAndProfileWeights() throws Exception {
+        assertParseTextReturnsDemandDraftWithoutPersistence();
+
         JsonNode family = postDemand("""
                 {
                   "rawText": "家庭出行，想要空间和安全都好一些",

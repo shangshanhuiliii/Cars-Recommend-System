@@ -458,9 +458,9 @@ GET  /api/recommend/{recordId}/algorithm-visualization
 
 其中 `tags` 由推荐算法按高分维度生成，并保存为 `recommend_item.tags` 快照。推荐历史查询时应返回保存的标签快照，不应每次查询时重新生成。标签只用于前端卡片快速展示，不替代 `reasonText` 和 `weaknessText`。
 
-`items[].totalScore` 字段继续保留。阶段 9.6-D 起，该字段表示基于主客观组合权重与 TOPSIS 相对接近度得到的推荐分，取值范围为 0-100，保留 2 位小数；不再表示旧版简单加权求和分。详细算法公式只维护在 `RECOMMENDATION_ALGORITHM_UPGRADE.md`。
+`items[].totalScore` 字段继续保留。阶段 9.6-D 起，该字段表示基于主客观组合权重与 TOPSIS 相对接近度得到的综合推荐分，取值范围为 0-100，保留 2 位小数；不再表示旧版简单加权求和分。详细算法公式只维护在 `RECOMMENDATION_ALGORITHM_UPGRADE.md`。
 
-`items[].rankNo` 是推荐结果展示排序的权威字段。后端已经按 `STRICT` 组优先、推荐组在后，并在组内应用 Pareto-TOPSIS 排序后写入 `rankNo`；前端推荐结果页和历史详情页应按 `rankNo` 升序展示，不再按 `totalScore`、`reputationScore` 或 `popularityScore` 二次排序。
+`items[].rankNo` 是推荐结果展示排序的权威字段。后端已经按 `STRICT` 组优先、推荐组在后，并在组内按 `totalScore desc`、`paretoDominated = false`、`reputationScore desc`、`popularityScore desc` 写入 `rankNo`；前端推荐结果页和历史详情页应按 `rankNo` 升序展示，不再按 `totalScore`、`reputationScore` 或 `popularityScore` 二次排序。Pareto 标记仍参与同分辅助排序和算法可视化展示，不覆盖 `totalScore` 的主排序地位。
 
 `algorithmVersion` 和 `alpha` 由 `recommend_record.weight_snapshot` 解析得到，用于管理端和历史详情区分旧版 `weighted-sum-v1` 与新版 `pareto-topsis-v1`。旧历史记录如果只保存扁平九维权重，详情响应可回退显示 `algorithmVersion = weighted-sum-v1`，`alpha` 可为空。
 
@@ -551,7 +551,7 @@ GET  /api/recommend/{recordId}/algorithm-visualization
 ### 3.1 自然语言解析
 
 ```text
-POST /api/demand/parse-text
+POST /api/user/demand/parse-text
 ```
 
 请求：
@@ -596,6 +596,13 @@ POST /api/demand/parse-text
 ```
 
 解析结果字段应与 `POST /api/user/demand` 请求字段保持一致。前端必须先展示解析结果供用户确认修改，确认后再提交结构化需求。
+
+边界说明：
+
+- 该接口只做规则词典和正则表达式解析，不调用大模型或复杂 NLP 依赖。
+- 该接口不保存 `user_demand`，不生成推荐，不写入 `recommend_record` 或 `recommend_item`。
+- 解析结果只是购车需求表单草稿，用户确认或修改后仍通过 `POST /api/user/demand` 保存需求，再调用现有推荐生成流程。
+- 当前输出字段以 `bodyTypes`、`energyTypes`、`scenes`、`factorWeights`、`minSeats` 为准，不恢复旧字段 `bodyType`、`energyType`、`scene`、`focusFactors`。
 
 ### 3.2 车型对比
 

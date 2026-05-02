@@ -346,8 +346,8 @@ public class AlgorithmVisualizationServiceImpl implements AlgorithmVisualization
                 new AlgorithmVisualizationPipelineStepVO(
                         12,
                         "按 matchLevel 分组并写入 rankNo",
-                        "推荐生成时先展示 STRICT 组，再展示补充推荐组；组内依据 Pareto 标记和 TOPSIS 分数排序，生成 rankNo。",
-                        "matchLevel、paretoDominated、totalScore",
+                        "推荐生成时先展示 STRICT 组，再展示补充推荐组；组内先按 TOPSIS totalScore 排序，同分时再使用 Pareto 标记、口碑分和热度分作为辅助排序。",
+                        "matchLevel、totalScore、paretoDominated、reputationScore、popularityScore",
                         "按 rankNo 排序的推荐明细",
                         "本页面不重新排序，直接按 recommend_item.rank_no 展示；第一名为 " + topCar,
                         "RecommendationServiceImpl"),

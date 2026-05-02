@@ -62,8 +62,8 @@
 - `subjectiveWeight` 来自用户显式 `factorWeights` 或 `scenes` 场景模板。
 - `objectiveWeight` 来自候选集九维评分矩阵的熵权法计算。
 - `finalWeight` 由 `alpha` 组合主观权重和客观权重，并保存到 `recommend_record.weight_snapshot`。
-- `totalScore` 当前表示 TOPSIS 推荐分 / 综合匹配度；加权求和只作为历史算法基线、TOPSIS 边界兜底 `fallbackScore` 和升级前后对比说明。
-- 推荐排序由后端写入 `rankNo`：`STRICT` 组在前，推荐组在后，每组内部先按 Pareto 非支配优先，再按 TOPSIS 推荐分、口碑分、热度分排序。
+- `totalScore` 当前表示 TOPSIS 推荐分 / 综合推荐分；加权求和只作为历史算法基线、TOPSIS 边界兜底 `fallbackScore` 和升级前后对比说明。
+- 推荐排序由后端写入 `rankNo`：`STRICT` 组在前，推荐组在后，每组内部先按 TOPSIS 推荐分，再按 Pareto 非支配标记、口碑分、热度分做辅助排序。
 - 前端推荐结果页只按 `rankNo` 展示，不再按 `totalScore`、口碑分或热度分二次排序。
 
 ### 2.3 阶段 9.8 算法可视化说明
@@ -410,19 +410,21 @@
 
 - 支持预算、多个车型类型、多个动力类型、多个场景和偏好词解析。
 - 偏好词解析为 `factorWeights` 初始值，用户确认后再提交标准需求结构。
-- 解析结果进入确认修改页面。
+- 解析结果回填 `/recommend` 现有结构化表单，由用户确认或修改。
 - 用户确认后进入标准推荐流程。
-- 增强项保存解析记录和置信度。
+- 返回 `unsupportedTerms`、`ambiguousTerms`、`confidenceScore`，但不保存解析记录。
+- 新增只读辅助接口 `POST /api/user/demand/parse-text`。
 
 ### 最低完成标准
 
 - 能解析常见预算、多个 SUV/轿车/MPV、多个燃油/纯电/插混/增程/新能源、多个家用/通勤/长途/新手/商务场景，以及省油/空间大/安全/智能/舒适/动力强/口碑/热门/性价比等偏好词。
 - 解析结果可确认修改。
+- 解析接口不写入 `user_demand`、`recommend_record` 或 `recommend_item`，不直接调用推荐生成。
 
 ### 增强完成标准
 
 - 返回 `unsupportedTerms`、`ambiguousTerms`、`confidenceScore`。
-- 保存解析记录。
+- 后续如需保存解析记录，必须先确认数据库结构变更；阶段 10 不新增表或字段。
 
 ### 风险点
 

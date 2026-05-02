@@ -152,6 +152,7 @@ class RecommendationControllerTest {
         assertTrue(noStrictRecommend.path("fallbackMessage").asText().contains("未找到完全匹配车型"));
         assertEquals(0, countMatchLevel(noStrictRecommend.path("items"), "STRICT"));
         assertTrue(containsNonStrictMatchLevel(noStrictRecommend.path("items")));
+        assertGroupedAndSorted(noStrictRecommend);
         for (JsonNode item : noStrictRecommend.path("items")) {
             assertTrue(item.path("seats").asInt() >= 7);
             assertFalse("别克".equals(item.path("brand").asText()));
@@ -432,29 +433,26 @@ class RecommendationControllerTest {
 
     private void assertSorted(JsonNode items, JsonNode finalWeight) {
         List<Boolean> dominatedFlags = paretoDominatedFlags(items, topParetoDimensions(finalWeight));
-        boolean seenDominated = false;
-        for (Boolean dominated : dominatedFlags) {
-            if (dominated) {
-                seenDominated = true;
-            } else {
-                assertFalse(seenDominated, "Pareto non-dominated item must stay before dominated items");
-            }
-        }
-
         for (int i = 1; i < items.size(); i++) {
             JsonNode previous = items.get(i - 1);
             JsonNode current = items.get(i);
-            if (dominatedFlags.get(i - 1).equals(dominatedFlags.get(i))) {
-                assertScoreOrder(previous, current);
-            }
+            assertScorePrimaryOrder(previous, current, dominatedFlags.get(i - 1), dominatedFlags.get(i));
         }
     }
 
-    private void assertScoreOrder(JsonNode previous, JsonNode current) {
+    private void assertScorePrimaryOrder(
+            JsonNode previous,
+            JsonNode current,
+            boolean previousDominated,
+            boolean currentDominated) {
         int totalCompare = previous.path("totalScore").decimalValue()
                 .compareTo(current.path("totalScore").decimalValue());
-        assertTrue(totalCompare >= 0);
+        assertTrue(totalCompare >= 0, "same group must sort by totalScore desc before Pareto tie-break");
         if (totalCompare == 0) {
+            if (previousDominated != currentDominated) {
+                assertFalse(previousDominated, "same-score Pareto non-dominated item must stay before dominated item");
+                return;
+            }
             int reputationCompare = previous.path("reputationScore").decimalValue()
                     .compareTo(current.path("reputationScore").decimalValue());
             assertTrue(reputationCompare >= 0);

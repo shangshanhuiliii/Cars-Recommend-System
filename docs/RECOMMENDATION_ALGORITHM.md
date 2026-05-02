@@ -228,7 +228,7 @@ priceScore = 75
 
 ## 7. 历史基线综合分与 TOPSIS 兜底
 
-阶段 9.6 前，推荐排序使用线性加权求和得到旧版 `totalScore`。阶段 9.6-D 起，`totalScore` 当前语义已升级为 TOPSIS 推荐分 / 综合匹配度，不再是主流程的简单加权求和分。
+阶段 9.6 前，推荐排序使用线性加权求和得到旧版 `totalScore`。阶段 9.6-D 起，`totalScore` 当前语义已升级为 TOPSIS 推荐分 / 综合推荐分，不再是主流程的简单加权求和分。
 
 以下公式仅用于三类场景：
 
@@ -284,7 +284,7 @@ weightedSumScore =
   - 推荐组在后。
   - 每组内部按加权分、`reputationScore desc`、`popularityScore desc` 排序。
 
-当前主算法的组内排序由 Pareto 非支配优先级和 TOPSIS 推荐分决定，并由后端写入 `rankNo`；详见 `RECOMMENDATION_ALGORITHM_UPGRADE.md`。
+当前主算法的组内排序先按 TOPSIS `totalScore`，再用 Pareto 非支配标记、口碑分、热度分做同分辅助排序，并由后端写入 `rankNo`；详见 `RECOMMENDATION_ALGORITHM_UPGRADE.md`。
 
 ### 8.1 各阶段边界
 

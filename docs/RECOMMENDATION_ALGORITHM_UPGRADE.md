@@ -451,10 +451,12 @@ utilityScore_i = sum_j(x_ij * finalWeight_j)
 1. `STRICT` 组在前。
 2. 非 `STRICT` 推荐组在后。
 3. 每组内部：
-   - Pareto 非支配优先。
    - `totalScore desc`。
+   - `paretoDominated = false`。
    - `reputationScore desc`。
    - `popularityScore desc`。
+
+Pareto 非支配标记不删除、不移除，仍作为同分辅助排序、管理追溯和答辩可视化内容。用户端同组内优先按 `totalScore` 展示，避免低综合推荐分车型排在高分车型前面。
 
 约束：
 
@@ -649,7 +651,7 @@ gap_ij = A+_j - v_ij
 建议：
 
 - 用户端不展示 TOPSIS 距离、熵权细节或 Pareto 技术说明，保持推荐结果页简洁。
-- 用户端可以继续展示综合匹配度、推荐标签、理由、不足和维度分。
+- 用户端可以继续展示综合推荐分、推荐标签、理由、不足和维度分。
 - 管理端推荐记录页可以展示算法版本、主观权重、客观权重和最终权重。
 - 如果采用方案 A，管理端先只展示算法版本和权重快照，不展示 TOPSIS 距离。
 

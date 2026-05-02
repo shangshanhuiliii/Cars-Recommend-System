@@ -1,8 +1,11 @@
 package com.carsrecommend.system.controller;
 
 import com.carsrecommend.system.common.ApiResponse;
+import com.carsrecommend.system.dto.DemandTextParseRequest;
 import com.carsrecommend.system.dto.UserDemandSaveRequest;
+import com.carsrecommend.system.service.DemandTextParseService;
 import com.carsrecommend.system.service.UserProfileService;
+import com.carsrecommend.system.vo.DemandTextParseVO;
 import com.carsrecommend.system.vo.UserDemandVO;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
@@ -23,14 +26,21 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserDemandController {
 
     private final UserProfileService userProfileService;
+    private final DemandTextParseService demandTextParseService;
 
-    public UserDemandController(UserProfileService userProfileService) {
+    public UserDemandController(UserProfileService userProfileService, DemandTextParseService demandTextParseService) {
         this.userProfileService = userProfileService;
+        this.demandTextParseService = demandTextParseService;
     }
 
     @PostMapping
     public ApiResponse<UserDemandVO> save(@Valid @RequestBody UserDemandSaveRequest request) {
         return ApiResponse.success(userProfileService.saveDemand(request));
+    }
+
+    @PostMapping("/parse-text")
+    public ApiResponse<DemandTextParseVO> parseText(@Valid @RequestBody DemandTextParseRequest request) {
+        return ApiResponse.success(demandTextParseService.parse(request));
     }
 
     @GetMapping("/latest")

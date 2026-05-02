@@ -17,6 +17,7 @@ assert.match(view, /熵权法客观权重/)
 assert.match(view, /主客观组合权重/)
 assert.match(view, /九维评分矩阵/)
 assert.match(view, /算法流程详解/)
+assert.match(view, /综合推荐分/)
 assert.doesNotMatch(view, /recommend\/generate/)
 assert.doesNotMatch(view, /generateRecommendation/)
 

@@ -125,7 +125,7 @@ pareto-topsis-v1
 - 输入：已计算 `totalScore`、`paretoDominated` 和维度分的推荐项。
 - 输出：最终有序 `ScoredRecommendation` 列表。
 - 对应代码：`RecommendationServiceImpl.sortRecommendationItems`、`recommendationComparator`；前端 `rankOrderedItems`。
-- 关键规则：`STRICT` 组永远在推荐组前；每组内部先按 `paretoDominated = false`，再按 `totalScore desc`、`reputationScore desc`、`popularityScore desc`；后端写入 `rankNo`；前端每组内部按 `rankNo` 升序展示，不按分数二次排序。
+- 关键规则：`STRICT` 组永远在推荐组前；每组内部先按 `totalScore desc`，再按 `paretoDominated = false`、`reputationScore desc`、`popularityScore desc`；后端写入 `rankNo`；前端每组内部按 `rankNo` 升序展示，不按分数二次排序。
 
 ### Step 13：生成 tags、reasonText、weaknessText
 
@@ -261,7 +261,7 @@ K 的选择：
 排序用途：
 
 - `RecommendationServiceImpl.markParetoDominated` 分别对 `STRICT` 组和推荐组计算标记。
-- `RecommendationServiceImpl.recommendationComparator` 让 `paretoDominated = false` 的候选排在同组前面。
+- `RecommendationServiceImpl.recommendationComparator` 先按 `totalScore desc` 排序；`paretoDominated = false` 作为同分辅助排序，避免用户端出现同组内低分车型排在高分车型前面的误解。
 - 标记不写入 `recommend_item`，不返回用户端，不写入 `tags`。
 
 不删除候选的原因：
@@ -329,7 +329,7 @@ C_i = D_i- / (D_i+ + D_i-)
 totalScore = C_i * 100
 ```
 
-`totalScore` 保留 2 位小数，限制在 0-100。阶段 9.6-D 起，`recommend_item.total_score` 和 API `items[].totalScore` 的当前语义为 TOPSIS 推荐分 / 综合匹配度。
+`totalScore` 保留 2 位小数，限制在 0-100。阶段 9.6-D 起，`recommend_item.total_score` 和 API `items[].totalScore` 的当前语义为 TOPSIS 推荐分 / 综合推荐分。
 
 ### fallbackScore
 
@@ -346,8 +346,8 @@ totalScore = C_i * 100
 1. 将候选分为 `STRICT` 组和非 `STRICT` 推荐组。
 2. 每组内部计算 Pareto 被支配标记。
 3. 每组内部排序：
-   - `paretoDominated = false` 优先。
    - `totalScore desc`。
+   - `paretoDominated = false`。
    - `reputationScore desc`。
    - `popularityScore desc`。
 4. 拼接顺序固定为 `STRICT` 组在前，推荐组在后。
@@ -448,7 +448,7 @@ totalScore = C_i * 100
 
 ## 10. 与普通筛选的区别
 
-普通筛选只回答“哪些车型满足条件”。当前实现先按硬性约束生成候选，再把车型转成九维评分矩阵，结合用户主观权重和候选集客观差异得到 `finalWeight`，通过 Pareto 非支配优先和 TOPSIS 相对接近度计算综合匹配度，并保存推荐理由、不足提醒、标签、匹配状态和权重快照。
+普通筛选只回答“哪些车型满足条件”。当前实现先按硬性约束生成候选，再把车型转成九维评分矩阵，结合用户主观权重和候选集客观差异得到 `finalWeight`，通过 TOPSIS 相对接近度计算综合推荐分，并用 Pareto 非支配标记做同分辅助排序和算法追溯，最终保存推荐理由、不足提醒、标签、匹配状态和权重快照。
 
 因此系统回答的是：
 
@@ -464,6 +464,6 @@ totalScore = C_i * 100
 - TOPSIS 是相对候选集排序，候选集变化会影响 `totalScore`，不能解释为绝对市场评分。
 - 熵权法在候选很少或候选无差异时不稳定，当前代码已退化为 `subjectiveWeight`。
 - 车型特征评分仍由规则引擎生成，舒适性等维度存在组合估算成分。
-- Pareto 第一版只做内部标记和排序，不持久化 `paretoDominated`，历史主要通过 `rankNo`、`totalScore`、维度分和权重快照追溯。
+- Pareto 第一版只做内部标记、同分辅助排序和算法可视化展示，不持久化 `paretoDominated`，历史主要通过 `rankNo`、`totalScore`、维度分和权重快照追溯。
 - 当前没有使用用户行为在线学习。
 - 深度学习、协同过滤、在线学习只属于后续展望，不是当前系统实现。

@@ -220,7 +220,7 @@
 
 ### 遗留问题或后续注意事项
 
-- 自然语言解析尚未实现，当前以结构化表单为准。
+- 阶段 10 已补充规则词典式自然语言解析入口，仍以结构化表单确认结果为准。
 - 显式偏好权重只影响权重和排序，不作为硬过滤条件。
 
 ## 阶段 5：真实推荐算法基础闭环
@@ -516,7 +516,7 @@
 ### 遗留问题或后续注意事项
 
 - 本地真实库重建会清空联调数据，执行前必须获得明确授权。
-- 自然语言解析需要按新字段输出 `bodyTypes`、`energyTypes`、`scenes`、`factorWeights`。
+- 阶段 10 解析接口已按新字段输出 `bodyTypes`、`energyTypes`、`scenes`、`factorWeights`。
 - 用户端隐藏顶部强提示不代表后端删除 `fallbackMessage`；管理端和历史详情仍可展示。
 
 ## 阶段 9.6：推荐算法升级为主客观组合权重 + Pareto-TOPSIS
@@ -530,8 +530,8 @@
 - 抽取候选生成、价格分、矩阵构建等算法组件，降低 `RecommendationServiceImpl` 复杂度。
 - 实现 `subjectiveWeight`、熵权法 `objectiveWeight`、组合权重 `finalWeight` 和 `alpha` 规则。
 - 扩展 `recommend_record.weight_snapshot`，保存 `algorithmVersion`、`alpha`、`subjectiveWeight`、`objectiveWeight`、`finalWeight`。
-- 实现 Pareto 非支配标记，第一版只用于组内排序优先，不删除候选，不新增数据库字段。
-- 实现 TOPSIS 排序，`recommend_item.total_score` 和 API `totalScore` 当前语义为 TOPSIS 推荐分 / 综合匹配度。
+- 实现 Pareto 非支配标记，当前用于同分辅助排序和算法可视化展示，不删除候选，不新增数据库字段。
+- 实现 TOPSIS 排序，`recommend_item.total_score` 和 API `totalScore` 当前语义为 TOPSIS 推荐分 / 综合推荐分。
 - 保留边界兜底：候选数为 1 或 TOPSIS 距离无差异时使用加权效用 `fallbackScore`。
 - 升级 `reasonText` 为基于贡献度生成，升级 `weaknessText` 为基于正理想解差距生成。
 - 保持 `tags` 只表示推荐亮点，不写入 `matchLevel`、Pareto、TOPSIS 或降级技术状态。
@@ -574,14 +574,14 @@
 
 ### 是否达到最低完成标准
 
-是。推荐算法已完成主客观组合权重、Pareto 非支配优先、TOPSIS 推荐分、解释升级、快照追溯和前端排序适配。
+是。推荐算法已完成主客观组合权重、TOPSIS 推荐分、Pareto 同分辅助排序、解释升级、快照追溯和前端排序适配。
 
 ### 遗留问题或后续注意事项
 
 - 加权求和只保留为历史基线、TOPSIS 边界兜底和论文对比，不再作为当前主排序算法。
 - TOPSIS 是相对候选集排序，候选集变化会影响 `totalScore`，答辩时不能解释为绝对市场评分。
 - Pareto 第一版不持久化 `paretoDominated`，历史通过 `rankNo`、`totalScore`、维度分和权重快照追溯用户可见排序。
-- 自然语言解析尚未实现，阶段 10 必须输出当前新字段，不得恢复旧字段或固定 TopK 规则。
+- 阶段 10 已实现规则词典式解析，输出当前新字段，未恢复旧字段或固定 TopK 规则。
 
 ## 阶段 9.8：推荐算法可视化答辩页
 
@@ -637,7 +637,58 @@
 
 - 本阶段未操作真实 MySQL；真实演示数据仍需用户单独确认后再联调。
 - `/algorithm-demo` 暂不引入 ECharts，复杂图表可作为后续答辩增强。
-- 自然语言解析尚未实现，下一阶段仍建议进入阶段 10。
+- 阶段 10 已实现自然语言解析辅助填表，后续增强仍应保持用户确认流程。
+
+## 阶段 10：自然语言需求解析
+
+### 阶段目标
+
+在不改变 `pareto-topsis-v1` 推荐算法主链路的前提下，新增规则词典式自然语言购车需求解析。用户输入一句话需求后，系统解析为结构化购车需求草稿，前端填入现有表单，用户确认或修改后再走原有需求保存和推荐生成流程。
+
+### 已完成内容
+
+- 新增 `POST /api/user/demand/parse-text`。
+- 新增 `DemandTextParseServiceImpl`，使用规则词典和正则表达式解析预算、车型类型、动力类型、使用场景、最低座位数和九维偏好初始值。
+- 返回 `rawText`、`budgetMin`、`budgetMax`、`bodyTypes`、`energyTypes`、`minSeats`、`scenes`、`factorWeights`、`profileText`、`unsupportedTerms`、`ambiguousTerms` 和 `confidenceScore`。
+- `/recommend` 购车需求页顶部新增“一句话描述购车需求”入口，点击“解析需求并填入表单”后回填现有结构化表单。
+- 解析结果必须由用户确认或修改；解析动作不保存需求、不生成推荐。
+- 不新增前端依赖，不新增数据库表或字段，不修改推荐算法、推荐结果页排序或算法可视化页。
+
+### 主要接口或页面
+
+- `POST /api/user/demand/parse-text`
+- `/recommend` 购车需求页自然语言辅助填写区域。
+
+### 主要数据表或字段变化
+
+- 不新增数据库表。
+- 不新增数据库字段。
+- 不写入 `user_demand`、`recommend_record` 或 `recommend_item`。
+- 不恢复旧字段 `bodyType`、`energyType`、`scene`、`focusFactors`。
+
+### 测试与验证结果
+
+- `UserDemandControllerTest` 覆盖解析接口 200、预算/车型/动力/场景/座位/权重解析、旧字段不返回、空文本 400，以及不写 `user_demand`、`recommend_record`、`recommend_item`。
+- `frontend/scripts/verifyRecommendPresentation.mjs` 覆盖 `/api/user/demand/parse-text`、需求页中文入口、回填表单字段、解析函数不调用推荐生成。
+- `mvn test "-Dtest=UserDemandControllerTest"` 通过。
+- `mvn test` 通过。
+- `mvn package` 通过。
+- `npm run build` 通过，Vite 仅提示现有打包 chunk 偏大。
+- `node scripts/verifyRecommendPresentation.mjs` 通过。
+- `node scripts/verifyAlgorithmDemo.mjs` 通过。
+- `git diff --check` 通过，仅输出 Windows 工作区 LF/CRLF 提示。
+- 搜索确认旧自然语言解析路径已清除。
+- 搜索确认解析函数不调用 `recommend/generate` 或 `generateRecommendation`。
+
+### 是否达到最低完成标准
+
+是。阶段 10 已完成自然语言需求解析辅助填表，并保持推荐主链路不变。
+
+### 遗留问题或后续注意事项
+
+- 解析采用规则词典和正则表达式，不追求复杂语义理解，模糊和不支持表达通过 `ambiguousTerms`、`unsupportedTerms` 提示用户确认。
+- 不保存解析记录；如后续需要记录解析历史，必须先确认数据库结构变更。
+- 未操作真实 MySQL；真实演示数据联调仍需用户单独确认。
 
 ## 当前 MVP 状态
 
@@ -653,17 +704,17 @@
 - 车型多维特征评分。
 - 结构化购车需求保存。
 - 多车型类型、多动力类型、多使用场景和九维显式偏好权重建模。
-- 动态价格分、主客观组合权重、Pareto 非支配优先和 TOPSIS 推荐分。
+- 动态价格分、主客观组合权重、Pareto 同分辅助排序和 TOPSIS 推荐分。
 - 严格匹配和分级补充推荐。
 - 推荐标签、推荐理由和不足提醒。
 - 推荐记录和推荐明细快照保存。
 - 用户端需求页、推荐结果页、车型详情页和历史页。
 - 管理端车型管理、推荐记录追溯和统计仪表盘。
 - 独立算法可视化答辩页，可基于推荐快照展示权重、候选阶段、九维矩阵、Pareto、TOPSIS、解释和追溯边界。
+- 规则词典式自然语言解析入口，可辅助填写结构化购车需求表单。
 
 仍未完成的内容：
 
-- 自然语言需求解析。
 - 车型对比雷达图。
 - 收藏。
 - 用户反馈。
@@ -673,4 +724,4 @@
 - 深度学习推荐。
 - 在线学习推荐。
 
-建议下一步进入阶段 10：自然语言解析。阶段 10 必须输出新结构字段，不得恢复旧字段或固定 TopK 规则。
+建议下一步进入阶段 11：车型对比、收藏或用户反馈。后续增强仍不得绕过结构化需求确认和当前推荐主链路。

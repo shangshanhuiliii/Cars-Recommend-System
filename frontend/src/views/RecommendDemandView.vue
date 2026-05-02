@@ -7,6 +7,55 @@
       </div>
     </div>
 
+    <div class="panel parse-panel">
+      <div class="panel__body">
+        <div class="parse-head">
+          <div>
+            <p class="aside-label">自然语言辅助填写</p>
+            <h2>一句话描述购车需求</h2>
+            <p>系统只会解析成表单草稿，不会保存需求，也不会直接生成推荐。</p>
+          </div>
+          <el-button type="primary" :icon="Search" :loading="parseLoading" @click="parseNaturalLanguage">
+            解析需求并填入表单
+          </el-button>
+        </div>
+        <el-input
+          v-model="form.rawText"
+          type="textarea"
+          :rows="3"
+          maxlength="500"
+          show-word-limit
+          placeholder="例如：我想买10到15万的SUV，家用带娃，最好插混或增程，空间大、安全、省油。"
+        />
+        <el-alert
+          v-if="parseError"
+          class="parse-alert"
+          type="error"
+          :closable="false"
+          :title="parseError"
+          show-icon
+        />
+        <div v-if="parseResult" class="parse-result">
+          <div class="parse-result__summary">
+            <span v-for="item in parsedSummaryItems" :key="item.label">
+              <strong>{{ item.label }}</strong>{{ item.value }}
+            </span>
+          </div>
+          <p>{{ parseResult.profileText }}</p>
+          <div class="parse-result__meta">
+            <el-tag type="success" effect="plain">解析置信度 {{ parseResult.confidenceScore }}</el-tag>
+            <el-tag v-if="parseResult.unsupportedTerms?.length" type="warning" effect="plain">
+              需人工确认：{{ parseResult.unsupportedTerms.join('、') }}
+            </el-tag>
+            <el-tag v-if="parseResult.ambiguousTerms?.length" type="warning" effect="plain">
+              表达较模糊：{{ parseResult.ambiguousTerms.join('、') }}
+            </el-tag>
+            <el-tag effect="plain">已填入下方结构化表单</el-tag>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <el-alert
       v-if="submitError"
       class="state-alert"
@@ -51,16 +100,6 @@
                 >
                   <el-option v-for="brand in brandOptions" :key="brand" :label="brand" :value="brand" />
                 </el-select>
-              </el-form-item>
-              <el-form-item class="grid-span-2" label="自然语言原文（可选）">
-                <el-input
-                  v-model="form.rawText"
-                  type="textarea"
-                  :rows="3"
-                  maxlength="500"
-                  show-word-limit
-                  placeholder="例如：家庭用车，预算 10-15 万，想要安全、空间大、能耗低。"
-                />
               </el-form-item>
             </div>
 
@@ -182,11 +221,11 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowRight, Refresh } from '@element-plus/icons-vue'
+import { ArrowRight, Refresh, Search } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 import { fetchCarBrands, fetchCarOptions } from '@/api/cars'
-import { createUserDemand, generateRecommendation } from '@/api/recommend'
+import { createUserDemand, generateRecommendation, parseDemandText } from '@/api/recommend'
 import { bodyTypes, demandEnergyTypes } from '@/constants/enums'
 
 const router = useRouter()
@@ -198,6 +237,9 @@ const brandLoading = ref(false)
 const carOptionLoading = ref(false)
 const brandOptions = ref([])
 const carOptions = ref([])
+const parseLoading = ref(false)
+const parseError = ref('')
+const parseResult = ref(null)
 
 const sceneOptions = [
   { value: '城市通勤', description: '更关注价格、能耗和日常便利性' },
@@ -237,6 +279,19 @@ const highWeightFactors = computed(() =>
     .sort((a, b) => b.value - a.value)
     .slice(0, 5),
 )
+
+const parsedSummaryItems = computed(() => {
+  if (!parseResult.value) {
+    return []
+  }
+  return [
+    { label: '预算', value: parsedBudgetText(parseResult.value.budgetMin, parseResult.value.budgetMax) },
+    { label: '车型', value: arrayText(parseResult.value.bodyTypes, '不限') },
+    { label: '动力', value: arrayText(parseResult.value.energyTypes, '不限') },
+    { label: '场景', value: arrayText(parseResult.value.scenes, '综合需求') },
+    { label: '座位', value: parseResult.value.minSeats ? `最低 ${parseResult.value.minSeats} 座` : '未识别' },
+  ]
+})
 
 const rules = {
   budgetMinWan: [{ validator: validateBudget, trigger: 'change' }],
@@ -315,6 +370,44 @@ function validateBudget(rule, value, callback) {
   callback()
 }
 
+async function parseNaturalLanguage() {
+  parseError.value = ''
+  const text = form.rawText?.trim()
+  if (!text) {
+    ElMessage.warning('请先输入一句购车需求')
+    return
+  }
+
+  parseLoading.value = true
+  try {
+    const response = await parseDemandText({ text })
+    parseResult.value = response.data
+    applyParsedDemand(response.data)
+    ElMessage.success('解析结果已填入表单，请确认后再生成推荐')
+  } catch (error) {
+    parseError.value = error?.response?.data?.message || error?.message || '自然语言需求解析失败'
+  } finally {
+    parseLoading.value = false
+  }
+}
+
+function applyParsedDemand(data) {
+  if (!data) {
+    return
+  }
+  form.rawText = data.rawText || form.rawText
+  form.budgetMinWan = toWan(data.budgetMin)
+  form.budgetMaxWan = toWan(data.budgetMax)
+  form.bodyTypes = Array.isArray(data.bodyTypes) ? [...data.bodyTypes] : []
+  form.energyTypes = Array.isArray(data.energyTypes) ? [...data.energyTypes] : []
+  form.minSeats = data.minSeats ?? null
+  form.scenes = Array.isArray(data.scenes) && data.scenes.length ? [...data.scenes] : ['综合需求']
+  form.factorWeights = normalizeFactorWeights(data.factorWeights)
+  form.excludedBrands = Array.isArray(data.excludedBrands) ? [...data.excludedBrands] : []
+  form.excludedCarIds = Array.isArray(data.excludedCarIds) ? [...data.excludedCarIds] : []
+  formRef.value?.clearValidate()
+}
+
 async function submitDemand() {
   submitError.value = ''
   try {
@@ -366,9 +459,46 @@ function toYuan(value) {
   return Number(value) * 10000
 }
 
+function toWan(value) {
+  if (value === null || value === undefined || value === '') {
+    return null
+  }
+  return Number(value) / 10000
+}
+
+function normalizeFactorWeights(weights = {}) {
+  return Object.fromEntries(
+    factorOptions.map((item) => [item.key, Math.max(0, Math.min(10, Number(weights?.[item.key] || 0)))]),
+  )
+}
+
+function parsedBudgetText(min, max) {
+  if (min != null && max != null) {
+    return `${formatWan(min)}-${formatWan(max)} 万`
+  }
+  if (max != null) {
+    return `${formatWan(max)} 万以内`
+  }
+  if (min != null) {
+    return `${formatWan(min)} 万以上`
+  }
+  return '未识别'
+}
+
+function formatWan(value) {
+  const wan = Number(value) / 10000
+  return Number.isInteger(wan) ? String(wan) : wan.toFixed(1)
+}
+
+function arrayText(values, fallback) {
+  return Array.isArray(values) && values.length ? values.join(' / ') : fallback
+}
+
 function resetForm() {
   Object.assign(form, defaultForm())
   submitError.value = ''
+  parseError.value = ''
+  parseResult.value = null
   formRef.value?.clearValidate()
 }
 </script>
@@ -377,6 +507,72 @@ function resetForm() {
 .state-alert,
 .process-panel {
   margin-bottom: 18px;
+}
+
+.parse-panel {
+  margin-bottom: 18px;
+}
+
+.parse-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 14px;
+}
+
+.parse-head h2 {
+  margin: 4px 0 6px;
+  color: var(--color-primary-dark);
+  font-size: 20px;
+}
+
+.parse-head p {
+  margin: 0;
+  color: var(--color-muted);
+  line-height: 1.7;
+}
+
+.parse-alert {
+  margin-top: 12px;
+}
+
+.parse-result {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid rgba(8, 145, 178, 0.24);
+  border-radius: var(--radius-sm);
+  background: rgba(8, 145, 178, 0.06);
+}
+
+.parse-result p {
+  margin: 10px 0 0;
+  color: var(--color-muted);
+  line-height: 1.7;
+}
+
+.parse-result__summary,
+.parse-result__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.parse-result__summary span {
+  padding: 6px 9px;
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.parse-result__summary strong {
+  margin-right: 6px;
+  color: var(--color-primary-dark);
+}
+
+.parse-result__meta {
+  margin-top: 12px;
 }
 
 .demand-layout {

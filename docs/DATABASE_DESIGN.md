@@ -291,7 +291,7 @@ EMPTY：所有阶段都没有候选结果。
 | `record_id` | 推荐记录 ID |
 | `car_id` | 车型 ID |
 | `rank_no` | 排名 |
-| `total_score` | 综合匹配度；阶段 9.6-D 起为 TOPSIS 推荐分，旧历史记录可能为加权求和基线分 |
+| `total_score` | 综合推荐分；阶段 9.6-D 起为 TOPSIS 推荐分，旧历史记录可能为加权求和基线分 |
 | `price_score` | 动态价格分 |
 | `space_score` | 空间分快照 |
 | `safety_score` | 安全分快照 |

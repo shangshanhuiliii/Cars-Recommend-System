@@ -352,7 +352,7 @@
               <span>车型</span>
               <span>匹配阶段 matchLevel</span>
               <span>Pareto 标记</span>
-              <span>综合匹配度 totalScore</span>
+              <span>综合推荐分 totalScore</span>
               <span>接近度 closeness</span>
               <span>正理想距离 D+</span>
               <span>负理想距离 D-</span>

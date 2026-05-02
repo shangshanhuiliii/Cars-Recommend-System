@@ -60,6 +60,14 @@
         </div>
       </div>
 
+      <div v-if="detail.recommendStatus !== 'EMPTY' && detail.items?.length" class="panel ranking-note">
+        <div class="panel__body">
+          <p>完全匹配表示满足预算、车型、动力、座位等硬性条件。</p>
+          <p>综合推荐分表示基于价格、空间、安全、能耗、智能、舒适、动力、口碑、热度计算的多维推荐分。</p>
+          <p>不同分组之间优先看条件匹配状态，同组内部按综合推荐分排序。</p>
+        </div>
+      </div>
+
       <div v-if="detail.recommendStatus === 'EMPTY' || !detail.items?.length" class="panel empty-panel">
         <div class="panel__body">
           <el-empty description="暂未找到合适车型">
@@ -89,7 +97,7 @@
                 </div>
                 <div class="score-box" :class="scoreClass(item.totalScore)">
                   <strong>{{ formatScore(item.totalScore) }}</strong>
-                  <span>综合匹配度</span>
+                  <span>综合推荐分</span>
                 </div>
               </div>
 
@@ -475,6 +483,27 @@ function formatDate(value) {
   margin-top: 20px;
 }
 
+.ranking-note {
+  margin-bottom: 20px;
+}
+
+.ranking-note .panel__body {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.ranking-note p {
+  margin: 0;
+  padding: 12px;
+  border: 1px solid rgba(8, 145, 178, 0.18);
+  border-radius: var(--radius-sm);
+  background: rgba(8, 145, 178, 0.06);
+  color: var(--color-primary-dark);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
 .result-list,
 .result-group {
   display: grid;
@@ -733,6 +762,7 @@ function formatDate(value) {
   .recommend-card,
   .explain-grid,
   .score-grid,
+  .ranking-note .panel__body,
   .drawer-metrics,
   .drawer-param-grid {
     grid-template-columns: 1fr;
