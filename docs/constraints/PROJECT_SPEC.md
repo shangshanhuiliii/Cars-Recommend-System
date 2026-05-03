@@ -139,19 +139,25 @@ Cars-Recommend-System/
 ├── backend/
 ├── frontend/
 ├── docs/
-│   ├── DEVELOPMENT_GUIDE.md
-│   ├── SYSTEM_CONTRACTS.md
-│   ├── HANDOFF.md
-│   ├── PROJECT_SPEC.md
-│   ├── RECOMMENDATION_DESIGN.md
-│   ├── RECOMMENDATION_ALGORITHM.md
-│   ├── RECOMMENDATION_ALGORITHM_UPGRADE.md
-│   ├── DATABASE_DESIGN.md
-│   ├── API_DESIGN.md
-│   ├── FRONTEND_DESIGN.md
-│   ├── IMPLEMENTATION_TASKS.md
-│   ├── COMPLETED_PHASES.md
-│   └── DEFENSE_NOTES.md
+│   ├── constraints/
+│   │   ├── CONSTRAINT_DOCUMENTS.md
+│   │   ├── DEVELOPMENT_GUIDE.md
+│   │   ├── SYSTEM_CONTRACTS.md
+│   │   ├── PROJECT_SPEC.md
+│   │   ├── API_DESIGN.md
+│   │   ├── DATABASE_DESIGN.md
+│   │   ├── DATABASE_INIT.md
+│   │   ├── RECOMMENDATION_DESIGN.md
+│   │   ├── RECOMMENDATION_ALGORITHM.md
+│   │   ├── RECOMMENDATION_ALGORITHM_UPGRADE.md
+│   │   ├── RECOMMENDATION_IMPLEMENTATION_LOGIC.md
+│   │   └── FRONTEND_DESIGN.md
+│   └── reference/
+│       ├── REFERENCE_DOCUMENTS.md
+│       ├── HANDOFF.md
+│       ├── IMPLEMENTATION_TASKS.md
+│       ├── COMPLETED_PHASES.md
+│       └── DATABASE_SCRIPT_README.md
 ├── AGENTS.md
 └── README.md
 ```
@@ -172,18 +178,18 @@ util         评分、解析、权重工具
 
 ## 7. 文档分工
 
-- 当前开发入口和本地开发流程维护在 `DEVELOPMENT_GUIDE.md`。
-- 不可随意变更的规则合同维护在 `SYSTEM_CONTRACTS.md`。
-- 项目交接说明维护在 `HANDOFF.md`。
-- 推荐闭环概要和模块边界维护在 `RECOMMENDATION_DESIGN.md`。
-- 当前主算法公式、流程、伪代码和示例维护在 `RECOMMENDATION_ALGORITHM_UPGRADE.md`。
-- 车型特征评分规则维护在 `RECOMMENDATION_ALGORITHM.md`。
-- 数据库表设计只维护在 `DATABASE_DESIGN.md`。
-- 接口设计只维护在 `API_DESIGN.md`。
-- 前端页面展示、交互和样式规范只维护在 `FRONTEND_DESIGN.md`。
-- 阶段任务和验收标准只维护在 `IMPLEMENTATION_TASKS.md`。
-- 已完成阶段、验证结果和当前 MVP 状态维护在 `COMPLETED_PHASES.md`。
-- 论文和答辩口径、演示案例和常见问题维护在 `DEFENSE_NOTES.md`。
+- 当前开发入口和本地开发流程维护在 `docs/constraints/DEVELOPMENT_GUIDE.md`。
+- 不可随意变更的规则合同维护在 `docs/constraints/SYSTEM_CONTRACTS.md`。
+- 项目交接说明维护在 `docs/reference/HANDOFF.md`。
+- 推荐闭环概要和模块边界维护在 `docs/constraints/RECOMMENDATION_DESIGN.md`。
+- 当前主算法公式、流程、伪代码和示例维护在 `docs/constraints/RECOMMENDATION_ALGORITHM_UPGRADE.md`。
+- 车型特征评分规则维护在 `docs/constraints/RECOMMENDATION_ALGORITHM.md`。
+- 数据库表设计只维护在 `docs/constraints/DATABASE_DESIGN.md`。
+- 接口设计只维护在 `docs/constraints/API_DESIGN.md`。
+- 前端页面展示、交互和样式规范只维护在 `docs/constraints/FRONTEND_DESIGN.md`。
+- 阶段任务和验收标准只维护在 `docs/reference/IMPLEMENTATION_TASKS.md`。
+- 已完成阶段、验证结果和当前 MVP 状态维护在 `docs/reference/COMPLETED_PHASES.md`。
+- 如后续恢复论文和答辩材料，放入 `docs/reference/DEFENSE_NOTES.md`。
 - 本文档只保留项目级规格和范围说明，避免与其他文档重复。
 
 ## 8. 最低验收标准

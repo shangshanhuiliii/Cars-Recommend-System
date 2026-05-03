@@ -1,6 +1,6 @@
 # 项目交接说明
 
-本文档给接手项目的开发者快速了解当前状态、运行方式、已知边界和后续建议。具体开发规则见 `DEVELOPMENT_GUIDE.md` 和 `SYSTEM_CONTRACTS.md`。
+本文档给接手项目的开发者快速了解当前状态、运行方式、已知边界和后续建议。具体开发规则见 `docs/constraints/DEVELOPMENT_GUIDE.md` 和 `docs/constraints/SYSTEM_CONTRACTS.md`。
 
 ## 1. 当前完成状态
 
@@ -157,8 +157,8 @@ POST /api/admin/cars/scores/recalculate
 
 ## 9. 接手开发流程
 
-1. 先读 `DEVELOPMENT_GUIDE.md`。
-2. 再读 `SYSTEM_CONTRACTS.md`。
+1. 先读 `docs/constraints/DEVELOPMENT_GUIDE.md`。
+2. 再读 `docs/constraints/SYSTEM_CONTRACTS.md`。
 3. 确认要改的功能属于哪个专项文档。
 4. 先改文档，再写代码。
 5. 跑测试。

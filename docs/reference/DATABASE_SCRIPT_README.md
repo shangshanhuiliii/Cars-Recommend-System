@@ -16,4 +16,4 @@
 powershell -ExecutionPolicy Bypass -File .\scripts\init-dev-db.ps1
 ```
 
-完整说明见 `docs/DATABASE_INIT.md`。
+完整说明见 `docs/constraints/DATABASE_INIT.md`。

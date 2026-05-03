@@ -1,8 +1,8 @@
 # 已完成阶段汇总
 
-本文档记录项目当前已经完成并验收通过的阶段、实际能力、验证结果和后续注意事项。详细需求边界仍以 `PROJECT_SPEC.md` 为准；当前主算法公式和伪代码见 `RECOMMENDATION_ALGORITHM_UPGRADE.md`，车型特征评分规则见 `RECOMMENDATION_ALGORITHM.md`；阶段计划见 `IMPLEMENTATION_TASKS.md`。
+本文档记录项目当前已经完成并验收通过的阶段、实际能力、验证结果和后续注意事项。详细需求边界仍以 `docs/constraints/PROJECT_SPEC.md` 为准；当前主算法公式和伪代码见 `docs/constraints/RECOMMENDATION_ALGORITHM_UPGRADE.md`，车型特征评分规则见 `docs/constraints/RECOMMENDATION_ALGORITHM.md`；阶段计划见 `docs/reference/IMPLEMENTATION_TASKS.md`。
 
-本文档用于追溯和论文材料，不作为当前开发规则源。当前开发规则以 `DEVELOPMENT_GUIDE.md` 和 `SYSTEM_CONTRACTS.md` 为准；项目交接说明见 `HANDOFF.md`。不要删除本文档中的既有阶段记录。
+本文档用于追溯和论文材料，不作为当前开发规则源。当前开发规则以 `docs/constraints/DEVELOPMENT_GUIDE.md` 和 `docs/constraints/SYSTEM_CONTRACTS.md` 为准；项目交接说明见 `docs/reference/HANDOFF.md`。不要删除本文档中的既有阶段记录。
 
 项目主链路按以下顺序逐步闭环：
 

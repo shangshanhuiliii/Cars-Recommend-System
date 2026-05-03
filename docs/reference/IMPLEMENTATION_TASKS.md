@@ -1,8 +1,8 @@
 ﻿# 实施任务清单
 
-本文档只描述实施阶段、任务拆分、验收标准和里程碑。项目规格见 `PROJECT_SPEC.md`，推荐闭环概要见 `RECOMMENDATION_DESIGN.md`，当前主算法细节见 `RECOMMENDATION_ALGORITHM_UPGRADE.md`，车型特征评分规则见 `RECOMMENDATION_ALGORITHM.md`，数据库设计见 `DATABASE_DESIGN.md`，接口设计见 `API_DESIGN.md`，前端展示和样式规则见 `FRONTEND_DESIGN.md`。
+本文档只描述实施阶段、任务拆分、验收标准和里程碑。项目规格见 `docs/constraints/PROJECT_SPEC.md`，推荐闭环概要见 `docs/constraints/RECOMMENDATION_DESIGN.md`，当前主算法细节见 `docs/constraints/RECOMMENDATION_ALGORITHM_UPGRADE.md`，车型特征评分规则见 `docs/constraints/RECOMMENDATION_ALGORITHM.md`，数据库设计见 `docs/constraints/DATABASE_DESIGN.md`，接口设计见 `docs/constraints/API_DESIGN.md`，前端展示和样式规则见 `docs/constraints/FRONTEND_DESIGN.md`。
 
-本文档是阶段任务和历史路线，不作为当前开发规则源。当前开发规则以 `DEVELOPMENT_GUIDE.md` 和 `SYSTEM_CONTRACTS.md` 为准；交接说明见 `HANDOFF.md`。不要删除本文档中的既有阶段历史。
+本文档是阶段任务和历史路线，不作为当前开发规则源。当前开发规则以 `docs/constraints/DEVELOPMENT_GUIDE.md` 和 `docs/constraints/SYSTEM_CONTRACTS.md` 为准；交接说明见 `docs/reference/HANDOFF.md`。不要删除本文档中的既有阶段历史。
 
 当前阶段路线已经推进到阶段 11 后的交接维护状态。本文档中“阶段 12：统计与答辩打磨”保留为历史路线和后续建议；本次“阶段 12：项目交接文档与开发规则收口”以新增交接文档和规则合同为准。
 

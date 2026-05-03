@@ -2,19 +2,21 @@
 
 本文件是本仓库的项目级规则，适用于 AI 编程代理、开发者和自动化脚本。详细需求不在本文件重复维护，按以下文档分工查阅：
 
-- `docs/PROJECT_SPEC.md`：项目规格、范围边界、功能优先级。
-- `docs/DEVELOPMENT_GUIDE.md`：后续开发指南、本地准备、启动、测试和新功能开发流程。
-- `docs/SYSTEM_CONTRACTS.md`：系统规则合同，定义不能随意改动的算法、字段、数据库、API、前端和文档规则。
-- `docs/HANDOFF.md`：项目交接说明，帮助新接手者理解当前状态、运行方式和后续建议。
-- `docs/RECOMMENDATION_DESIGN.md`：推荐闭环概要设计和模块边界。
-- `docs/RECOMMENDATION_ALGORITHM_UPGRADE.md`：当前主算法详细文档，算法版本为 `pareto-topsis-v1`。
-- `docs/RECOMMENDATION_ALGORITHM.md`：车型特征评分规则说明。
-- `docs/DATABASE_DESIGN.md`：数据库表职责和关键字段。
-- `docs/API_DESIGN.md`：接口约定和核心请求响应。
-- `docs/FRONTEND_DESIGN.md`：前端页面展示、交互状态和样式规范。
-- `docs/IMPLEMENTATION_TASKS.md`：分阶段任务清单和验收标准。
-- `docs/COMPLETED_PHASES.md`：已完成阶段、验证结果和当前 MVP 状态。
-- `docs/DEFENSE_NOTES.md`：论文和答辩口径、演示案例和常见问题回答。
+- `docs/README.md`：`docs` 文档总目录索引，说明分类目录结构。
+- `docs/constraints/PROJECT_SPEC.md`：项目规格、范围边界、功能优先级。
+- `docs/constraints/CONSTRAINT_DOCUMENTS.md`：约束性文档清单，说明哪些文档是后续开发必须遵循的规则源。
+- `docs/reference/REFERENCE_DOCUMENTS.md`：解释性文档清单，说明哪些文档只用于入口说明、交接、历史追溯或答辩材料。
+- `docs/constraints/DEVELOPMENT_GUIDE.md`：后续开发指南、本地准备、启动、测试和新功能开发流程。
+- `docs/constraints/SYSTEM_CONTRACTS.md`：系统规则合同，定义不能随意改动的算法、字段、数据库、API、前端和文档规则。
+- `docs/reference/HANDOFF.md`：项目交接说明，帮助新接手者理解当前状态、运行方式和后续建议。
+- `docs/constraints/RECOMMENDATION_DESIGN.md`：推荐闭环概要设计和模块边界。
+- `docs/constraints/RECOMMENDATION_ALGORITHM_UPGRADE.md`：当前主算法详细文档，算法版本为 `pareto-topsis-v1`。
+- `docs/constraints/RECOMMENDATION_ALGORITHM.md`：车型特征评分规则说明。
+- `docs/constraints/DATABASE_DESIGN.md`：数据库表职责和关键字段。
+- `docs/constraints/API_DESIGN.md`：接口约定和核心请求响应。
+- `docs/constraints/FRONTEND_DESIGN.md`：前端页面展示、交互状态和样式规范。
+- `docs/reference/IMPLEMENTATION_TASKS.md`：分阶段任务清单和验收标准。
+- `docs/reference/COMPLETED_PHASES.md`：已完成阶段、验证结果和当前 MVP 状态。
 
 ## 1. 最高优先级
 
@@ -84,11 +86,11 @@ util         评分、解析、权重归一化等工具
 
 ## 4. 数据与接口规则
 
-- 新功能开发前必须先查 `docs/SYSTEM_CONTRACTS.md`。如果开发建议、实现方式或用户需求与规则合同冲突，必须先停下来说明冲突点并确认后再继续。
-- `docs/IMPLEMENTATION_TASKS.md` 和 `docs/COMPLETED_PHASES.md` 属于阶段路线和历史追溯材料，不作为当前开发规则源。
-- 数据库设计以 `docs/DATABASE_DESIGN.md` 为准。
-- 接口设计以 `docs/API_DESIGN.md` 为准。
-- 推荐闭环概要以 `docs/RECOMMENDATION_DESIGN.md` 为准；当前主算法公式和流程以 `docs/RECOMMENDATION_ALGORITHM_UPGRADE.md` 和 `docs/RECOMMENDATION_IMPLEMENTATION_LOGIC.md` 为准；`docs/RECOMMENDATION_ALGORITHM.md` 只维护车型特征评分规则。
+- 新功能开发前必须先查 `docs/constraints/SYSTEM_CONTRACTS.md`。如果开发建议、实现方式或用户需求与规则合同冲突，必须先停下来说明冲突点并确认后再继续。
+- `docs/reference/IMPLEMENTATION_TASKS.md` 和 `docs/reference/COMPLETED_PHASES.md` 属于阶段路线和历史追溯材料，不作为当前开发规则源。
+- 数据库设计以 `docs/constraints/DATABASE_DESIGN.md` 为准。
+- 接口设计以 `docs/constraints/API_DESIGN.md` 为准。
+- 推荐闭环概要以 `docs/constraints/RECOMMENDATION_DESIGN.md` 为准；当前主算法公式和流程以 `docs/constraints/RECOMMENDATION_ALGORITHM_UPGRADE.md` 和 `docs/constraints/RECOMMENDATION_IMPLEMENTATION_LOGIC.md` 为准；`docs/constraints/RECOMMENDATION_ALGORITHM.md` 只维护车型特征评分规则。
 - 价格统一使用元，尺寸统一使用毫米，续航统一使用公里。
 - 若缺少完整真实数据，允许编写合理测试数据用于开发和测试，但字段必须符合汽车常识，且推荐总分仍必须由算法计算。
 - 普通用户表统一命名为 `app_user`，默认演示用户为 `app_user.id = 1`。
@@ -103,7 +105,7 @@ util         评分、解析、权重归一化等工具
 
 ## 5. 前端规则
 
-前端实现必须遵守 `docs/FRONTEND_DESIGN.md`。不能只用默认 Element Plus 组件堆页面，必须体现“汽车购买决策座舱”的信息层级和可解释推荐特征。
+前端实现必须遵守 `docs/constraints/FRONTEND_DESIGN.md`。不能只用默认 Element Plus 组件堆页面，必须体现“汽车购买决策座舱”的信息层级和可解释推荐特征。
 
 用户端必须优先完成：
 
@@ -146,17 +148,18 @@ util         评分、解析、权重归一化等工具
 
 修改文档时必须保持分工清晰：
 
-- 开发指南、规则合同和交接流程写入 `DEVELOPMENT_GUIDE.md`、`SYSTEM_CONTRACTS.md`、`HANDOFF.md`。
-- 项目范围和优先级写入 `PROJECT_SPEC.md`。
-- 推荐闭环概要和模块边界写入 `RECOMMENDATION_DESIGN.md`。
-- 当前主算法公式、流程和伪代码写入 `RECOMMENDATION_ALGORITHM_UPGRADE.md`。
-- 车型特征评分规则写入 `RECOMMENDATION_ALGORITHM.md`。
-- 表结构和字段写入 `DATABASE_DESIGN.md`。
-- 接口写入 `API_DESIGN.md`。
-- 前端页面、交互和样式规范写入 `FRONTEND_DESIGN.md`。
-- 阶段任务写入 `IMPLEMENTATION_TASKS.md`。
-- 已完成阶段和当前 MVP 状态写入 `COMPLETED_PHASES.md`。
-- 论文和答辩口径、演示案例和常见问题写入 `DEFENSE_NOTES.md`。
+- 开发指南和规则合同写入 `docs/constraints/DEVELOPMENT_GUIDE.md`、`docs/constraints/SYSTEM_CONTRACTS.md`。
+- 项目范围和优先级写入 `docs/constraints/PROJECT_SPEC.md`。
+- 推荐闭环概要和模块边界写入 `docs/constraints/RECOMMENDATION_DESIGN.md`。
+- 当前主算法公式、流程和伪代码写入 `docs/constraints/RECOMMENDATION_ALGORITHM_UPGRADE.md`。
+- 车型特征评分规则写入 `docs/constraints/RECOMMENDATION_ALGORITHM.md`。
+- 表结构和字段写入 `docs/constraints/DATABASE_DESIGN.md`。
+- 接口写入 `docs/constraints/API_DESIGN.md`。
+- 前端页面、交互和样式规范写入 `docs/constraints/FRONTEND_DESIGN.md`。
+- 交接说明写入 `docs/reference/HANDOFF.md`。
+- 阶段任务写入 `docs/reference/IMPLEMENTATION_TASKS.md`。
+- 已完成阶段和当前 MVP 状态写入 `docs/reference/COMPLETED_PHASES.md`。
+- 如后续恢复论文和答辩材料，放入 `docs/reference/DEFENSE_NOTES.md`。
 
 不要在多个文档中重复维护同一份详细内容，避免出现冲突。
 

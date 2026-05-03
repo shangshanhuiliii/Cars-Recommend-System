@@ -78,16 +78,19 @@ npm run dev
 
 1. `README.md`
 2. `AGENTS.md`
-3. `docs/DEVELOPMENT_GUIDE.md`
-4. `docs/SYSTEM_CONTRACTS.md`
-5. `docs/HANDOFF.md`
-6. `docs/DATABASE_INIT.md`
-7. `docs/API_DESIGN.md`
-8. `docs/DATABASE_DESIGN.md`
-9. `docs/RECOMMENDATION_IMPLEMENTATION_LOGIC.md`
-10. `docs/FRONTEND_DESIGN.md`
+3. `docs/README.md`
+4. `docs/constraints/CONSTRAINT_DOCUMENTS.md`
+5. `docs/reference/REFERENCE_DOCUMENTS.md`
+6. `docs/constraints/DEVELOPMENT_GUIDE.md`
+7. `docs/constraints/SYSTEM_CONTRACTS.md`
+8. `docs/reference/HANDOFF.md`
+9. `docs/constraints/DATABASE_INIT.md`
+10. `docs/constraints/API_DESIGN.md`
+11. `docs/constraints/DATABASE_DESIGN.md`
+12. `docs/constraints/RECOMMENDATION_IMPLEMENTATION_LOGIC.md`
+13. `docs/constraints/FRONTEND_DESIGN.md`
 
-需要查算法公式时再读 `docs/RECOMMENDATION_ALGORITHM_UPGRADE.md`；需要查阶段历史时再读 `docs/IMPLEMENTATION_TASKS.md` 和 `docs/COMPLETED_PHASES.md`。
+需要查算法公式时再读 `docs/constraints/RECOMMENDATION_ALGORITHM_UPGRADE.md`；需要查阶段历史时再读 `docs/reference/IMPLEMENTATION_TASKS.md` 和 `docs/reference/COMPLETED_PHASES.md`。
 
 ## 5. 代码结构说明
 
@@ -132,7 +135,7 @@ npm run dev
 
 ## 7. API 开发规则
 
-- 接口约定以 `docs/API_DESIGN.md` 为准。
+- 接口约定以 `docs/constraints/API_DESIGN.md` 为准。
 - 所有接口使用统一响应结构。
 - 默认演示用户为 `app_user.id = 1`。
 - 新接口必须补测试。
@@ -142,7 +145,7 @@ npm run dev
 
 ## 8. 数据库开发规则
 
-- 数据库结构以 `docs/DATABASE_DESIGN.md` 和 `schema.sql` 为准。
+- 数据库结构以 `docs/constraints/DATABASE_DESIGN.md` 和 `schema.sql` 为准。
 - 新增表必须同步更新 `DATABASE_DESIGN.md`。
 - 新增或修改表必须更新 `DatabaseSchemaSeedTest`。
 - 真实 MySQL 迁移、重建、清空或删除数据前必须先说明影响并获得确认。
@@ -151,7 +154,7 @@ npm run dev
 
 ## 9. 前端开发规则
 
-- 前端体验以 `docs/FRONTEND_DESIGN.md` 为准。
+- 前端体验以 `docs/constraints/FRONTEND_DESIGN.md` 为准。
 - 用户端保持简洁，不展示 TOPSIS、Pareto、熵权等复杂算法术语。
 - 管理端可以展示推荐追溯信息。
 - 算法可视化页可以展示算法细节，但必须只读。
