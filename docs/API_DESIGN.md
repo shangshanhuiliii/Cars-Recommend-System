@@ -49,7 +49,7 @@
 - `新能源` 只作为用户需求中的宽泛动力偏好，不作为车型表真实动力类型；需求中包含 `新能源` 时实际匹配 `纯电 / 插混 / 增程`。
 - `matchLevel` 是单条推荐明细的匹配状态。
 - `recommendStatus` 是一次推荐记录的总体状态。
-- 需求模型重构后，用户端 API 只使用 `bodyTypes`、`energyTypes`、`scenes`、`factorWeights`。旧字段 `bodyType`、`energyType`、`scene`、`focusFactors` 不再作为请求或响应字段保留，不做长期兼容。
+- 用户需求 API 使用 `bodyTypes`、`energyTypes`、`scenes`、`factorWeights`、`minSeats`、`budgetMin`、`budgetMax`、`excludedBrands` 和 `excludedCarIds`。
 
 ### 1.5 演示用户策略
 
@@ -391,7 +391,6 @@ GET  /api/user/demand/{id}
 
 - `factorWeights` 至少一个值大于 0 时，后端直接归一化 `factorWeights` 作为用户画像主观权重。
 - `factorWeights` 全部为 0 时，后端根据 `scenes` 多场景模板平均值生成用户画像主观权重。
-- 旧请求字段 `bodyType`、`energyType`、`scene`、`focusFactors` 在需求模型重构后不再作为用户端标准请求字段。
 
 ### 2.6 推荐生成与追溯
 
@@ -411,7 +410,7 @@ GET  /api/recommend/{recordId}/algorithm-visualization
 }
 ```
 
-说明：用户端不展示“推荐数量”输入，也不传 `topK`。阶段 9.5 后推荐生成不再按固定 TopK 截断结果，而是返回全部符合当前推荐分组规则的候选。
+说明：用户端不展示“推荐数量”输入。推荐生成接口只接收用户和需求标识，后端返回全部符合当前推荐分组和排序规则的候选。
 
 推荐响应核心结构：
 
@@ -458,13 +457,13 @@ GET  /api/recommend/{recordId}/algorithm-visualization
 
 其中 `tags` 由推荐算法按高分维度生成，并保存为 `recommend_item.tags` 快照。推荐历史查询时应返回保存的标签快照，不应每次查询时重新生成。标签只用于前端卡片快速展示，不替代 `reasonText` 和 `weaknessText`。
 
-`items[].totalScore` 字段继续保留。阶段 9.6-D 起，该字段表示基于主客观组合权重与 TOPSIS 相对接近度得到的综合推荐分，取值范围为 0-100，保留 2 位小数；不再表示旧版简单加权求和分。详细算法公式只维护在 `RECOMMENDATION_ALGORITHM_UPGRADE.md`。
+`items[].totalScore` 字段表示基于主客观组合权重与 TOPSIS 相对接近度得到的综合推荐分，取值范围为 0-100，保留 2 位小数。详细算法公式只维护在 `RECOMMENDATION_ALGORITHM_UPGRADE.md`。
 
 `items[].rankNo` 是推荐结果展示排序的权威字段。后端已经按 `STRICT` 组优先、推荐组在后，并在组内按 `totalScore desc`、`paretoDominated = false`、`reputationScore desc`、`popularityScore desc` 写入 `rankNo`；前端推荐结果页和历史详情页应按 `rankNo` 升序展示，不再按 `totalScore`、`reputationScore` 或 `popularityScore` 二次排序。Pareto 标记仍参与同分辅助排序和算法可视化展示，不覆盖 `totalScore` 的主排序地位。
 
-`algorithmVersion` 和 `alpha` 由 `recommend_record.weight_snapshot` 解析得到，用于管理端和历史详情区分旧版 `weighted-sum-v1` 与新版 `pareto-topsis-v1`。旧历史记录如果只保存扁平九维权重，详情响应可回退显示 `algorithmVersion = weighted-sum-v1`，`alpha` 可为空。
+`algorithmVersion` 和 `alpha` 由 `recommend_record.weight_snapshot` 解析得到，用于管理端、历史详情和算法可视化页展示当前推荐算法快照。
 
-阶段 6 起推荐生成支持 `STRICT`、`RELAX_BUDGET`、`RELAX_BODY_TYPE`、`RELAX_ENERGY_TYPE`、`SIMILAR_RECOMMEND` 分级匹配。阶段 9.5 后系统不再按固定 TopK 截断结果：`STRICT` 组返回全部完全匹配候选，非 `STRICT` 组按放宽阶段补充全部推荐候选，并在每条推荐明细中保存对应 `matchLevel`，不覆盖已进入推荐集的严格匹配结果。
+推荐生成支持 `STRICT`、`RELAX_BUDGET`、`RELAX_BODY_TYPE`、`RELAX_ENERGY_TYPE`、`SIMILAR_RECOMMEND` 分级匹配。`STRICT` 组返回全部完全匹配候选，非 `STRICT` 组按放宽阶段补充推荐候选，并在每条推荐明细中保存对应 `matchLevel`，不覆盖已进入推荐集的严格匹配结果。
 
 `recommendStatus` 生成规则：
 
@@ -521,7 +520,7 @@ GET  /api/recommend/{recordId}/algorithm-visualization
 
 `GET /api/recommend/{recordId}` 支持查询参数 `userId`，为空时使用默认演示用户 `app_user.id = 1`。接口只返回当前用户自己的推荐记录；查询其他用户的记录应返回无权限或未找到。
 
-该接口返回完整历史详情，结构与推荐生成响应保持一致，并额外返回 `weights`、`demand` 和 `createTime`。其中 `weights` 表示当次推荐最终权重；新版快照读取 `finalWeight`，旧版扁平快照直接读取九维权重。历史详情中的 `items[].tags`、分数、理由、不足和 `matchLevel` 必须来自保存的推荐快照，不允许重新计算。
+该接口返回完整历史详情，结构与推荐生成响应保持一致，并额外返回 `weights`、`demand` 和 `createTime`。其中 `weights` 表示当次推荐最终权重，读取 `weight_snapshot.finalWeight`。历史详情中的 `items[].tags`、分数、理由、不足和 `matchLevel` 必须来自保存的推荐快照，不允许重新计算。
 
 `GET /api/recommend/{recordId}/algorithm-visualization` 是阶段 9.8 新增的只读答辩展示接口。它只读取 `recommend_record`、`recommend_item`、`user_demand`、`car_model`、`car_param` 和 `car_feature_score`，用于展示推荐算法过程，不重新生成推荐，不写入 `recommend_record`、`recommend_item` 或 `user_demand`，也不覆盖历史快照。
 
@@ -530,10 +529,10 @@ GET  /api/recommend/{recordId}/algorithm-visualization
 | 字段 | 说明 |
 | --- | --- |
 | `recordId` / `demandId` / `userId` | 推荐记录、需求和演示用户标识 |
-| `algorithmVersion` / `alpha` | 从 `weight_snapshot` 解析的算法版本和组合系数；旧快照兼容显示 `weighted-sum-v1` |
+| `algorithmVersion` / `alpha` | 从 `weight_snapshot` 解析的算法版本和组合系数 |
 | `demand` / `constraints` | 当次用户需求和硬性约束、软偏好说明 |
 | `dimensions` | 九维指标来源说明 |
-| `weights.subjectiveWeight` / `objectiveWeight` / `finalWeight` | 主观权重、客观权重和最终权重；旧快照用扁平权重兜底 |
+| `weights.subjectiveWeight` / `objectiveWeight` / `finalWeight` | 主观权重、客观权重和最终权重 |
 | `stageStats` | `STRICT`、预算放宽、车型放宽、动力放宽和相似推荐数量 |
 | `pipeline` | 答辩页展示的 15 步算法流程 |
 | `matrixRows` / `items[].scores` | 基于 `recommend_item` 快照构造的九维评分矩阵 |
@@ -542,7 +541,7 @@ GET  /api/recommend/{recordId}/algorithm-visualization
 | `items[].contribution` / `gap` | 基于 TOPSIS 加权归一化矩阵重构的贡献度和理想解差距 |
 | `items[].tags` / `reasonText` / `weaknessText` | 来自推荐明细快照，不重新生成 |
 | `featureScoreRules` | 车型特征评分规则摘要 |
-| `snapshotNote` / `compatibilityNote` | 快照边界说明和旧记录兼容提示 |
+| `snapshotNote` | 快照边界说明 |
 
 该接口服务于 `/algorithm-demo` 答辩页。普通用户推荐结果页仍保持简洁，不展示 TOPSIS 距离、Pareto 标记和熵权细节。
 
@@ -602,7 +601,7 @@ POST /api/user/demand/parse-text
 - 该接口只做规则词典和正则表达式解析，不调用大模型或复杂 NLP 依赖。
 - 该接口不保存 `user_demand`，不生成推荐，不写入 `recommend_record` 或 `recommend_item`。
 - 解析结果只是购车需求表单草稿，用户确认或修改后仍通过 `POST /api/user/demand` 保存需求，再调用现有推荐生成流程。
-- 当前输出字段以 `bodyTypes`、`energyTypes`、`scenes`、`factorWeights`、`minSeats` 为准，不恢复旧字段 `bodyType`、`energyType`、`scene`、`focusFactors`。
+- 解析结果字段与 `POST /api/user/demand` 当前请求字段保持一致。
 
 ### 3.2 车型对比
 

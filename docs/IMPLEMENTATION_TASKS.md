@@ -1,8 +1,12 @@
 ﻿# 实施任务清单
 
-本文档只描述实施阶段、任务拆分、验收标准和里程碑。项目规格见 `PROJECT_SPEC.md`，推荐闭环概要见 `RECOMMENDATION_DESIGN.md`，当前主算法细节见 `RECOMMENDATION_ALGORITHM_UPGRADE.md`，升级前算法基线和特征评分规则见 `RECOMMENDATION_ALGORITHM.md`，数据库设计见 `DATABASE_DESIGN.md`，接口设计见 `API_DESIGN.md`，前端展示和样式规则见 `FRONTEND_DESIGN.md`。
+本文档只描述实施阶段、任务拆分、验收标准和里程碑。项目规格见 `PROJECT_SPEC.md`，推荐闭环概要见 `RECOMMENDATION_DESIGN.md`，当前主算法细节见 `RECOMMENDATION_ALGORITHM_UPGRADE.md`，车型特征评分规则见 `RECOMMENDATION_ALGORITHM.md`，数据库设计见 `DATABASE_DESIGN.md`，接口设计见 `API_DESIGN.md`，前端展示和样式规则见 `FRONTEND_DESIGN.md`。
 
-当前阶段只做规划；进入实现阶段后，应按本文档顺序推进。
+本文档是阶段任务和历史路线，不作为当前开发规则源。当前开发规则以 `DEVELOPMENT_GUIDE.md` 和 `SYSTEM_CONTRACTS.md` 为准；交接说明见 `HANDOFF.md`。不要删除本文档中的既有阶段历史。
+
+当前阶段路线已经推进到阶段 11 后的交接维护状态。本文档中“阶段 12：统计与答辩打磨”保留为历史路线和后续建议；本次“阶段 12：项目交接文档与开发规则收口”以新增交接文档和规则合同为准。
+
+进入实现阶段后，应按当前规则源和专项文档推进。
 
 ## 1. 实施原则
 
@@ -41,19 +45,15 @@
 | 11 | 对比、收藏、反馈 | 增强用户闭环和答辩展示 | 建议 |
 | 12 | 统计与答辩打磨 | 完成图表、演示数据和截图材料 | 建议 |
 
-### 2.1 需求模型重构说明
+### 2.1 当前需求模型说明
 
-在继续后续功能前，需要完成一次需求模型重构，影响阶段 4、5、6、8、10 和统计展示：
+当前用户需求模型影响阶段 4、5、6、8、10 和统计展示：
 
-- 用户需求字段从单选 `bodyType`、`energyType`、`scene` 调整为多选 `bodyTypes`、`energyTypes`、`scenes`。
-- 旧 `focusFactors` 多选标签调整为 `factorWeights` 0-10 滑块，维度固定为 `price / space / safety / energy / intelligence / comfort / power / reputation / popularity`。
-- 用户端需求页删除“推荐数量”输入，不让用户填写 `topK`。
-- 阶段 9.5 后废弃固定 TopK、`min(5, topK)` 和默认 Top 10 截断规则，推荐生成返回全部符合分组规则的候选。
-- 用户需求座位字段统一为 `minSeats` / `min_seats`，不再保留 `seats` 作为用户需求字段。
-- 排除品牌和排除车型从手动输入改为基于数据库已有品牌、车型的搜索选择。
-- 已确认采用重建本地库方案，旧字段 `body_type`、`energy_type`、`scene`、`focus_factors` 删除，不做长期兼容。
-- 后续所有实现以 `bodyTypes`、`energyTypes`、`scenes`、`factorWeights` 为准，不实现新旧字段双写、双读或自动兼容。
-- 具体执行重建本地数据库、清空表或删除联调数据前，仍必须再次说明影响并获得操作确认，不能擅自删除历史推荐记录或真实联调数据。
+- 用户需求字段为 `bodyTypes`、`energyTypes`、`scenes`、`factorWeights`、`minSeats`、`budgetMin`、`budgetMax`、`excludedBrands` 和 `excludedCarIds`。
+- `factorWeights` 为 0-10 滑块，维度固定为 `price / space / safety / energy / intelligence / comfort / power / reputation / popularity`。
+- 推荐生成接口不接收推荐数量字段，后端返回全部符合分组和排序规则的候选。
+- 排除品牌和排除车型基于数据库已有品牌、车型搜索选择。
+- 具体执行重建本地数据库、清空表或删除联调数据前，必须再次说明影响并获得操作确认，不能擅自删除历史推荐记录或真实联调数据。
 
 ### 2.2 推荐算法升级说明
 
@@ -62,7 +62,7 @@
 - `subjectiveWeight` 来自用户显式 `factorWeights` 或 `scenes` 场景模板。
 - `objectiveWeight` 来自候选集九维评分矩阵的熵权法计算。
 - `finalWeight` 由 `alpha` 组合主观权重和客观权重，并保存到 `recommend_record.weight_snapshot`。
-- `totalScore` 当前表示 TOPSIS 推荐分 / 综合推荐分；加权求和只作为历史算法基线、TOPSIS 边界兜底 `fallbackScore` 和升级前后对比说明。
+- `totalScore` 当前表示 TOPSIS 推荐分 / 综合推荐分；边界情况下使用兜底分保证结果可解释。
 - 推荐排序由后端写入 `rankNo`：`STRICT` 组在前，推荐组在后，每组内部先按 TOPSIS 推荐分，再按 Pareto 非支配标记、口碑分、热度分做辅助排序。
 - 前端推荐结果页只按 `rankNo` 展示，不再按 `totalScore`、口碑分或热度分二次排序。
 
@@ -238,7 +238,6 @@
 - 当 `factorWeights` 全部为 0 时，使用 `scenes` 生成的默认权重。
 - 生成画像文本。
 - 保存画像文本和权重快照。
-- 旧字段 `bodyType`、`energyType`、`scene`、`focusFactors` 不再作为用户端标准请求字段。
 
 ### 最低完成标准
 
@@ -255,7 +254,7 @@
 ### 风险点
 
 - `factorWeights` 只影响权重和排序，不应变成硬过滤条件。
-- 新旧需求字段不能长期并存，否则历史兼容和新推荐语义会冲突。
+- 用户需求字段必须与 `API_DESIGN.md` 和 `DATABASE_DESIGN.md` 保持一致。
 
 ## 9. 阶段 5：真实推荐算法
 
@@ -265,7 +264,7 @@
 - 动态计算价格匹配分。
 - 计算多维加权综合分。
 - 生成推荐标签。
-- 返回全部符合当前推荐分组规则的候选，不按固定 TopK 截断。
+- 返回全部符合当前推荐分组规则的候选。
 - 保存推荐记录和推荐明细。
 - 验证 `budgetMax` 是严格阶段预算硬约束。
 - 验证 `budgetMin` 是软偏好，只参与价格分计算，不过滤候选。
@@ -302,7 +301,7 @@
 - 生成 `recommendStatus`：`SUCCESS`、`FALLBACK`、`EMPTY`。
 - 按最终推荐结果中的 `recommendStatus` 和 `strictCount` 生成 `fallbackMessage` 追溯字段。
 - 验证降级候选按车型去重，不覆盖严格匹配候选。
-- 验证不再使用 `topK` 和 `min(5, topK)` 截断推荐结果。
+- 验证推荐结果按候选集、分组和排序规则返回。
 - 前端按“完全匹配车型”和“推荐”分组展示。
 
 ### 最低完成标准
@@ -352,7 +351,7 @@
 ### 任务
 
 - 购车需求页：结构化表单、车型类型多选、动力类型多选、场景多选、显式偏好权重滑块。
-- 购车需求页删除推荐数量输入，不向用户暴露 `topK`。
+- 购车需求页不展示推荐数量输入。
 - 排除品牌和排除车型使用数据库搜索选择，不允许手动自由输入。
 - 推荐结果页：车型卡片、匹配度、标签、匹配状态、理由、不足、维度评分。
 - 推荐结果页当前按“完全匹配车型”和“推荐”分组展示，用户端弱化降级技术标签，但保留单条匹配状态用于历史和管理端追溯。

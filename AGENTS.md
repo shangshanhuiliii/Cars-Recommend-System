@@ -3,9 +3,12 @@
 本文件是本仓库的项目级规则，适用于 AI 编程代理、开发者和自动化脚本。详细需求不在本文件重复维护，按以下文档分工查阅：
 
 - `docs/PROJECT_SPEC.md`：项目规格、范围边界、功能优先级。
+- `docs/DEVELOPMENT_GUIDE.md`：后续开发指南、本地准备、启动、测试和新功能开发流程。
+- `docs/SYSTEM_CONTRACTS.md`：系统规则合同，定义不能随意改动的算法、字段、数据库、API、前端和文档规则。
+- `docs/HANDOFF.md`：项目交接说明，帮助新接手者理解当前状态、运行方式和后续建议。
 - `docs/RECOMMENDATION_DESIGN.md`：推荐闭环概要设计和模块边界。
 - `docs/RECOMMENDATION_ALGORITHM_UPGRADE.md`：当前主算法详细文档，算法版本为 `pareto-topsis-v1`。
-- `docs/RECOMMENDATION_ALGORITHM.md`：升级前加权算法基线、特征评分规则和历史对比说明。
+- `docs/RECOMMENDATION_ALGORITHM.md`：车型特征评分规则说明。
 - `docs/DATABASE_DESIGN.md`：数据库表职责和关键字段。
 - `docs/API_DESIGN.md`：接口约定和核心请求响应。
 - `docs/FRONTEND_DESIGN.md`：前端页面展示、交互状态和样式规范。
@@ -26,7 +29,7 @@
 任何功能取舍都应优先保证：
 
 - 推荐结果来自真实评分和权重计算。
-- 推荐结果包含理由、不足和匹配状态。
+- 推荐结果包含综合推荐分、推荐标签、推荐理由、不足提醒和维度评分。
 - 无匹配时可以降级推荐。
 - 推荐记录可以回查需求、权重、分数和解释。
 
@@ -81,9 +84,11 @@ util         评分、解析、权重归一化等工具
 
 ## 4. 数据与接口规则
 
+- 新功能开发前必须先查 `docs/SYSTEM_CONTRACTS.md`。如果开发建议、实现方式或用户需求与规则合同冲突，必须先停下来说明冲突点并确认后再继续。
+- `docs/IMPLEMENTATION_TASKS.md` 和 `docs/COMPLETED_PHASES.md` 属于阶段路线和历史追溯材料，不作为当前开发规则源。
 - 数据库设计以 `docs/DATABASE_DESIGN.md` 为准。
 - 接口设计以 `docs/API_DESIGN.md` 为准。
-- 推荐闭环概要以 `docs/RECOMMENDATION_DESIGN.md` 为准；当前主算法公式和流程以 `docs/RECOMMENDATION_ALGORITHM_UPGRADE.md` 为准；`docs/RECOMMENDATION_ALGORITHM.md` 只保留升级前加权算法基线、特征评分规则和历史对比说明。
+- 推荐闭环概要以 `docs/RECOMMENDATION_DESIGN.md` 为准；当前主算法公式和流程以 `docs/RECOMMENDATION_ALGORITHM_UPGRADE.md` 和 `docs/RECOMMENDATION_IMPLEMENTATION_LOGIC.md` 为准；`docs/RECOMMENDATION_ALGORITHM.md` 只维护车型特征评分规则。
 - 价格统一使用元，尺寸统一使用毫米，续航统一使用公里。
 - 若缺少完整真实数据，允许编写合理测试数据用于开发和测试，但字段必须符合汽车常识，且推荐总分仍必须由算法计算。
 - 普通用户表统一命名为 `app_user`，默认演示用户为 `app_user.id = 1`。
@@ -93,6 +98,8 @@ util         评分、解析、权重归一化等工具
 - 第一版采用演示用户优先，不能因为登录系统未完成而阻塞推荐闭环。
 - 真实数据库密码不得写入仓库；本地真实配置文件必须被忽略。
 - 若算法、数据库、API、前端文档之间出现字段不一致，应以专项文档为准并同步修正所有相关文档。
+- 当前用户需求 API 只使用 `bodyTypes`、`energyTypes`、`scenes`、`factorWeights`、`minSeats`、`budgetMin`、`budgetMax`、`excludedBrands` 和 `excludedCarIds`。
+- 推荐生成请求不包含推荐数量字段，后端按候选集、分组和排序规则返回结果。
 
 ## 5. 前端规则
 
@@ -110,8 +117,7 @@ util         评分、解析、权重归一化等工具
 
 推荐结果页必须展示：
 
-- 综合匹配度
-- 匹配状态
+- 综合推荐分
 - 推荐标签
 - 推荐理由
 - 不足提醒
@@ -140,10 +146,11 @@ util         评分、解析、权重归一化等工具
 
 修改文档时必须保持分工清晰：
 
+- 开发指南、规则合同和交接流程写入 `DEVELOPMENT_GUIDE.md`、`SYSTEM_CONTRACTS.md`、`HANDOFF.md`。
 - 项目范围和优先级写入 `PROJECT_SPEC.md`。
 - 推荐闭环概要和模块边界写入 `RECOMMENDATION_DESIGN.md`。
 - 当前主算法公式、流程和伪代码写入 `RECOMMENDATION_ALGORITHM_UPGRADE.md`。
-- 升级前加权算法基线、特征评分规则和历史对比说明写入 `RECOMMENDATION_ALGORITHM.md`。
+- 车型特征评分规则写入 `RECOMMENDATION_ALGORITHM.md`。
 - 表结构和字段写入 `DATABASE_DESIGN.md`。
 - 接口写入 `API_DESIGN.md`。
 - 前端页面、交互和样式规范写入 `FRONTEND_DESIGN.md`。

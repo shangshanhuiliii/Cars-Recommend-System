@@ -1,6 +1,6 @@
 # 推荐算法实现逻辑说明
 
-本文档描述当前代码中推荐算法的实际实现逻辑，用于代码审计、论文实现章节和后续维护。它不是新的设计方案；详细算法设计仍以 `RECOMMENDATION_ALGORITHM_UPGRADE.md` 为准，升级前加权求和基线和车型特征评分规则见 `RECOMMENDATION_ALGORITHM.md`。
+本文档描述当前代码中推荐算法的实际实现逻辑，用于代码审计、论文实现章节和后续维护。它不是新的设计方案；详细算法设计仍以 `RECOMMENDATION_ALGORITHM_UPGRADE.md` 为准，车型特征评分规则见 `RECOMMENDATION_ALGORITHM.md`。
 
 ## 1. 文档目的
 
@@ -10,8 +10,7 @@
 
 - 不描述未实现功能为已完成能力。
 - 不把当前算法包装成深度学习、协同过滤或在线学习。
-- 不恢复 `topK`、默认 Top 10 或 `min(5, topK)`。
-- 不把旧字段 `bodyType`、`energyType`、`scene`、`focusFactors` 作为当前用户需求 API 字段。
+- 只描述当前用户需求字段、当前推荐数量规则和当前快照规则。
 
 ## 2. 算法版本
 
@@ -69,7 +68,7 @@ pareto-topsis-v1
 - 输入：候选车型、用户硬约束。
 - 输出：`RecommendationCandidateGroups.strictCandidates` 和 `recommendationCandidates`。
 - 对应代码：`RecommendationCandidateService.generateCandidates`、`addStageRecommendations`、`matchesDemand`。
-- 关键规则：阶段顺序为 `STRICT -> RELAX_BUDGET -> RELAX_BODY_TYPE -> RELAX_ENERGY_TYPE -> SIMILAR_RECOMMEND`；同一车型只进入一次；`matchLevel` 保留首次进入阶段；不使用 `topK` 或默认数量截断。
+- 关键规则：阶段顺序为 `STRICT -> RELAX_BUDGET -> RELAX_BODY_TYPE -> RELAX_ENERGY_TYPE -> SIMILAR_RECOMMEND`；同一车型只进入一次；`matchLevel` 保留首次进入阶段；推荐结果按候选集、分组和排序规则返回。
 
 ### Step 6：为候选车计算 priceScore
 
@@ -114,10 +113,10 @@ pareto-topsis-v1
 ### Step 11：使用 TOPSIS 计算 recommendScore
 
 - 做什么：对全部候选统一执行 TOPSIS，得到最终 `totalScore`。
-- 输入：全部候选的九维矩阵、`finalWeight` 和旧加权效用 `fallbackScore`。
+- 输入：全部候选的九维矩阵、`finalWeight` 和边界兜底分。
 - 输出：每个候选的 TOPSIS 推荐分和解释所需中间结果。
 - 对应代码：`RecommendationServiceImpl.applyTopsisScore`、`TopsisRanker.analyze`。
-- 关键规则：TOPSIS 在 `STRICT + 推荐组` 全部候选上统一计算；使用向量归一化、加权归一化、正理想解、负理想解、距离和相对接近度；`totalScore = C_i * 100`，保留 2 位小数并限制在 0-100；候选数为 1 或 `D+ + D-` 无差异时使用旧加权效用 `fallbackScore`。
+- 关键规则：TOPSIS 在 `STRICT + 推荐组` 全部候选上统一计算；使用向量归一化、加权归一化、正理想解、负理想解、距离和相对接近度；`totalScore = C_i * 100`，保留 2 位小数并限制在 0-100；候选数为 1 或 `D+ + D-` 无差异时使用边界兜底分。
 
 ### Step 12：按 matchLevel 分组并排序
 
@@ -239,7 +238,7 @@ finalWeight_j = alpha * subjectiveWeight_j + (1 - alpha) * objectiveWeight_j
 }
 ```
 
-历史详情读取时，`RecommendationRecordServiceImpl.readWeights` 优先读取 `finalWeight`；旧记录如果只有扁平九维权重，则直接按旧结构读取，并将 `algorithmVersion` 兜底为 `weighted-sum-v1`。
+历史详情读取时，`RecommendationRecordServiceImpl.readWeights` 优先读取 `finalWeight`；当前推荐记录应保存 `algorithmVersion = pareto-topsis-v1`。
 
 ## 5. Pareto 实现
 
@@ -331,13 +330,13 @@ totalScore = C_i * 100
 
 `totalScore` 保留 2 位小数，限制在 0-100。阶段 9.6-D 起，`recommend_item.total_score` 和 API `items[].totalScore` 的当前语义为 TOPSIS 推荐分 / 综合推荐分。
 
-### fallbackScore
+### 边界兜底分
 
-`RecommendationServiceImpl.calculateFallbackScore` 仍计算旧加权效用分，但仅用于 TOPSIS 边界兜底：
+`RecommendationServiceImpl.calculateFallbackScore` 仅用于 TOPSIS 边界兜底：
 
-- 候选数为 1 时，正负理想解相同，距离和为 0，使用 `fallbackScore`。
-- 候选在加权矩阵上无差异时，使用 `fallbackScore`。
-- `fallbackScore` 不作为正常主排序分。
+- 候选数为 1 时，正负理想解相同，距离和为 0，使用边界兜底分。
+- 候选在加权矩阵上无差异时，使用边界兜底分。
+- 边界兜底分不作为正常主排序分。
 
 ## 7. 分组与排序
 
@@ -441,10 +440,6 @@ totalScore = C_i * 100
 ### 历史详情不重新计算
 
 `RecommendationRecordServiceImpl.detail` 通过 `RecommendRecordMapper.findByIdAndUserId` 读取推荐记录，再通过 `RecommendItemMapper.findSnapshotsByRecordId` 按 `rank_no ASC` 读取推荐明细快照。返回过程中不调用候选生成、权重计算、Pareto、TOPSIS 或解释生成组件。
-
-### 旧 weight_snapshot 兼容
-
-旧记录如果没有 `algorithmVersion`，`RecommendationRecordServiceImpl.readAlgorithmVersion` 返回 `weighted-sum-v1`。旧扁平九维权重没有 `finalWeight` 节点时，`readWeights` 直接读取顶层九维字段。
 
 ## 10. 与普通筛选的区别
 

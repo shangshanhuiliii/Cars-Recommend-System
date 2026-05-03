@@ -1,6 +1,8 @@
 # 已完成阶段汇总
 
-本文档记录项目当前已经完成并验收通过的阶段、实际能力、验证结果和后续注意事项。详细需求边界仍以 `PROJECT_SPEC.md` 为准；当前主算法公式和伪代码见 `RECOMMENDATION_ALGORITHM_UPGRADE.md`，升级前算法基线和特征评分规则见 `RECOMMENDATION_ALGORITHM.md`；阶段计划见 `IMPLEMENTATION_TASKS.md`。
+本文档记录项目当前已经完成并验收通过的阶段、实际能力、验证结果和后续注意事项。详细需求边界仍以 `PROJECT_SPEC.md` 为准；当前主算法公式和伪代码见 `RECOMMENDATION_ALGORITHM_UPGRADE.md`，车型特征评分规则见 `RECOMMENDATION_ALGORITHM.md`；阶段计划见 `IMPLEMENTATION_TASKS.md`。
+
+本文档用于追溯和论文材料，不作为当前开发规则源。当前开发规则以 `DEVELOPMENT_GUIDE.md` 和 `SYSTEM_CONTRACTS.md` 为准；项目交接说明见 `HANDOFF.md`。不要删除本文档中的既有阶段记录。
 
 项目主链路按以下顺序逐步闭环：
 
@@ -148,7 +150,7 @@
 - `comfortScore = spaceScore * 0.5 + intelligenceScore * 0.2 + reputationScore * 0.3`。
 - `popularityScore = salesVolume / maxSales * 100`。
 - 支持单车评分重算、全部车型评分重算和评分查询。
-- 旧评分路径已清理，统一使用车型管理路径。
+- 评分路径已统一使用车型管理路径。
 
 ### 主要接口或页面
 
@@ -203,9 +205,8 @@
 ### 主要数据表或字段变化
 
 - 使用 `user_demand`。
-- 阶段 9.5 后当前有效需求字段为：
+- 当前有效需求字段为：
   `body_types`、`energy_types`、`scenes`、`factor_weights`、`min_seats`。
-- 旧字段 `body_type`、`energy_type`、`scene`、`focus_factors` 已废弃，不做长期兼容。
 
 ### 测试与验证结果
 
@@ -237,7 +238,7 @@
 - 实现严格过滤：
   排除品牌、排除车型、最低座位数、预算上限、车型类型、动力类型。
 - 实现动态 `priceScore`。
-- 实现多维加权 `totalScore`。
+- 实现多维综合推荐分 `totalScore`。
 - 实现推荐排序和推荐标签 `tags`。
 - 保存 `recommend_record` 和 `recommend_item`。
 - 阶段 5 仅实现 `STRICT`，不实现降级推荐。
@@ -268,7 +269,7 @@
 ### 遗留问题或后续注意事项
 
 - 推荐解释和降级策略在阶段 6 补齐。
-- 阶段 9.5 后推荐生成不再使用固定 TopK 截断。
+- 当前推荐生成按候选集、分组和排序规则返回结果。
 
 ## 阶段 6：推荐解释与降级
 
@@ -457,17 +458,16 @@
 
 ### 阶段目标
 
-将购车需求模型从单选和标签关注因素重构为多选和显式权重滑块，同时优化推荐结果页展示语义。
+完成当前购车需求模型和推荐结果页展示语义收敛。
 
 ### 已完成内容
 
 - 用户需求字段重构：
   `bodyTypes`、`energyTypes`、`scenes`、`factorWeights`、`minSeats`。
-- 删除旧字段长期兼容，不做新旧字段双读、双写或自动迁移。
 - `factorWeights` 0-10 滑块由后端归一化。
 - 多场景模板平均后生成默认权重。
-- 用户端删除推荐数量输入，不再传 `topK`。
-- 推荐生成不再按固定 TopK、默认 Top 10 或 `min(5, topK)` 截断。
+- 用户端不展示推荐数量输入。
+- 推荐生成按候选集、分组和排序规则返回结果。
 - `STRICT` 组返回全部完全匹配候选。
 - 非 `STRICT` 组返回全部补充推荐候选。
 - 最终展示顺序为 `STRICT` 组在前、推荐组在后。
@@ -492,8 +492,6 @@
 
 - `user_demand` 新字段：
   `body_types`、`energy_types`、`scenes`、`factor_weights`、`min_seats`。
-- `user_demand` 旧字段删除：
-  `body_type`、`energy_type`、`scene`、`focus_factors`。
 - `car_model.energy_type` 仍不保存“新能源”。
 
 ### 测试与验证结果
@@ -523,7 +521,7 @@
 
 ### 阶段目标
 
-将阶段 5 的加权求和基线升级为“基于主客观组合权重与 Pareto-TOPSIS 的可解释汽车推荐算法”，算法版本为 `pareto-topsis-v1`，同时保持推荐可解释、可降级、可追溯。
+完成“基于主客观组合权重与 Pareto-TOPSIS 的可解释汽车推荐算法”，算法版本为 `pareto-topsis-v1`，同时保持推荐可解释、可降级、可追溯。
 
 ### 已完成内容
 
@@ -532,8 +530,8 @@
 - 扩展 `recommend_record.weight_snapshot`，保存 `algorithmVersion`、`alpha`、`subjectiveWeight`、`objectiveWeight`、`finalWeight`。
 - 实现 Pareto 非支配标记，当前用于同分辅助排序和算法可视化展示，不删除候选，不新增数据库字段。
 - 实现 TOPSIS 排序，`recommend_item.total_score` 和 API `totalScore` 当前语义为 TOPSIS 推荐分 / 综合推荐分。
-- 保留边界兜底：候选数为 1 或 TOPSIS 距离无差异时使用加权效用 `fallbackScore`。
-- 升级 `reasonText` 为基于贡献度生成，升级 `weaknessText` 为基于正理想解差距生成。
+- 保留边界兜底：候选数为 1 或 TOPSIS 距离无差异时使用兜底分。
+- `reasonText` 基于贡献度生成，`weaknessText` 基于正理想解差距生成。
 - 保持 `tags` 只表示推荐亮点，不写入 `matchLevel`、Pareto、TOPSIS 或降级技术状态。
 - 推荐结果和历史详情新增或解析 `algorithmVersion`、`alpha`，管理端可展示最终权重快照。
 - 前端推荐结果页按“完全匹配车型 / 推荐”分组展示，每组内部按后端 `rankNo` 升序展示，不再按 `totalScore`、口碑分或热度分二次排序。
@@ -552,7 +550,7 @@
 
 - 不新增数据库字段。
 - `recommend_record.weight_snapshot` JSON 结构升级为算法快照。
-- `recommend_item.total_score` 字段保留，语义从旧版加权求和分升级为 TOPSIS 推荐分。
+- `recommend_item.total_score` 字段保存 TOPSIS 推荐分。
 - `recommend_item.rank_no` 是历史和前端展示排序的权威快照。
 
 ### 测试与验证结果
@@ -562,7 +560,7 @@
 - `npm run build` 通过。
 - `node scripts/verifyRecommendPresentation.mjs` 通过。
 - `git diff --check` 通过。
-- 搜索检查确认未恢复 `topK`、默认 Top 10 或 `min(5, topK)` 规则。
+- 搜索检查确认推荐数量规则与当前合同一致。
 - 本地 MySQL 联调确认：
   - `algorithmVersion = pareto-topsis-v1`。
   - `weight_snapshot` 包含主观权重、客观权重和最终权重。
@@ -578,10 +576,10 @@
 
 ### 遗留问题或后续注意事项
 
-- 加权求和只保留为历史基线、TOPSIS 边界兜底和论文对比，不再作为当前主排序算法。
+- TOPSIS 边界情况下使用兜底分，正常排序仍以 `totalScore` 和后端 `rankNo` 为准。
 - TOPSIS 是相对候选集排序，候选集变化会影响 `totalScore`，答辩时不能解释为绝对市场评分。
 - Pareto 第一版不持久化 `paretoDominated`，历史通过 `rankNo`、`totalScore`、维度分和权重快照追溯用户可见排序。
-- 阶段 10 已实现规则词典式解析，输出当前新字段，未恢复旧字段或固定 TopK 规则。
+- 阶段 10 已实现规则词典式解析，输出当前需求字段。
 
 ## 阶段 9.8：推荐算法可视化答辩页
 
@@ -598,7 +596,7 @@
 - 接口返回算法版本、`alpha`、需求、约束、九维指标说明、主观权重、客观权重、最终权重、候选阶段统计、15 步流程、九维矩阵、推荐项、车型评分规则和快照说明。
 - 基于推荐明细快照临时重构 `paretoDominated`、TOPSIS `closeness`、`positiveDistance`、`negativeDistance`、贡献度和理想解差距。
 - 推荐排序、`totalScore`、九维分数、`tags`、`reasonText`、`weaknessText` 和 `matchLevel` 仍以历史快照为准。
-- 旧 `weight_snapshot` 兼容显示为 `weighted-sum-v1`，并用扁平权重作为展示兜底。
+- `weight_snapshot` 展示当前算法版本、主观权重、客观权重和最终权重。
 - 前端使用 Element Plus、CSS 条形图、热力矩阵和阶段卡片展示，不新增图表依赖。
 - 普通用户推荐结果页不展示 TOPSIS、Pareto、熵权等复杂术语。
 
@@ -664,11 +662,10 @@
 - 不新增数据库表。
 - 不新增数据库字段。
 - 不写入 `user_demand`、`recommend_record` 或 `recommend_item`。
-- 不恢复旧字段 `bodyType`、`energyType`、`scene`、`focusFactors`。
 
 ### 测试与验证结果
 
-- `UserDemandControllerTest` 覆盖解析接口 200、预算/车型/动力/场景/座位/权重解析、旧字段不返回、空文本 400，以及不写 `user_demand`、`recommend_record`、`recommend_item`。
+- `UserDemandControllerTest` 覆盖解析接口 200、预算/车型/动力/场景/座位/权重解析、空文本 400，以及不写 `user_demand`、`recommend_record`、`recommend_item`。
 - `frontend/scripts/verifyRecommendPresentation.mjs` 覆盖 `/api/user/demand/parse-text`、需求页中文入口、回填表单字段、解析函数不调用推荐生成。
 - `mvn test "-Dtest=UserDemandControllerTest"` 通过。
 - `mvn test` 通过。
@@ -677,7 +674,7 @@
 - `node scripts/verifyRecommendPresentation.mjs` 通过。
 - `node scripts/verifyAlgorithmDemo.mjs` 通过。
 - `git diff --check` 通过，仅输出 Windows 工作区 LF/CRLF 提示。
-- 搜索确认旧自然语言解析路径已清除。
+- 搜索确认自然语言解析路径与当前接口一致。
 - 搜索确认解析函数不调用 `recommend/generate` 或 `generateRecommendation`。
 
 ### 是否达到最低完成标准
@@ -747,6 +744,27 @@
 - 本阶段只修改初始化脚本，没有操作真实 MySQL；真实库如需使用新增表，需要用户单独确认迁移或重建。
 - 反馈第一版只做统计，不做在线学习，不自动更新用户权重或车型评分。
 - 浏览器侧仍建议进行一次手工验收，重点检查移动端对比表横向滚动、收藏状态提示和反馈提交状态。
+
+## 阶段 11 后体验修复
+
+### 阶段目标
+
+在阶段 11 功能完成后，继续收敛推荐结果展示排序、车型对比交互和反馈区域的页面内状态表达，避免增强功能影响推荐主链路。
+
+### 已完成内容
+
+- 推荐结果和历史详情继续以后端 `rankNo` 为展示排序权威，前端不按 `totalScore` 二次排序。
+- 车型对比交互继续保持“加入对比”只更新页面内状态，用户主动点击查看对比后再跳转。
+- 收藏和反馈等普通操作继续使用页面内状态，不使用顶部 toast。
+- 相关修复不修改 `pareto-topsis-v1`、数据库结构、SQL 初始化脚本或推荐历史快照规则。
+
+### 测试与验证结果
+
+- 体验修复属于阶段 11 后的小范围收敛，详细验证以后续提交记录和实际运行检查为准。
+
+### 遗留问题或后续注意事项
+
+- 后续如继续优化 UI，仍应保持用户端简洁、管理端可追溯、算法可视化页只读的边界。
 
 ## 当前 MVP 状态
 

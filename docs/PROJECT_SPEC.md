@@ -10,6 +10,8 @@
 
 系统不是汽车商城、4S 店管理系统或真实交易平台，不涉及下单、支付、贷款、保险、经销商结算、复杂营销活动或真实成交价预测。
 
+当前项目已进入交接维护阶段。后续开发者应先阅读 `DEVELOPMENT_GUIDE.md`、`SYSTEM_CONTRACTS.md` 和 `HANDOFF.md`，再进入具体专项文档。本文档继续维护项目定位、范围边界和功能优先级，不重复维护接口字段、数据库字段或完整算法公式。
+
 ## 2. 最高优先级
 
 项目最高优先级是推荐算法及其工程化实现。所有功能都必须服务于推荐主链路：
@@ -25,7 +27,7 @@
 - 无严格匹配结果时是否能降级推荐。
 - 推荐记录是否能回查需求、权重、分数、理由和匹配状态。
 
-当前主算法统一表述为“基于主客观组合权重与 Pareto-TOPSIS 的可解释汽车推荐算法”，算法版本为 `pareto-topsis-v1`。系统先将车型参数映射为车型特征评分向量，再将用户需求映射为 `subjectiveWeight`，同时使用熵权法根据候选集差异计算 `objectiveWeight`，通过 `alpha` 组合得到 `finalWeight`。排序阶段使用 TOPSIS 相对接近度计算 `totalScore`，并保留 Pareto 非支配标记作为同分辅助排序和算法追溯信息，同时基于贡献度和理想解差距生成推荐理由和不足提醒。加权求和只作为历史基线、TOPSIS 边界兜底 `fallbackScore` 和算法升级前后对比说明。该算法属于可解释的内容特征推荐和多指标决策方法，不采用协同过滤、深度学习推荐或在线学习推荐。
+当前主算法统一表述为“基于主客观组合权重与 Pareto-TOPSIS 的可解释汽车推荐算法”，算法版本为 `pareto-topsis-v1`。系统先将车型参数映射为车型特征评分向量，再将用户需求映射为 `subjectiveWeight`，同时使用熵权法根据候选集差异计算 `objectiveWeight`，通过 `alpha` 组合得到 `finalWeight`。排序阶段使用 TOPSIS 相对接近度计算 `totalScore`，并保留 Pareto 非支配标记作为同分辅助排序和算法追溯信息，同时基于贡献度和理想解差距生成推荐理由和不足提醒。该算法属于可解释的内容特征推荐和多指标决策方法，不采用协同过滤、深度学习推荐或在线学习推荐。
 
 ## 3. 功能优先级
 
@@ -137,6 +139,9 @@ Cars-Recommend-System/
 ├── backend/
 ├── frontend/
 ├── docs/
+│   ├── DEVELOPMENT_GUIDE.md
+│   ├── SYSTEM_CONTRACTS.md
+│   ├── HANDOFF.md
 │   ├── PROJECT_SPEC.md
 │   ├── RECOMMENDATION_DESIGN.md
 │   ├── RECOMMENDATION_ALGORITHM.md
@@ -167,9 +172,12 @@ util         评分、解析、权重工具
 
 ## 7. 文档分工
 
+- 当前开发入口和本地开发流程维护在 `DEVELOPMENT_GUIDE.md`。
+- 不可随意变更的规则合同维护在 `SYSTEM_CONTRACTS.md`。
+- 项目交接说明维护在 `HANDOFF.md`。
 - 推荐闭环概要和模块边界维护在 `RECOMMENDATION_DESIGN.md`。
 - 当前主算法公式、流程、伪代码和示例维护在 `RECOMMENDATION_ALGORITHM_UPGRADE.md`。
-- 升级前加权算法基线、特征评分规则和历史对比说明维护在 `RECOMMENDATION_ALGORITHM.md`。
+- 车型特征评分规则维护在 `RECOMMENDATION_ALGORITHM.md`。
 - 数据库表设计只维护在 `DATABASE_DESIGN.md`。
 - 接口设计只维护在 `API_DESIGN.md`。
 - 前端页面展示、交互和样式规范只维护在 `FRONTEND_DESIGN.md`。

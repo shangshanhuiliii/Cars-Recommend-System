@@ -17,6 +17,7 @@ frontend/.vite/
 # Logs
 *.log
 logs/
+.run/
 
 # IDE and OS files
 .idea/
