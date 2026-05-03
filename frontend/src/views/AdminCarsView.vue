@@ -13,6 +13,10 @@
 
     <div class="panel admin-car-panel">
       <div class="panel__body">
+        <p v-if="operationMessage" class="inline-state" :class="{ 'inline-state--error': operationMessageType === 'error' }">
+          {{ operationMessage }}
+        </p>
+
         <el-form class="car-filter" :inline="true" :model="query">
           <el-form-item label="关键词">
             <el-input v-model="query.keyword" clearable placeholder="品牌 / 车系 / 车型" />
@@ -236,7 +240,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { Delete, Edit, Plus, Refresh, Search, Setting } from '@element-plus/icons-vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessageBox as ConfirmBox } from 'element-plus'
 
 import {
   createAdminCar,
@@ -259,6 +263,8 @@ const total = ref(0)
 const scoreMap = ref({})
 const recalculatingAll = ref(false)
 const recalculatingCarId = ref(null)
+const operationMessage = ref('')
+const operationMessageType = ref('info')
 const query = reactive({
   page: 1,
   size: 10,
@@ -405,9 +411,11 @@ async function submitCar() {
     } else {
       await createAdminCar({ ...carForm })
     }
-    ElMessage.success('车型已保存')
+    setOperationMessage('车型已保存')
     carDialogVisible.value = false
     loadCars()
+  } catch (error) {
+    setOperationMessage(error?.response?.data?.message || error?.message || '车型保存失败。', 'error')
   } finally {
     savingCar.value = false
   }
@@ -415,13 +423,17 @@ async function submitCar() {
 
 async function confirmDelete(row) {
   try {
-    await ElMessageBox.confirm(`确认删除 ${row.modelName}？`, '删除车型', { type: 'warning' })
+    await ConfirmBox.confirm(`确认删除 ${row.modelName}？`, '删除车型', { type: 'warning' })
   } catch {
     return
   }
-  await deleteAdminCar(row.id)
-  ElMessage.success('车型已删除')
-  loadCars()
+  try {
+    await deleteAdminCar(row.id)
+    setOperationMessage('车型已删除')
+    loadCars()
+  } catch (error) {
+    setOperationMessage(error?.response?.data?.message || error?.message || '车型删除失败。', 'error')
+  }
 }
 
 async function openParamDialog(row) {
@@ -443,8 +455,10 @@ async function submitParam() {
   savingParam.value = true
   try {
     await saveAdminCarParam(currentParamCar.value.id, { ...paramForm, carId: currentParamCar.value.id })
-    ElMessage.success('车型参数已保存')
+    setOperationMessage('车型参数已保存')
     paramDialogVisible.value = false
+  } catch (error) {
+    setOperationMessage(error?.response?.data?.message || error?.message || '车型参数保存失败。', 'error')
   } finally {
     savingParam.value = false
   }
@@ -475,7 +489,9 @@ async function recalculateCarScore(row) {
     if (currentScoreCar.value?.id === row.id) {
       currentScore.value = response.data
     }
-    ElMessage.success('单车评分已重算')
+    setOperationMessage('单车评分已重算')
+  } catch (error) {
+    setOperationMessage(error?.response?.data?.message || error?.message || '单车评分重算失败。', 'error')
   } finally {
     recalculatingCarId.value = null
   }
@@ -485,8 +501,10 @@ async function recalculateAllScores() {
   recalculatingAll.value = true
   try {
     const response = await recalculateAllAdminCarScores()
-    ElMessage.success(`已重算 ${response.data.recalculatedCount} 台车型评分`)
+    setOperationMessage(`已重算 ${response.data.recalculatedCount} 台车型评分`)
     await loadScoresForCurrentPage()
+  } catch (error) {
+    setOperationMessage(error?.response?.data?.message || error?.message || '全部评分重算失败。', 'error')
   } finally {
     recalculatingAll.value = false
   }
@@ -582,11 +600,27 @@ function auditTagType(value) {
   if (value === 'REJECTED') return 'danger'
   return 'warning'
 }
+
+function setOperationMessage(text, type = 'info') {
+  operationMessage.value = text
+  operationMessageType.value = type
+}
 </script>
 
 <style scoped>
 .admin-car-panel {
   overflow: hidden;
+}
+
+.inline-state {
+  margin: 0 0 12px;
+  color: var(--color-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.inline-state--error {
+  color: var(--color-danger);
 }
 
 .header-actions {

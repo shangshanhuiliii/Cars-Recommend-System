@@ -68,6 +68,21 @@
         </div>
       </div>
 
+      <div v-if="detail.recommendStatus !== 'EMPTY' && detail.items?.length" class="panel compare-entry-panel">
+        <div class="panel__body compare-entry">
+          <div>
+            <p class="eyebrow">车型对比</p>
+            <h2>已选择 {{ compareIds.length }}/3 款</h2>
+            <p class="inline-state" :class="{ 'inline-state--error': compareError }">
+              {{ compareEntryText }}
+            </p>
+          </div>
+          <el-button type="primary" plain :disabled="!compareIds.length" @click="goToCompare">
+            查看对比（{{ compareIds.length }}/3）
+          </el-button>
+        </div>
+      </div>
+
       <el-alert
         v-if="favoriteLoadError"
         class="state-alert"
@@ -144,7 +159,12 @@
 
               <div class="card-actions">
                 <el-button type="primary" plain @click="openCarDetail(item.carId)">查看车型详情</el-button>
-                <el-button @click="addToCompare(item.carId)">加入对比</el-button>
+                <el-button
+                  :type="isInCompare(item.carId) ? 'success' : 'default'"
+                  @click="addToCompare(item.carId)"
+                >
+                  {{ compareButtonText(item.carId) }}
+                </el-button>
                 <el-button
                   :type="isFavorited(item.carId) ? 'warning' : 'default'"
                   :loading="favoriteOperatingId === item.carId"
@@ -153,6 +173,13 @@
                   {{ isFavorited(item.carId) ? '已收藏' : '收藏' }}
                 </el-button>
               </div>
+              <p
+                v-if="actionMessage(item.carId)"
+                class="inline-action-message"
+                :class="`inline-action-message--${actionMessage(item.carId).type}`"
+              >
+                {{ actionMessage(item.carId).text }}
+              </p>
             </div>
           </article>
         </section>
@@ -242,7 +269,12 @@
         </div>
 
         <div class="drawer-actions">
-          <el-button @click="addToCompare(selectedCar.id)">加入对比</el-button>
+          <el-button
+            :type="isInCompare(selectedCar.id) ? 'success' : 'default'"
+            @click="addToCompare(selectedCar.id)"
+          >
+            {{ compareButtonText(selectedCar.id) }}
+          </el-button>
           <el-button
             :type="isFavorited(selectedCar.id) ? 'warning' : 'default'"
             :loading="favoriteOperatingId === selectedCar.id"
@@ -254,6 +286,13 @@
             打开详情页
           </el-button>
         </div>
+        <p
+          v-if="actionMessage(selectedCar.id)"
+          class="inline-action-message drawer-action-message"
+          :class="`inline-action-message--${actionMessage(selectedCar.id).type}`"
+        >
+          {{ actionMessage(selectedCar.id).text }}
+        </p>
 
         <h3>特征评分</h3>
         <template v-if="selectedScore">
@@ -286,15 +325,21 @@
 </template>
 
 <script setup>
-import { ElMessage } from 'element-plus'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { fetchCarDetail } from '@/api/cars'
 import { addFavorite, fetchFavoriteStatus, removeFavorite } from '@/api/favorites'
 import { fetchRecommendationDetail, fetchRecommendationFeedback, submitRecommendationFeedback } from '@/api/recommend'
 import { carImageSrc, fallbackCarImage } from '@/utils/carImage'
-import { addCompareId, compareQuery } from '@/utils/compareSelection'
+import {
+  addCompareId,
+  clearCompareReturn,
+  compareQuery,
+  readCompareIds,
+  readCompareScrollFor,
+  saveCompareReturn,
+} from '@/utils/compareSelection'
 import { displayTags, rankOrderedItems } from '@/utils/recommendPresentation'
 
 const route = useRoute()
@@ -318,6 +363,10 @@ const feedbackForm = ref({
   reasonTags: [],
   comment: '',
 })
+const compareIds = ref(readCompareIds())
+const compareNotice = ref('')
+const compareError = ref('')
+const actionMessages = ref({})
 
 const recordId = computed(() => route.params.recordId)
 const selectedCar = computed(() => selectedCarDetail.value?.carModel || {})
@@ -393,6 +442,14 @@ const itemGroups = computed(() => {
   return groups
 })
 
+const compareEntryText = computed(() => {
+  if (compareError.value) return compareError.value
+  if (compareNotice.value) return compareNotice.value
+  if (compareIds.value.length === 0) return '在推荐卡片中加入车型后，可主动进入对比页查看。'
+  if (compareIds.value.length === 1) return '已加入 1 款车型，可继续从推荐结果中加入更多车型。'
+  return '可进入对比页查看基础信息、参数和八维评分差异。'
+})
+
 const detailScoreRows = computed(() =>
   featureScoreConfig.map(([key, label]) => ({
     key,
@@ -425,6 +482,7 @@ async function loadDetail() {
   if (!recordId.value) return
   loading.value = true
   error.value = ''
+  compareIds.value = readCompareIds()
   try {
     const response = await fetchRecommendationDetail(recordId.value)
     detail.value = response.data
@@ -439,6 +497,7 @@ async function loadDetail() {
     }
   } finally {
     loading.value = false
+    await restoreRecommendScroll()
   }
 }
 
@@ -503,18 +562,17 @@ async function openCarDetail(carId) {
 
 async function toggleFavorite(carId) {
   favoriteOperatingId.value = carId
+  clearActionMessage(carId)
   try {
     if (isFavorited(carId)) {
       await removeFavorite(carId)
       favoriteStatus.value = { ...favoriteStatus.value, [carId]: false }
-      ElMessage.success('已取消收藏')
     } else {
       await addFavorite(carId)
       favoriteStatus.value = { ...favoriteStatus.value, [carId]: true }
-      ElMessage.success('已收藏')
     }
   } catch (requestError) {
-    ElMessage.error(requestError?.response?.data?.message || requestError?.message || '收藏操作失败')
+    setActionMessage(carId, requestError?.response?.data?.message || requestError?.message || '收藏操作失败，请稍后重试。', 'error')
   } finally {
     favoriteOperatingId.value = null
   }
@@ -526,12 +584,54 @@ function isFavorited(carId) {
 
 function addToCompare(carId) {
   const result = addCompareId(carId)
+  compareIds.value = result.ids
   if (!result.ok) {
-    ElMessage.warning(result.reason)
+    compareError.value = result.reason
+    compareNotice.value = ''
+    setActionMessage(carId, result.reason, 'error')
     return
   }
-  ElMessage.success(result.reason)
-  router.push({ path: '/compare', query: compareQuery(result.ids) })
+  compareError.value = ''
+  compareNotice.value = result.reason
+  clearActionMessage(carId)
+}
+
+function goToCompare() {
+  saveCompareReturn(route.fullPath, window.scrollY)
+  router.push({ path: '/compare', query: compareQuery(compareIds.value) })
+}
+
+function isInCompare(carId) {
+  return compareIds.value.includes(Number(carId))
+}
+
+function compareButtonText(carId) {
+  if (isInCompare(carId)) return '已加入对比'
+  if (compareIds.value.length >= 3) return '对比已满'
+  return '加入对比'
+}
+
+function setActionMessage(carId, text, type = 'info') {
+  actionMessages.value = { ...actionMessages.value, [carId]: { text, type } }
+}
+
+function clearActionMessage(carId) {
+  if (!actionMessages.value[carId]) return
+  const next = { ...actionMessages.value }
+  delete next[carId]
+  actionMessages.value = next
+}
+
+function actionMessage(carId) {
+  return actionMessages.value?.[carId] || null
+}
+
+async function restoreRecommendScroll() {
+  const scrollY = readCompareScrollFor(route.fullPath)
+  if (scrollY === null) return
+  clearCompareReturn()
+  await nextTick()
+  window.scrollTo({ top: scrollY, behavior: 'auto' })
 }
 
 async function submitFeedback() {
@@ -545,7 +645,6 @@ async function submitFeedback() {
       comment: response.data.comment || '',
     }
     feedbackSaved.value = true
-    ElMessage.success('反馈已记录')
   } catch (requestError) {
     feedbackError.value = requestError?.response?.data?.message || requestError?.message || '反馈提交失败。'
   } finally {
@@ -688,6 +787,41 @@ function formatDate(value) {
 
 .ranking-note {
   margin-bottom: 20px;
+}
+
+.compare-entry-panel {
+  margin-bottom: 20px;
+}
+
+.compare-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.compare-entry h2 {
+  margin: 4px 0 6px;
+  color: var(--color-primary-dark);
+  font-size: 18px;
+}
+
+.inline-state,
+.inline-action-message {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.inline-state--error,
+.inline-action-message--error {
+  color: var(--color-danger);
+}
+
+.inline-action-message {
+  margin-top: 8px;
+  text-align: right;
 }
 
 .ranking-note .panel__body {
@@ -952,6 +1086,10 @@ function formatDate(value) {
   margin-top: 16px;
 }
 
+.drawer-action-message {
+  text-align: left;
+}
+
 .drawer-state {
   padding: 12px 0;
 }
@@ -1021,6 +1159,7 @@ function formatDate(value) {
 
 @media (max-width: 980px) {
   .result-summary,
+  .compare-entry,
   .recommend-card,
   .explain-grid,
   .score-grid,

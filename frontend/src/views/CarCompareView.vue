@@ -5,7 +5,7 @@
         <h1 class="page-title">车型对比</h1>
         <p class="page-subtitle">最多选择 3 款车型，横向查看基础信息、参数和八维静态评分。对比不生成推荐，也不影响推荐排序。</p>
       </div>
-      <el-button type="primary" plain @click="$router.push('/recommend')">返回购车推荐</el-button>
+      <el-button type="primary" plain @click="returnToSource">返回推荐结果</el-button>
     </div>
 
     <div class="panel compare-toolbar">
@@ -45,6 +45,13 @@
           </el-select>
           <el-button type="primary" @click="addSelectedCar">加入对比</el-button>
         </div>
+        <p
+          v-if="operationMessage"
+          class="inline-state toolbar-state"
+          :class="{ 'inline-state--error': operationMessageType === 'error' }"
+        >
+          {{ operationMessage }}
+        </p>
       </div>
     </div>
 
@@ -63,15 +70,24 @@
       show-icon
     />
 
-    <div v-else-if="selectedIds.length < 2" class="panel">
+    <div v-else-if="!selectedIds.length" class="panel">
       <div class="panel__body">
-        <el-empty description="请至少选择 2 款车型进行对比">
-          <el-button type="primary" @click="$router.push('/recommend')">去推荐结果中选择车型</el-button>
+        <el-empty description="暂未选择车型">
+          <el-button type="primary" @click="returnToSource">返回推荐结果选择车型</el-button>
         </el-empty>
       </div>
     </div>
 
     <template v-else-if="comparison">
+      <el-alert
+        v-if="selectedIds.length === 1"
+        class="state-alert"
+        type="info"
+        :closable="false"
+        title="当前已选择 1 款车型，可继续从推荐结果或车型详情中加入更多车型进行对比。"
+        show-icon
+      />
+
       <div class="compare-grid">
         <article v-for="car in comparison.cars" :key="car.carId" class="compare-card">
           <div class="card-visual">
@@ -179,13 +195,12 @@
 </template>
 
 <script setup>
-import { ElMessage } from 'element-plus'
 import { computed, defineComponent, h, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { fetchCarCompare, fetchCarOptions } from '@/api/cars'
 import { carImageSrc, fallbackCarImage } from '@/utils/carImage'
-import { addCompareId, compareQuery, readCompareIds, removeCompareId, writeCompareIds } from '@/utils/compareSelection'
+import { addCompareId, compareQuery, readCompareIds, readCompareReturn, removeCompareId, writeCompareIds } from '@/utils/compareSelection'
 
 const CompareTable = defineComponent({
   props: {
@@ -227,6 +242,8 @@ const selectedIds = ref([])
 const pendingCarId = ref(null)
 const optionLoading = ref(false)
 const carOptions = ref([])
+const operationMessage = ref('')
+const operationMessageType = ref('info')
 
 const dimensions = computed(() => comparison.value?.dimensions || [])
 const colors = ['#2563EB', '#0891B2', '#16A34A']
@@ -324,7 +341,7 @@ function syncIdsFromRoute() {
 }
 
 async function loadCompare() {
-  if (selectedIds.value.length < 2) {
+  if (!selectedIds.value.length) {
     comparison.value = null
     error.value = ''
     return
@@ -344,11 +361,12 @@ async function loadCompare() {
 
 async function searchCars(keyword) {
   optionLoading.value = true
+  setOperationMessage('')
   try {
     const response = await fetchCarOptions({ keyword, limit: 20 })
     carOptions.value = response.data || []
   } catch (requestError) {
-    ElMessage.error(requestError?.response?.data?.message || requestError?.message || '车型搜索失败')
+    setOperationMessage(requestError?.response?.data?.message || requestError?.message || '车型搜索失败。', 'error')
   } finally {
     optionLoading.value = false
   }
@@ -356,22 +374,34 @@ async function searchCars(keyword) {
 
 function addSelectedCar() {
   if (!pendingCarId.value) {
-    ElMessage.warning('请先选择车型')
+    setOperationMessage('请先选择车型。', 'error')
     return
   }
   const result = addCompareId(pendingCarId.value)
   if (!result.ok) {
-    ElMessage.warning(result.reason)
+    setOperationMessage(result.reason, 'error')
     return
   }
   pendingCarId.value = null
   router.replace({ path: '/compare', query: compareQuery(result.ids) })
-  ElMessage.success(result.reason)
+  setOperationMessage(result.reason)
 }
 
 function removeCar(carId) {
   const ids = removeCompareId(carId)
   router.replace({ path: '/compare', query: compareQuery(ids) })
+  setOperationMessage(ids.length ? '已从对比中移出。' : '已清空对比车型。')
+}
+
+function returnToSource() {
+  const saved = readCompareReturn()
+  const target = saved?.path && saved.path !== route.fullPath ? saved.path : '/history'
+  router.push(target)
+}
+
+function setOperationMessage(text, type = 'info') {
+  operationMessage.value = text
+  operationMessageType.value = type
 }
 
 function parseIds(value) {
@@ -457,6 +487,10 @@ function formatMetric(value, unit) {
   align-items: end;
 }
 
+.toolbar-state {
+  grid-column: 1 / -1;
+}
+
 .toolbar-label {
   margin: 0 0 8px;
   color: var(--color-muted);
@@ -474,6 +508,17 @@ function formatMetric(value, unit) {
 .muted-text {
   color: var(--color-muted);
   font-size: 13px;
+}
+
+.inline-state {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.inline-state--error {
+  color: var(--color-danger);
 }
 
 .add-control {

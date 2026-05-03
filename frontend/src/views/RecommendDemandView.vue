@@ -35,6 +35,14 @@
           :title="parseError"
           show-icon
         />
+        <el-alert
+          v-if="parseSuccess"
+          class="parse-alert"
+          type="success"
+          :closable="false"
+          title="解析结果已填入表单，请确认后再生成推荐"
+          show-icon
+        />
         <div v-if="parseResult" class="parse-result">
           <div class="parse-result__summary">
             <span v-for="item in parsedSummaryItems" :key="item.label">
@@ -62,6 +70,15 @@
       type="error"
       :closable="false"
       :title="submitError"
+      show-icon
+    />
+
+    <el-alert
+      v-if="optionLoadError"
+      class="state-alert"
+      type="warning"
+      :closable="false"
+      :title="optionLoadError"
       show-icon
     />
 
@@ -222,7 +239,6 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowRight, Refresh, Search } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
 
 import { fetchCarBrands, fetchCarOptions } from '@/api/cars'
 import { createUserDemand, generateRecommendation, parseDemandText } from '@/api/recommend'
@@ -239,7 +255,10 @@ const brandOptions = ref([])
 const carOptions = ref([])
 const parseLoading = ref(false)
 const parseError = ref('')
+const parseSuccess = ref(false)
 const parseResult = ref(null)
+const brandLoadError = ref('')
+const carOptionLoadError = ref('')
 
 const sceneOptions = [
   { value: '城市通勤', description: '更关注价格、能耗和日常便利性' },
@@ -293,6 +312,8 @@ const parsedSummaryItems = computed(() => {
   ]
 })
 
+const optionLoadError = computed(() => brandLoadError.value || carOptionLoadError.value)
+
 const rules = {
   budgetMinWan: [{ validator: validateBudget, trigger: 'change' }],
   budgetMaxWan: [{ validator: validateBudget, trigger: 'change' }],
@@ -331,11 +352,12 @@ function defaultForm() {
 
 async function loadBrands() {
   brandLoading.value = true
+  brandLoadError.value = ''
   try {
     const response = await fetchCarBrands()
     brandOptions.value = response.data || []
   } catch (error) {
-    ElMessage.error(error?.response?.data?.message || error?.message || '品牌列表加载失败')
+    brandLoadError.value = error?.response?.data?.message || error?.message || '品牌列表加载失败。'
   } finally {
     brandLoading.value = false
   }
@@ -343,11 +365,12 @@ async function loadBrands() {
 
 async function searchCarOptions(keyword) {
   carOptionLoading.value = true
+  carOptionLoadError.value = ''
   try {
     const response = await fetchCarOptions({ keyword, limit: 50 })
     carOptions.value = response.data || []
   } catch (error) {
-    ElMessage.error(error?.response?.data?.message || error?.message || '车型选项加载失败')
+    carOptionLoadError.value = error?.response?.data?.message || error?.message || '车型选项加载失败。'
   } finally {
     carOptionLoading.value = false
   }
@@ -372,9 +395,10 @@ function validateBudget(rule, value, callback) {
 
 async function parseNaturalLanguage() {
   parseError.value = ''
+  parseSuccess.value = false
   const text = form.rawText?.trim()
   if (!text) {
-    ElMessage.warning('请先输入一句购车需求')
+    parseError.value = '请先输入一句购车需求'
     return
   }
 
@@ -383,7 +407,7 @@ async function parseNaturalLanguage() {
     const response = await parseDemandText({ text })
     parseResult.value = response.data
     applyParsedDemand(response.data)
-    ElMessage.success('解析结果已填入表单，请确认后再生成推荐')
+    parseSuccess.value = true
   } catch (error) {
     parseError.value = error?.response?.data?.message || error?.message || '自然语言需求解析失败'
   } finally {
@@ -413,7 +437,7 @@ async function submitDemand() {
   try {
     await formRef.value.validate()
   } catch {
-    ElMessage.warning('请先修正表单校验错误')
+    submitError.value = '请先修正表单校验错误'
     return
   }
 
@@ -498,6 +522,7 @@ function resetForm() {
   Object.assign(form, defaultForm())
   submitError.value = ''
   parseError.value = ''
+  parseSuccess.value = false
   parseResult.value = null
   formRef.value?.clearValidate()
 }

@@ -31,7 +31,7 @@ public class CarDetailServiceImpl implements CarDetailService {
 
     private static final int DEFAULT_OPTION_LIMIT = 20;
     private static final int MAX_OPTION_LIMIT = 100;
-    private static final int MIN_COMPARE_COUNT = 2;
+    private static final int MIN_COMPARE_COUNT = 1;
     private static final int MAX_COMPARE_COUNT = 3;
     private static final List<CarCompareDimensionVO> COMPARE_DIMENSIONS = List.of(
             new CarCompareDimensionVO("space", "空间"),
@@ -110,14 +110,14 @@ public class CarDetailServiceImpl implements CarDetailService {
 
     private List<Long> normalizeCompareIds(List<Long> carIds) {
         if (carIds == null || carIds.isEmpty()) {
-            throw new BusinessException("carIds must contain 2 to 3 cars");
+            throw new BusinessException("carIds must contain 1 to 3 cars");
         }
         List<Long> normalizedIds = carIds.stream()
                 .filter(id -> id != null && id > 0)
                 .distinct()
                 .toList();
         if (normalizedIds.size() < MIN_COMPARE_COUNT) {
-            throw new BusinessException("carIds must contain at least 2 different cars");
+            throw new BusinessException("carIds must contain at least 1 car");
         }
         if (normalizedIds.size() > MAX_COMPARE_COUNT) {
             throw new BusinessException("carIds can contain at most 3 cars");

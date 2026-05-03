@@ -1,15 +1,22 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const router = readFileSync(new URL('../src/router/index.js', import.meta.url), 'utf8')
-const resultView = readFileSync(new URL('../src/views/RecommendResultView.vue', import.meta.url), 'utf8')
-const compareView = readFileSync(new URL('../src/views/CarCompareView.vue', import.meta.url), 'utf8')
-const favoritesView = readFileSync(new URL('../src/views/FavoritesView.vue', import.meta.url), 'utf8')
-const carsApi = readFileSync(new URL('../src/api/cars.js', import.meta.url), 'utf8')
-const favoritesApi = readFileSync(new URL('../src/api/favorites.js', import.meta.url), 'utf8')
-const recommendApi = readFileSync(new URL('../src/api/recommend.js', import.meta.url), 'utf8')
-const presentation = readFileSync(new URL('../src/utils/recommendPresentation.js', import.meta.url), 'utf8')
-const packageJson = readFileSync(new URL('../package.json', import.meta.url), 'utf8')
+const root = dirname(fileURLToPath(import.meta.url))
+const srcRoot = join(root, '../src')
+
+const router = read('../src/router/index.js')
+const resultView = read('../src/views/RecommendResultView.vue')
+const compareView = read('../src/views/CarCompareView.vue')
+const favoritesView = read('../src/views/FavoritesView.vue')
+const compareSelection = read('../src/utils/compareSelection.js')
+const carsApi = read('../src/api/cars.js')
+const favoritesApi = read('../src/api/favorites.js')
+const recommendApi = read('../src/api/recommend.js')
+const presentation = read('../src/utils/recommendPresentation.js')
+const packageJson = read('../package.json')
+const frontendSource = readTree(srcRoot)
 
 assert.match(router, /\/compare/)
 assert.match(router, /CarCompareView/)
@@ -22,13 +29,21 @@ assert.match(favoritesApi, /\/user\/favorites\/status/)
 assert.match(recommendApi, /\/recommend\/\$\{recordId\}\/feedback/)
 
 assert.match(resultView, /加入对比/)
-assert.match(resultView, /收藏/)
-assert.match(resultView, /推荐反馈/)
+assert.match(resultView, /已加入对比/)
+assert.match(resultView, /查看对比/)
+assert.match(resultView, /反馈已记录/)
 assert.match(resultView, /submitRecommendationFeedback/)
 assert.match(resultView, /反馈只进入统计分析，当前版本不会自动调整推荐权重或排序/)
 
+const addToCompareBlock = extractFunction(resultView, 'addToCompare')
+assert.doesNotMatch(addToCompareBlock, /router\.push|\/compare/)
+assert.match(resultView, /saveCompareReturn\(route\.fullPath,\s*window\.scrollY\)/)
+assert.match(resultView, /readCompareScrollFor\(route\.fullPath\)/)
+
 assert.match(compareView, /八维静态评分/)
 assert.match(compareView, /radar-svg/)
+assert.match(compareView, /当前已选择 1 款车型/)
+assert.match(compareView, /readCompareReturn/)
 assert.doesNotMatch(compareView, /recommend\/generate/)
 assert.doesNotMatch(compareView, /generateRecommendation/)
 assert.doesNotMatch(compareView, /TopsisRanker|ParetoAnalyzer|RecommendationWeightService/)
@@ -38,8 +53,40 @@ assert.match(favoritesView, /不参与推荐排序/)
 assert.doesNotMatch(favoritesView, /recommend\/generate/)
 assert.doesNotMatch(favoritesView, /generateRecommendation/)
 
+assert.match(compareSelection, /MAX_COMPARE_COUNT = 3/)
+assert.match(compareSelection, /saveCompareReturn/)
+assert.match(compareSelection, /readCompareScrollFor/)
+
 assert.match(presentation, /rankNo/)
 assert.doesNotMatch(presentation, /favorite|feedback|收藏|反馈/)
 assert.doesNotMatch(packageJson, /echarts/i)
 
+assert.doesNotMatch(
+  frontendSource,
+  /ElMessage(?!Box)|ElNotification|\$message|message\.success|message\.error|toast|notify|notification/,
+)
+
 console.log('stage 11 feature checks passed')
+
+function read(relativePath) {
+  return readFileSync(join(root, relativePath), 'utf8')
+}
+
+function readTree(directory) {
+  return readdirSync(directory)
+    .map((name) => join(directory, name))
+    .map((path) => {
+      if (statSync(path).isDirectory()) {
+        return readTree(path)
+      }
+      return path.endsWith('.vue') || path.endsWith('.js') ? readFileSync(path, 'utf8') : ''
+    })
+    .join('\n')
+}
+
+function extractFunction(source, name) {
+  const start = source.indexOf(`function ${name}`)
+  assert.notEqual(start, -1, `${name} function should exist`)
+  const nextFunction = source.indexOf('\nfunction ', start + 1)
+  return source.slice(start, nextFunction === -1 ? source.length : nextFunction)
+}

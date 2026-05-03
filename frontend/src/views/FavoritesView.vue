@@ -5,7 +5,10 @@
         <h1 class="page-title">我的收藏</h1>
         <p class="page-subtitle">收藏只记录演示用户关注的车型，不参与推荐排序，也不会改变推荐算法权重。</p>
       </div>
-      <el-button type="primary" @click="$router.push('/recommend')">继续购车推荐</el-button>
+      <div class="header-actions">
+        <el-button plain :disabled="!compareIds.length" @click="goToCompare">查看对比（{{ compareIds.length }}/3）</el-button>
+        <el-button type="primary" @click="$router.push('/recommend')">继续购车推荐</el-button>
+      </div>
     </div>
 
     <div class="panel">
@@ -47,7 +50,9 @@
 
                 <div class="favorite-actions">
                   <el-button type="primary" plain @click="$router.push(`/car/${car.carId}`)">查看详情</el-button>
-                  <el-button @click="goCompare(car.carId)">加入对比</el-button>
+                  <el-button :type="isInCompare(car.carId) ? 'success' : 'default'" @click="addToCompare(car.carId)">
+                    {{ compareButtonText(car.carId) }}
+                  </el-button>
                   <el-button
                     type="danger"
                     plain
@@ -57,6 +62,13 @@
                     取消收藏
                   </el-button>
                 </div>
+                <p
+                  v-if="actionMessage(car.carId)"
+                  class="inline-action-message"
+                  :class="`inline-action-message--${actionMessage(car.carId).type}`"
+                >
+                  {{ actionMessage(car.carId).text }}
+                </p>
               </div>
             </article>
           </div>
@@ -79,20 +91,22 @@
 </template>
 
 <script setup>
-import { ElMessage } from 'element-plus'
 import { onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 import { fetchFavorites, removeFavorite } from '@/api/favorites'
 import { carImageSrc, fallbackCarImage } from '@/utils/carImage'
-import { addCompareId, compareQuery } from '@/utils/compareSelection'
+import { addCompareId, compareQuery, readCompareIds, saveCompareReturn } from '@/utils/compareSelection'
 
+const route = useRoute()
 const router = useRouter()
 const loading = ref(false)
 const error = ref('')
 const records = ref([])
 const total = ref(0)
 const operatingId = ref(null)
+const compareIds = ref(readCompareIds())
+const actionMessages = ref({})
 const query = reactive({
   page: 1,
   size: 6,
@@ -110,6 +124,7 @@ onMounted(loadFavorites)
 async function loadFavorites() {
   loading.value = true
   error.value = ''
+  compareIds.value = readCompareIds()
   try {
     const response = await fetchFavorites({ page: query.page, size: query.size })
     records.value = response.data.records || []
@@ -130,25 +145,55 @@ function reloadFirstPage() {
 
 async function cancelFavorite(carId) {
   operatingId.value = carId
+  clearActionMessage(carId)
   try {
     await removeFavorite(carId)
-    ElMessage.success('已取消收藏')
     loadFavorites()
   } catch (requestError) {
-    ElMessage.error(requestError?.response?.data?.message || requestError?.message || '取消收藏失败')
+    setActionMessage(carId, requestError?.response?.data?.message || requestError?.message || '取消收藏失败，请稍后重试。', 'error')
   } finally {
     operatingId.value = null
   }
 }
 
-function goCompare(carId) {
+function addToCompare(carId) {
   const result = addCompareId(carId)
+  compareIds.value = result.ids
   if (!result.ok) {
-    ElMessage.warning(result.reason)
+    setActionMessage(carId, result.reason, 'error')
     return
   }
-  ElMessage.success(result.reason)
-  router.push({ path: '/compare', query: compareQuery(result.ids) })
+  clearActionMessage(carId)
+}
+
+function goToCompare() {
+  saveCompareReturn(route.fullPath, window.scrollY)
+  router.push({ path: '/compare', query: compareQuery(compareIds.value) })
+}
+
+function isInCompare(carId) {
+  return compareIds.value.includes(Number(carId))
+}
+
+function compareButtonText(carId) {
+  if (isInCompare(carId)) return '已加入对比'
+  if (compareIds.value.length >= 3) return '对比已满'
+  return '加入对比'
+}
+
+function setActionMessage(carId, text, type = 'info') {
+  actionMessages.value = { ...actionMessages.value, [carId]: { text, type } }
+}
+
+function clearActionMessage(carId) {
+  if (!actionMessages.value[carId]) return
+  const next = { ...actionMessages.value }
+  delete next[carId]
+  actionMessages.value = next
+}
+
+function actionMessage(carId) {
+  return actionMessages.value?.[carId] || null
 }
 
 function scoreHighlights(car) {
@@ -174,6 +219,13 @@ function formatDate(value) {
 </script>
 
 <style scoped>
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .favorite-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -258,6 +310,18 @@ function formatDate(value) {
   justify-content: flex-end;
   gap: 8px;
   margin-top: 16px;
+}
+
+.inline-action-message {
+  margin: 8px 0 0;
+  color: var(--color-muted);
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: right;
+}
+
+.inline-action-message--error {
+  color: var(--color-danger);
 }
 
 .favorite-footer {

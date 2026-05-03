@@ -114,6 +114,17 @@ class CarControllerTest {
         assertEquals(0, count("SELECT COUNT(*) FROM recommend_item"));
         assertEquals(0, count("SELECT COUNT(*) FROM user_demand"));
 
+        mockMvc.perform(get("/api/car/compare").param("carIds", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.carIds.length()").value(1))
+                .andExpect(jsonPath("$.data.dimensions.length()").value(8))
+                .andExpect(jsonPath("$.data.cars.length()").value(1))
+                .andExpect(jsonPath("$.data.cars[0].carId").value(1))
+                .andExpect(jsonPath("$.data.cars[0].brand").value("比亚迪"))
+                .andExpect(jsonPath("$.data.cars[0].param.carId").value(1))
+                .andExpect(jsonPath("$.data.cars[0].scores.space").isNumber());
+
         mockMvc.perform(get("/api/car/compare").param("carIds", "1,2"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
@@ -140,15 +151,16 @@ class CarControllerTest {
         assertEquals(0, count("SELECT COUNT(*) FROM recommend_item"));
         assertEquals(0, count("SELECT COUNT(*) FROM user_demand"));
 
-        mockMvc.perform(get("/api/car/compare").param("carIds", "1"))
+        mockMvc.perform(get("/api/car/compare").param("carIds", ""))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(400));
         mockMvc.perform(get("/api/car/compare").param("carIds", "1,2,3,4"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(400));
         mockMvc.perform(get("/api/car/compare").param("carIds", "1,1"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(400));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.carIds.length()").value(1))
+                .andExpect(jsonPath("$.data.cars.length()").value(1));
     }
 
     private int count(String sql) {

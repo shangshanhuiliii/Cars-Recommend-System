@@ -612,7 +612,7 @@ GET /api/car/compare?carIds=1,2,3
 
 要求：
 
-- `carIds` 至少 2 个、最多 3 个，重复 ID 去重后不足 2 个返回 400。
+- `carIds` 至少 1 个、最多 3 个；重复 ID 去重后仍按 1-3 个有效车型处理。
 - 只读取未删除车型。
 - 只读取 `car_model`、`car_param`、`car_feature_score` 当前快照。
 - 不触发车型评分重算。
