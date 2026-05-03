@@ -81,10 +81,11 @@ npm run dev
 3. `docs/DEVELOPMENT_GUIDE.md`
 4. `docs/SYSTEM_CONTRACTS.md`
 5. `docs/HANDOFF.md`
-6. `docs/API_DESIGN.md`
-7. `docs/DATABASE_DESIGN.md`
-8. `docs/RECOMMENDATION_IMPLEMENTATION_LOGIC.md`
-9. `docs/FRONTEND_DESIGN.md`
+6. `docs/DATABASE_INIT.md`
+7. `docs/API_DESIGN.md`
+8. `docs/DATABASE_DESIGN.md`
+9. `docs/RECOMMENDATION_IMPLEMENTATION_LOGIC.md`
+10. `docs/FRONTEND_DESIGN.md`
 
 需要查算法公式时再读 `docs/RECOMMENDATION_ALGORITHM_UPGRADE.md`；需要查阶段历史时再读 `docs/IMPLEMENTATION_TASKS.md` 和 `docs/COMPLETED_PHASES.md`。
 
@@ -96,7 +97,8 @@ npm run dev
 - `frontend`：Vue 3 前端。
 - `docs`：项目规格、接口、数据库、算法、前端和交接文档。
 - `backend/src/main/resources/db/schema.sql`：数据库表结构初始化脚本。
-- `backend/src/main/resources/db/seed-data.sql`：演示种子数据初始化脚本。
+- `backend/src/main/resources/db/seed-data.sql`：演示种子数据初始化脚本，当前包含 120 条车型和对应参数。
+- `scripts/init-dev-db.ps1`：本地 MySQL 建库、建表和导入种子数据脚本。
 
 后端主要分层：
 

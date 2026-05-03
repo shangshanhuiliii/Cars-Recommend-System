@@ -73,6 +73,12 @@ backend/src/main/resources/db/seed-data.sql
 powershell -ExecutionPolicy Bypass -File .\scripts\init-dev-db.ps1
 ```
 
+如果本地库已有旧数据并确认可以删除，使用：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\init-dev-db.ps1 -Recreate
+```
+
 初始化后执行全部车型评分重算：
 
 ```text
@@ -89,7 +95,7 @@ POST /api/admin/cars/scores/recalculate
 
 - 默认演示用户：`app_user.id = 1`
 - 默认演示管理员：`admin.id = 1`
-- 当前种子车型数量以 `seed-data.sql` 为准；现有文档记录的最小演示数据为 20 条车型。
+- 当前 `seed-data.sql` 包含 120 条车型基础数据和 120 条车型参数数据。
 - `car_model.energy_type` 不含 `新能源`，只保存 `燃油 / 纯电 / 插混 / 增程`。
 - `新能源` 只作为用户需求侧宽泛动力偏好。
 

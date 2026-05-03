@@ -13,6 +13,7 @@
 - `docs/DEVELOPMENT_GUIDE.md`：新开发者开发指南，说明本地准备、启动、测试和新功能开发流程。
 - `docs/SYSTEM_CONTRACTS.md`：系统规则合同，固定不能随意改动的算法、字段、数据库、API、前端和文档规则。
 - `docs/HANDOFF.md`：项目交接说明，帮助朋友快速接手当前项目状态和后续维护重点。
+- `docs/DATABASE_INIT.md`：本地 MySQL 创建、重建和导入 120 条车型测试数据的说明。
 - `docs/PROJECT_SPEC.md`：项目总览、范围边界、技术栈、功能优先级和验收口径。
 - `docs/RECOMMENDATION_DESIGN.md`：推荐闭环概要设计、模块职责和边界。
 - `docs/RECOMMENDATION_ALGORITHM_UPGRADE.md`：当前主算法详细文档，算法版本为 `pareto-topsis-v1`。
@@ -33,6 +34,7 @@
 docs/DEVELOPMENT_GUIDE.md
 docs/SYSTEM_CONTRACTS.md
 docs/HANDOFF.md
+docs/DATABASE_INIT.md
 ```
 
 当前项目核心算法是 `pareto-topsis-v1`。推荐请求不包含推荐数量字段，反馈只进入统计，不自动影响权重或排序。详细算法公式不在 README 重复维护。
@@ -63,7 +65,7 @@ backend/src/main/resources/application-local.yml
 
 ## 本地 MySQL 初始化
 
-后端本地联调建议使用 MySQL 8。仓库提供独立初始化脚本，用于新机器或本地开发库需要重建时一次性完成建库、建表和导入种子数据。
+后端本地联调建议使用 MySQL 8。仓库提供独立初始化脚本，用于新机器或本地开发库需要重建时一次性完成建库、建表和导入当前 120 条车型测试数据。
 
 前置条件：
 
@@ -77,11 +79,17 @@ backend/src/main/resources/application-local.yml
 powershell -ExecutionPolicy Bypass -File .\scripts\init-dev-db.ps1
 ```
 
-脚本会读取 `application-local.yml`，提示确认后删除并重建本地开发库，依次执行：
+脚本会读取 `application-local.yml`，创建数据库，依次执行：
 
 ```text
 backend/src/main/resources/db/schema.sql
 backend/src/main/resources/db/seed-data.sql
+```
+
+如果本地库已有旧数据，需要删除并重建本地开发库：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\init-dev-db.ps1 -Recreate
 ```
 
 如果后端已经用 `local` profile 启动，可以同时触发车型评分重算：
@@ -107,7 +115,7 @@ SOURCE backend/src/main/resources/db/seed-data.sql;
 POST http://localhost:8080/api/admin/cars/scores/recalculate
 ```
 
-注意：初始化脚本只用于本地开发库，会删除本地需求、推荐记录、收藏和反馈等业务数据；不要对生产库或他人共享库执行。脚本不会打印数据库密码。
+更多说明见 `docs/DATABASE_INIT.md`。注意：`-Recreate` 只用于本地开发库，会删除本地需求、推荐记录、收藏和反馈等业务数据；不要对生产库或他人共享库执行。脚本不会打印数据库密码。
 
 ## 阶段 0 工程启动
 
