@@ -19,18 +19,18 @@
         >
           <el-menu-item index="/">首页</el-menu-item>
           <el-menu-item index="/recommend">购车推荐</el-menu-item>
-          <el-menu-item index="/compare">车型对比</el-menu-item>
-          <el-menu-item index="/favorites">我的收藏</el-menu-item>
           <el-menu-item index="/history">推荐历史</el-menu-item>
+          <el-menu-item index="/favorites">我的收藏</el-menu-item>
+          <el-menu-item index="/compare">车型对比</el-menu-item>
           <el-sub-menu index="/admin">
-            <template #title>管理端</template>
+            <template #title>管理端入口</template>
             <el-menu-item index="/admin/cars">车型管理</el-menu-item>
             <el-menu-item index="/admin/recommend-records">推荐记录</el-menu-item>
             <el-menu-item index="/admin/dashboard">统计仪表盘</el-menu-item>
+            <el-menu-item index="/admin/health">系统健康检查</el-menu-item>
+            <el-menu-item index="/algorithm-demo">算法可视化</el-menu-item>
           </el-sub-menu>
         </el-menu>
-
-        <el-tag class="demo-tag" type="info" effect="plain">演示用户 ID 1</el-tag>
       </div>
     </el-header>
 

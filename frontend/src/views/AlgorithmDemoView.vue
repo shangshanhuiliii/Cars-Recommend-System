@@ -2,7 +2,7 @@
   <section>
     <div class="page-header">
       <div>
-        <h1 class="page-title">推荐算法可视化演示</h1>
+        <h1 class="page-title">算法可视化</h1>
         <p class="page-subtitle">算法可视化页面从推荐快照读取数据，展示当前 Pareto-TOPSIS 推荐算法的完整过程。</p>
       </div>
       <el-button @click="$router.push('/')">返回首页</el-button>
@@ -279,8 +279,8 @@
         <div class="panel__body">
           <div class="section-head">
             <div>
-              <p class="eyebrow">候选阶段统计</p>
-              <h2>STRICT 与降级候选分布</h2>
+              <p class="eyebrow">候选范围统计</p>
+              <h2>STRICT 与补充候选分布</h2>
             </div>
           </div>
           <div class="stage-grid">
@@ -350,7 +350,7 @@
             <div class="ranking-row ranking-row--head">
               <span>排序 rankNo</span>
               <span>车型</span>
-              <span>匹配阶段 matchLevel</span>
+              <span>匹配层级 matchLevel</span>
               <span>Pareto 标记</span>
               <span>综合推荐分 totalScore</span>
               <span>接近度 closeness</span>
@@ -613,7 +613,7 @@ async function loadVisualization() {
   } catch (requestError) {
     detail.value = null
     if (requestError?.response?.status === 404) {
-      error.value = '推荐记录不存在，或当前演示用户无权查看该记录。'
+      error.value = '推荐记录不存在，或当前用户无权查看该记录。'
     } else {
       error.value = requestError?.response?.data?.message || requestError?.message || '算法过程加载失败。'
     }

@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 
 import AdminCarsView from '@/views/AdminCarsView.vue'
 import AdminDashboardView from '@/views/AdminDashboardView.vue'
+import AdminHealthView from '@/views/AdminHealthView.vue'
 import AdminRecommendRecordsView from '@/views/AdminRecommendRecordsView.vue'
 import AlgorithmDemoView from '@/views/AlgorithmDemoView.vue'
 import CarDetailView from '@/views/CarDetailView.vue'
@@ -69,6 +70,11 @@ const router = createRouter({
       path: '/admin/dashboard',
       name: 'admin-dashboard',
       component: AdminDashboardView,
+    },
+    {
+      path: '/admin/health',
+      name: 'admin-health',
+      component: AdminHealthView,
     },
   ],
 })

@@ -3,7 +3,7 @@
     <div class="page-header">
       <div>
         <h1 class="page-title">我的收藏</h1>
-        <p class="page-subtitle">收藏只记录演示用户关注的车型，不参与推荐排序，也不会改变推荐算法权重。</p>
+        <p class="page-subtitle">收藏只记录当前用户关注的车型，不参与推荐排序，也不会改变推荐算法权重。</p>
       </div>
       <div class="header-actions">
         <el-button plain :disabled="!compareIds.length" @click="goToCompare">查看对比（{{ compareIds.length }}/3）</el-button>

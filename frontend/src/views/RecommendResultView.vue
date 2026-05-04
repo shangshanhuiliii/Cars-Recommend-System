@@ -491,7 +491,7 @@ async function loadDetail() {
   } catch (requestError) {
     detail.value = null
     if (requestError?.response?.status === 404) {
-      error.value = '推荐记录不存在，或当前演示用户无权查看该记录。'
+      error.value = '推荐记录不存在，或当前用户无权查看该记录。'
     } else {
       error.value = requestError?.response?.data?.message || requestError?.message || '推荐结果加载失败。'
     }

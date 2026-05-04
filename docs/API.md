@@ -54,13 +54,13 @@
 
 ## 默认用户
 
-需要用户上下文的接口可以传 `userId`。`userId` 为空时，后端使用默认演示用户：
+需要用户上下文的接口可以传 `userId`。`userId` 为空时，后端使用默认用户上下文：
 
 ```text
 app_user.id = 1
 ```
 
-管理端默认演示管理员：
+管理端默认管理员上下文：
 
 ```text
 admin.id = 1
@@ -71,6 +71,8 @@ admin.id = 1
 ```text
 GET /api/health
 ```
+
+该接口由管理端 `/admin/health` 页面调用，用于查看后端服务和数据库连接状态。普通用户首页不调用该接口。
 
 响应示例：
 
@@ -410,7 +412,7 @@ GET  /api/recommend/{recordId}/algorithm-visualization
 GET /api/recommend/history?userId=1&page=1&size=10
 ```
 
-`userId` 为空时使用默认演示用户。`size` 默认 10，最大 100。
+`userId` 为空时使用默认用户上下文。`size` 默认 10，最大 100。
 
 历史详情：
 
@@ -468,7 +470,7 @@ GET    /api/user/favorites/status?carIds=1,2,3
 
 规则：
 
-- `userId` 可作为查询参数传入；为空时使用默认演示用户。
+- `userId` 可作为查询参数传入；为空时使用默认用户上下文。
 - 收藏已收藏车型时幂等返回成功。
 - 取消未收藏车型时幂等返回成功。
 - 只允许收藏未删除车型。
@@ -495,7 +497,7 @@ GET  /api/recommend/{recordId}/feedback
 
 规则：
 
-- `userId` 为空时使用默认演示用户。
+- `userId` 为空时使用默认用户上下文。
 - 只能反馈自己的推荐记录。
 - `satisfactionScore` 范围为 1-5。
 - `satisfactionLevel` 由后端按分数生成：4-5 为 `SATISFIED`，3 为 `NEUTRAL`，1-2 为 `DISSATISFIED`。

@@ -104,10 +104,6 @@ a {
   border-bottom: 0;
 }
 
-.demo-tag {
-  flex: 0 0 auto;
-}
-
 .main-shell {
   width: min(1200px, calc(100vw - 48px));
   margin: 0 auto;
@@ -215,6 +211,17 @@ a {
 
   .brand {
     min-width: 0;
+  }
+
+  .nav-menu {
+    flex-basis: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .nav-menu .el-menu-item,
+  .nav-menu .el-sub-menu__title {
+    white-space: nowrap;
   }
 
   .main-shell {
