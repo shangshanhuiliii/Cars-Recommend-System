@@ -1,34 +1,19 @@
-# docs 文档目录
+# 文档目录
 
-`docs` 是项目文档总目录，当前按文档是否具备工程约束分为两类。
+`docs` 目录只维护当前可运行工程的开发文档，不再区分其他文档分类。
 
-## 1. 约束性文档
+| 文档 | 用途 |
+| --- | --- |
+| `docs/DEVELOPMENT.md` | 本地开发环境、启动命令、测试命令、新功能流程和提交前检查。 |
+| `docs/ARCHITECTURE.md` | 系统定位、后端分层、前端页面结构、推荐主链路和数据流。 |
+| `docs/API.md` | 当前接口、统一响应、枚举、请求字段和响应字段。 |
+| `docs/DATABASE.md` | 当前数据库表职责、关键字段、推荐快照、收藏反馈和初始化说明。 |
+| `docs/RECOMMENDATION.md` | `pareto-topsis-v1` 推荐算法、车型评分、权重、排序、解释和边界情况。 |
+| `docs/FRONTEND.md` | 前端全局布局、路由、页面展示、交互状态和样式规范。 |
+| `docs/OPERATIONS.md` | 本地运行、敏感配置、数据库初始化、健康检查和常见问题。 |
+| `docs/ROADMAP.md` | 未实现功能和后续计划。 |
 
-目录：`docs/constraints`
+根目录文档：
 
-用途：定义后续开发必须遵循的当前系统规则，包括项目范围、系统合同、开发流程、接口、数据库、推荐算法、车型评分、前端体验和本地数据库初始化。
-
-入口：
-
-- `docs/constraints/CONSTRAINT_DOCUMENTS.md`
-- `docs/constraints/SYSTEM_CONTRACTS.md`
-- `docs/constraints/DEVELOPMENT_GUIDE.md`
-
-## 2. 解释性文档
-
-目录：`docs/reference`
-
-用途：用于项目交接、阶段追溯、完成记录、脚本说明和后续答辩材料，不作为当前开发规则源。
-
-入口：
-
-- `docs/reference/REFERENCE_DOCUMENTS.md`
-- `docs/reference/HANDOFF.md`
-- `docs/reference/IMPLEMENTATION_TASKS.md`
-- `docs/reference/COMPLETED_PHASES.md`
-
-## 3. 根目录文档
-
-- `README.md` 保留在仓库根目录，作为项目入口。
-- `AGENTS.md` 保留在仓库根目录，作为 AI 代理和协作者必须遵守的项目级规则。
-
+- `README.md`：项目入口和快速启动。
+- `AGENTS.md`：AI 代理和协作者规则。

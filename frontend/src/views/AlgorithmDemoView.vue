@@ -3,7 +3,7 @@
     <div class="page-header">
       <div>
         <h1 class="page-title">推荐算法可视化演示</h1>
-        <p class="page-subtitle">答辩展示页从推荐快照读取数据，展示当前 Pareto-TOPSIS 推荐算法的完整过程。</p>
+        <p class="page-subtitle">算法可视化页面从推荐快照读取数据，展示当前 Pareto-TOPSIS 推荐算法的完整过程。</p>
       </div>
       <el-button @click="$router.push('/')">返回首页</el-button>
     </div>

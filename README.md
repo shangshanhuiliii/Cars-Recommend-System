@@ -1,131 +1,56 @@
-﻿# Cars Recommend System
+# Cars Recommend System
 
-基于主客观组合权重与 Pareto-TOPSIS 的可解释汽车购买推荐系统。
+Cars Recommend System 是一个可运行、可继续维护的汽车购买推荐系统。系统基于车型参数、车型特征评分、用户结构化购车需求和 `pareto-topsis-v1` 推荐算法，输出可解释、可追溯的车型推荐结果。
 
-本项目的最高优先级是推荐算法及其工程化实现，而不是普通车型 CRUD 或简单条件筛选。系统主链路是：
-
-```text
-车型参数 -> 特征评分 -> 用户画像 -> 多指标决策排序 -> 推荐解释 -> 降级推荐 -> 推荐记录追溯
-```
-
-## 文档导航
-
-- `docs/README.md`：`docs` 文档总目录索引，说明分类目录结构。
-- `docs/constraints/CONSTRAINT_DOCUMENTS.md`：约束性文档清单，说明哪些文档是后续开发必须遵循的规则源。
-- `docs/reference/REFERENCE_DOCUMENTS.md`：解释性文档清单，说明哪些文档只用于入口说明、交接、历史追溯或答辩材料。
-- `docs/constraints/DEVELOPMENT_GUIDE.md`：新开发者开发指南，说明本地准备、启动、测试和新功能开发流程。
-- `docs/constraints/SYSTEM_CONTRACTS.md`：系统规则合同，固定不能随意改动的算法、字段、数据库、API、前端和文档规则。
-- `docs/reference/HANDOFF.md`：项目交接说明，帮助朋友快速接手当前项目状态和后续维护重点。
-- `docs/constraints/DATABASE_INIT.md`：本地 MySQL 创建、重建和导入 120 条车型测试数据的说明。
-- `docs/constraints/PROJECT_SPEC.md`：项目总览、范围边界、技术栈、功能优先级和验收口径。
-- `docs/constraints/RECOMMENDATION_DESIGN.md`：推荐闭环概要设计、模块职责和边界。
-- `docs/constraints/RECOMMENDATION_ALGORITHM_UPGRADE.md`：当前主算法详细文档，算法版本为 `pareto-topsis-v1`。
-- `docs/constraints/RECOMMENDATION_ALGORITHM.md`：车型特征评分规则说明。
-- `docs/constraints/DATABASE_DESIGN.md`：数据库表职责、关键字段和推荐追溯数据设计。
-- `docs/constraints/API_DESIGN.md`：前后端接口分组、请求响应约定和核心接口字段。
-- `docs/constraints/FRONTEND_DESIGN.md`：前端页面展示、交互规则、状态展示和样式规范。
-- `docs/reference/IMPLEMENTATION_TASKS.md`：分阶段任务清单、最低完成标准、增强标准和里程碑。
-- `docs/reference/COMPLETED_PHASES.md`：已完成阶段、验证结果、当前 MVP 状态和遗留事项。
-- `AGENTS.md`：AI 编程代理和协作者必须遵守的项目级规则。
-
-## 新开发者必读
-
-接手开发前先读：
+推荐主链路：
 
 ```text
-docs/README.md
-docs/constraints/CONSTRAINT_DOCUMENTS.md
-docs/constraints/DEVELOPMENT_GUIDE.md
-docs/constraints/SYSTEM_CONTRACTS.md
-docs/reference/HANDOFF.md
-docs/constraints/DATABASE_INIT.md
+车型参数 -> 特征评分 -> 用户画像 -> 多维匹配 -> 推荐解释 -> 补充推荐 -> 推荐记录追溯
 ```
 
-当前项目核心算法是 `pareto-topsis-v1`。推荐请求不包含推荐数量字段，反馈只进入统计，不自动影响权重或排序。详细算法公式不在 README 重复维护。
+## 核心能力
 
-## 不纳入核心实现
+- 车型基础信息、参数和特征评分维护。
+- 结构化购车需求表单，支持预算、车型、动力、场景、最低座位数、排除品牌和排除车型。
+- 用户显式偏好权重与场景权重生成。
+- 主客观组合权重 + Pareto-TOPSIS 推荐算法，版本为 `pareto-topsis-v1`。
+- 推荐结果包含 `totalScore`、`rankNo`、推荐标签、推荐理由、不足提醒和维度评分。
+- 推荐历史读取 `recommend_record` 与 `recommend_item` 快照，不重新计算覆盖历史结果。
+- 自然语言解析辅助填表、车型对比、收藏、反馈和管理端统计。
+- `/algorithm-demo` 算法可视化页面以只读方式展示推荐快照中的算法过程。
 
-以图搜车、Redis 缓存、Swagger/Knife4j 完整文档、Excel 批量导入、复杂权限系统、在线学习推荐和深度学习推荐模型仅作为论文展望。
+## 技术栈
 
-前端视觉和交互规则以 `docs/constraints/FRONTEND_DESIGN.md` 为准。
+- 后端：Java 17、Spring Boot 3、Maven、MyBatis-Plus、MySQL 8。
+- 前端：Vue 3、Vite、Element Plus、Axios、Vue Router、Pinia。
+- 本地脚本：PowerShell 数据库初始化脚本 `scripts/init-dev-db.ps1`。
 
-## 本地配置与敏感信息
+## 快速启动
 
-真实数据库账号、密码和其他敏感信息不要写入文档或提交到仓库。
+准备环境：
 
-仓库只保留示例配置：
+- Java 17
+- Maven
+- Node.js 与 npm
+- MySQL 8
 
-```text
-backend/src/main/resources/application-local.example.yml
+创建本地敏感配置：
+
+```powershell
+Copy-Item backend/src/main/resources/application-local.example.yml backend/src/main/resources/application-local.yml
 ```
 
-本地真实配置放在：
+编辑 `backend/src/main/resources/application-local.yml`，写入本机 MySQL 连接信息。该文件不能提交到 Git。
 
-```text
-backend/src/main/resources/application-local.yml
-```
-
-并通过 `.gitignore` 忽略。文档和示例配置中只能使用 `your_mysql_password` 等占位符。
-
-## 本地 MySQL 初始化
-
-后端本地联调建议使用 MySQL 8。仓库提供独立初始化脚本，用于新机器或本地开发库需要重建时一次性完成建库、建表和导入当前 120 条车型测试数据。
-
-前置条件：
-
-- 已安装 MySQL 8，并能在 PowerShell 中执行 `mysql` 命令。
-- 已创建本地真实配置文件 `backend/src/main/resources/application-local.yml`。
-- `application-local.yml` 中的数据库名、用户名、密码和端口与本机 MySQL 一致。
-
-初始化命令：
+初始化本地开发库：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\init-dev-db.ps1
 ```
 
-脚本会读取 `application-local.yml`，创建数据库，依次执行：
-
-```text
-backend/src/main/resources/db/schema.sql
-backend/src/main/resources/db/seed-data.sql
-```
-
-如果本地库已有旧数据，需要删除并重建本地开发库：
+后端启动：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\init-dev-db.ps1 -Recreate
-```
-
-如果后端已经用 `local` profile 启动，可以同时触发车型评分重算：
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\init-dev-db.ps1 -RecalculateScores
-```
-
-如果不使用脚本，也可以手动执行 SQL：
-
-```sql
-CREATE DATABASE IF NOT EXISTS cars_recommend_system
-  DEFAULT CHARACTER SET utf8mb4
-  DEFAULT COLLATE utf8mb4_unicode_ci;
-USE cars_recommend_system;
-SOURCE backend/src/main/resources/db/schema.sql;
-SOURCE backend/src/main/resources/db/seed-data.sql;
-```
-
-初始化后必须执行全部车型评分重算，否则 `car_feature_score` 为空或不完整时，推荐候选可能不足：
-
-```text
-POST http://localhost:8080/api/admin/cars/scores/recalculate
-```
-
-更多说明见 `docs/constraints/DATABASE_INIT.md`。注意：`-Recreate` 只用于本地开发库，会删除本地需求、推荐记录、收藏和反馈等业务数据；不要对生产库或他人共享库执行。脚本不会打印数据库密码。
-
-## 阶段 0 工程启动
-
-后端：
-
-```bash
 cd backend
 mvn spring-boot:run "-Dspring-boot.run.profiles=local"
 ```
@@ -136,12 +61,42 @@ mvn spring-boot:run "-Dspring-boot.run.profiles=local"
 GET http://localhost:8080/api/health
 ```
 
-前端：
+前端启动：
 
-```bash
+```powershell
 cd frontend
 npm install
 npm run dev
 ```
 
-前端开发服务默认运行在 `http://localhost:5173`，并通过 Vite proxy 将 `/api` 转发到后端 `http://localhost:8080`。
+前端开发服务默认运行在 `http://localhost:5173`，并通过 Vite proxy 将 `/api` 转发到 `http://localhost:8080`。
+
+数据库导入后需要执行全部车型评分重算，否则 `car_feature_score` 为空时推荐候选不足：
+
+```text
+POST http://localhost:8080/api/admin/cars/scores/recalculate
+```
+
+## 文档入口
+
+- `docs/README.md`：文档目录。
+- `docs/DEVELOPMENT.md`：本地开发、测试和新功能流程。
+- `docs/ARCHITECTURE.md`：当前系统架构、模块边界和数据流。
+- `docs/API.md`：当前接口、响应结构和核心字段。
+- `docs/DATABASE.md`：当前数据库表、字段、快照和初始化说明。
+- `docs/RECOMMENDATION.md`：推荐算法、评分规则、排序和解释规则。
+- `docs/FRONTEND.md`：前端页面、路由、交互和展示规范。
+- `docs/OPERATIONS.md`：运行、配置、健康检查和常见问题。
+- `docs/ROADMAP.md`：未实现功能和后续计划。
+- `AGENTS.md`：AI 代理和协作者规则。
+
+## 安全规则
+
+不要提交以下内容：
+
+- `backend/src/main/resources/application-local.yml`
+- `.env`、`.env.local`
+- 真实数据库密码、token、密钥
+- `target/`、`dist/`、`node_modules/`
+
+真实 MySQL 的迁移、重建、清空或删除数据必须先获得明确确认。当前未实现功能统一维护在 `docs/ROADMAP.md`。

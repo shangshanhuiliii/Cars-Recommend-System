@@ -1,64 +1,81 @@
-﻿# AGENTS.md - 项目级协作规则
+# AGENTS.md - 工程协作规则
 
-本文件是本仓库的项目级规则，适用于 AI 编程代理、开发者和自动化脚本。详细需求不在本文件重复维护，按以下文档分工查阅：
+本文件适用于本仓库的 AI 编程代理、开发者和自动化脚本。项目文档已经按当前可运行工程组织，详细规则按以下入口查阅：
 
-- `docs/README.md`：`docs` 文档总目录索引，说明分类目录结构。
-- `docs/constraints/PROJECT_SPEC.md`：项目规格、范围边界、功能优先级。
-- `docs/constraints/CONSTRAINT_DOCUMENTS.md`：约束性文档清单，说明哪些文档是后续开发必须遵循的规则源。
-- `docs/reference/REFERENCE_DOCUMENTS.md`：解释性文档清单，说明哪些文档只用于入口说明、交接、历史追溯或答辩材料。
-- `docs/constraints/DEVELOPMENT_GUIDE.md`：后续开发指南、本地准备、启动、测试和新功能开发流程。
-- `docs/constraints/SYSTEM_CONTRACTS.md`：系统规则合同，定义不能随意改动的算法、字段、数据库、API、前端和文档规则。
-- `docs/reference/HANDOFF.md`：项目交接说明，帮助新接手者理解当前状态、运行方式和后续建议。
-- `docs/constraints/RECOMMENDATION_DESIGN.md`：推荐闭环概要设计和模块边界。
-- `docs/constraints/RECOMMENDATION_ALGORITHM_UPGRADE.md`：当前主算法详细文档，算法版本为 `pareto-topsis-v1`。
-- `docs/constraints/RECOMMENDATION_ALGORITHM.md`：车型特征评分规则说明。
-- `docs/constraints/DATABASE_DESIGN.md`：数据库表职责和关键字段。
-- `docs/constraints/API_DESIGN.md`：接口约定和核心请求响应。
-- `docs/constraints/FRONTEND_DESIGN.md`：前端页面展示、交互状态和样式规范。
-- `docs/reference/IMPLEMENTATION_TASKS.md`：分阶段任务清单和验收标准。
-- `docs/reference/COMPLETED_PHASES.md`：已完成阶段、验证结果和当前 MVP 状态。
+- `docs/README.md`：文档目录。
+- `docs/DEVELOPMENT.md`：本地开发、测试和新功能流程。
+- `docs/ARCHITECTURE.md`：系统架构、模块边界和数据流。
+- `docs/API.md`：接口、统一响应、枚举和请求响应字段。
+- `docs/DATABASE.md`：数据库表、字段、快照和初始化规则。
+- `docs/RECOMMENDATION.md`：推荐算法、车型评分、排序和解释规则。
+- `docs/FRONTEND.md`：前端页面、路由、交互和展示规范。
+- `docs/OPERATIONS.md`：运行、配置、健康检查和常见问题。
+- `docs/ROADMAP.md`：未实现功能和后续计划。
 
-## 1. 最高优先级
+## 1. 推荐主链路优先
 
-项目最高优先级是推荐算法及其工程化实现，不是普通车型 CRUD 或简单条件筛选。
-
-所有实现必须服务于主链路：
+系统的核心不是普通车型 CRUD 或条件筛选，而是可解释汽车购买推荐。任何修改都不能破坏主链路：
 
 ```text
-车型参数 -> 特征评分 -> 用户画像 -> 多维匹配 -> 推荐解释 -> 降级推荐 -> 推荐记录追溯
+车型参数 -> 特征评分 -> 用户画像 -> 多维匹配 -> 推荐解释 -> 补充推荐 -> 推荐记录追溯
 ```
 
-任何功能取舍都应优先保证：
+必须保证：
 
-- 推荐结果来自真实评分和权重计算。
+- 推荐结果来自真实评分、用户权重和推荐算法计算。
 - 推荐结果包含综合推荐分、推荐标签、推荐理由、不足提醒和维度评分。
-- 无匹配时可以降级推荐。
-- 推荐记录可以回查需求、权重、分数和解释。
+- 无完全匹配时可以补充相近推荐，并保留 `matchLevel`。
+- 推荐历史读取保存快照，不重新计算覆盖历史结果。
 
-## 2. 功能边界
+## 2. 推荐算法规则
 
-必须优先完成第一档功能：
+- 当前主算法版本是 `pareto-topsis-v1`。
+- 当前算法名称是“主客观组合权重 + Pareto-TOPSIS”。
+- `totalScore` 是 TOPSIS 综合推荐分，取值范围为 0-100。
+- `rankNo` 是推荐结果展示排序的唯一权威。
+- 前端不得按 `totalScore`、口碑分、热度分或其他字段二次排序推荐结果。
+- `priceScore` 不存入 `car_feature_score`，只在推荐生成时按用户预算动态计算。
+- Pareto 标记只用于同分辅助、管理追溯和算法可视化说明，不作为用户端推荐标签。
+- 反馈只进入统计，不自动修改权重、车型评分或推荐排序。
+- 系统不包装成深度学习、协同过滤或在线学习推荐。
 
-- 车型基础数据管理
-- 车型参数管理
-- 车型特征评分规则引擎
-- 结构化购车需求表单
-- 用户画像与权重生成
-- 真实推荐算法
-- 推荐理由与不足提醒
-- 无匹配降级策略
-- 推荐记录与推荐明细保存
-- 推荐结果页面
-- 车型详情页面
-- 管理端基础车型维护页面
+## 3. 用户需求字段规则
 
-第二档功能在第一档稳定后再做：自然语言需求解析、车型对比雷达图、收藏与历史记录、用户反馈、后台统计仪表盘。
+当前用户需求 API 只使用以下字段：
 
-第三档功能只作为论文展望：以图搜车、Redis 缓存、Swagger/Knife4j 完整接口文档、Excel 批量导入、复杂权限系统、在线学习推荐、深度学习推荐模型。
+- `bodyTypes`
+- `energyTypes`
+- `scenes`
+- `factorWeights`
+- `minSeats`
+- `budgetMin`
+- `budgetMax`
+- `excludedBrands`
+- `excludedCarIds`
 
-## 3. 代码组织规则
+动力规则：
 
-后端推荐分层：
+- 用户需求侧允许选择 `新能源`。
+- 后端将 `新能源` 展开为 `纯电 / 插混 / 增程` 参与匹配。
+- `car_model.energy_type` 不保存 `新能源`，只保存 `燃油 / 纯电 / 插混 / 增程`。
+
+## 4. 数据库与接口规则
+
+- 默认演示用户为 `app_user.id = 1`。
+- 默认演示管理员为 `admin.id = 1`。
+- `recommend_record` 和 `recommend_item` 必须保存推荐依据，不允许只保存车型 ID。
+- 收藏只维护用户关注车型，不影响推荐排序。
+- 反馈只维护反馈记录和统计数据，不改变推荐结果。
+- 自然语言解析只辅助填表，不直接保存需求或生成推荐。
+- `/api/recommend/{recordId}/algorithm-visualization` 只读，不写数据库，不生成推荐。
+- 推荐生成请求不包含推荐数量字段，后端按候选集、分组和排序规则返回结果。
+- 修改 API、数据库、前端或推荐算法时，必须同步更新对应文档和测试。
+
+## 5. 代码组织规则
+
+后端推荐相关逻辑必须在 Service 层实现，不得写在前端或 Controller 中。
+
+后端分层：
 
 ```text
 controller   接收请求、参数校验、统一响应
@@ -72,9 +89,7 @@ config       跨域、MyBatis-Plus、认证配置
 util         评分、解析、权重归一化等工具
 ```
 
-推荐相关逻辑必须在后端 Service 层实现，不得写在前端或 Controller 中。
-
-推荐相关服务建议包括：
+推荐相关服务包括：
 
 - `CarFeatureScoreService`
 - `UserProfileService`
@@ -84,107 +99,46 @@ util         评分、解析、权重归一化等工具
 - `RecommendationRecordService`
 - `DemandTextParseService`
 
-## 4. 数据与接口规则
+## 6. 前端规则
 
-- 新功能开发前必须先查 `docs/constraints/SYSTEM_CONTRACTS.md`。如果开发建议、实现方式或用户需求与规则合同冲突，必须先停下来说明冲突点并确认后再继续。
-- `docs/reference/IMPLEMENTATION_TASKS.md` 和 `docs/reference/COMPLETED_PHASES.md` 属于阶段路线和历史追溯材料，不作为当前开发规则源。
-- 数据库设计以 `docs/constraints/DATABASE_DESIGN.md` 为准。
-- 接口设计以 `docs/constraints/API_DESIGN.md` 为准。
-- 推荐闭环概要以 `docs/constraints/RECOMMENDATION_DESIGN.md` 为准；当前主算法公式和流程以 `docs/constraints/RECOMMENDATION_ALGORITHM_UPGRADE.md` 和 `docs/constraints/RECOMMENDATION_IMPLEMENTATION_LOGIC.md` 为准；`docs/constraints/RECOMMENDATION_ALGORITHM.md` 只维护车型特征评分规则。
-- 价格统一使用元，尺寸统一使用毫米，续航统一使用公里。
-- 若缺少完整真实数据，允许编写合理测试数据用于开发和测试，但字段必须符合汽车常识，且推荐总分仍必须由算法计算。
-- 普通用户表统一命名为 `app_user`，默认演示用户为 `app_user.id = 1`。
-- 默认演示管理员为 `admin.id = 1`。
-- `priceScore` 不存入车型评分表，必须在推荐阶段根据用户预算动态计算。
-- `recommend_record` 和 `recommend_item` 必须保存推荐依据，不允许只保存车型 ID。
-- 第一版采用演示用户优先，不能因为登录系统未完成而阻塞推荐闭环。
-- 真实数据库密码不得写入仓库；本地真实配置文件必须被忽略。
-- 若算法、数据库、API、前端文档之间出现字段不一致，应以专项文档为准并同步修正所有相关文档。
-- 当前用户需求 API 只使用 `bodyTypes`、`energyTypes`、`scenes`、`factorWeights`、`minSeats`、`budgetMin`、`budgetMax`、`excludedBrands` 和 `excludedCarIds`。
-- 推荐生成请求不包含推荐数量字段，后端按候选集、分组和排序规则返回结果。
+- 前端实现以 `docs/FRONTEND.md` 为准。
+- 推荐结果页必须展示综合推荐分、推荐标签、推荐理由、不足提醒、维度评分和查看详情入口。
+- 用户端不展示 TOPSIS、Pareto、熵权等复杂术语。
+- 管理端和 `/algorithm-demo` 可以展示算法细节。
+- 普通操作反馈使用页面内状态，不使用顶部 toast。
+- 加入对比不立即跳转，用户主动进入 `/compare` 后再查看。
 
-## 5. 前端规则
+## 7. 安全和数据规则
 
-前端实现必须遵守 `docs/constraints/FRONTEND_DESIGN.md`。不能只用默认 Element Plus 组件堆页面，必须体现“汽车购买决策座舱”的信息层级和可解释推荐特征。
+- 不提交 `application-local.yml`。
+- 不提交 `.env` 或 `.env.local`。
+- 不提交真实密码、token、密钥或生产连接信息。
+- 不操作真实数据库，除非用户明确确认目标库和操作影响。
+- 不对真实 MySQL 执行迁移、重建、清空或删除数据，除非用户明确要求。
+- 本地开发库需要重建时，先说明会删除本地需求、推荐记录、收藏和反馈等数据。
 
-用户端必须优先完成：
+## 8. 文档维护规则
 
-- 购车需求页
-- 推荐结果页
-- 车型详情页
+修改文档时保持职责清晰：
 
-其中推荐结果页是最高优先级前端页面，必须优先保证体验完整。
+- 开发流程写入 `docs/DEVELOPMENT.md`。
+- 架构、模块边界和数据流写入 `docs/ARCHITECTURE.md`。
+- 接口写入 `docs/API.md`。
+- 数据库表和字段写入 `docs/DATABASE.md`。
+- 推荐算法和评分规则写入 `docs/RECOMMENDATION.md`。
+- 前端页面和交互写入 `docs/FRONTEND.md`。
+- 运行、配置和常见问题写入 `docs/OPERATIONS.md`。
+- 未实现功能写入 `docs/ROADMAP.md`。
 
-完整落地页属于前端体验增强项，不阻塞第一档推荐闭环。
+不要在多个文档中重复维护同一份详细内容。若算法、数据库、API、前端文档之间出现字段不一致，应以对应专项文档为准，并同步修正相关文档、代码和测试。
 
-推荐结果页必须展示：
+## 9. 工作方式
 
-- 综合推荐分
-- 推荐标签
-- 推荐理由
-- 不足提醒
-- 维度评分
-- 查看详情入口
+新功能开发前先从原始需求判断目标是否清晰。若需求与当前工程规则冲突，先说明冲突点并等待确认。
 
-管理端只保留 3 个核心页面：
+方案和实现必须符合：
 
-- 车型管理
-- 推荐记录
-- 统计仪表盘
-
-不要扩展成复杂后台系统。
-
-## 6. 禁止事项
-
-- 不要把项目做成普通车型 CRUD。
-- 不要长期使用 mock 推荐替代真实推荐算法。
-- 不要只返回推荐车型 ID 而不保存推荐依据。
-- 不要在用户不知情的情况下偷偷放宽推荐条件。
-- 不要在第一档功能未完成前实现以图搜车、Redis、复杂权限或深度学习模型。
-- 不要把推荐算法写在前端。
-- 不要引入与毕设目标无关的复杂依赖。
-
-## 7. 变更文档规则
-
-修改文档时必须保持分工清晰：
-
-- 开发指南和规则合同写入 `docs/constraints/DEVELOPMENT_GUIDE.md`、`docs/constraints/SYSTEM_CONTRACTS.md`。
-- 项目范围和优先级写入 `docs/constraints/PROJECT_SPEC.md`。
-- 推荐闭环概要和模块边界写入 `docs/constraints/RECOMMENDATION_DESIGN.md`。
-- 当前主算法公式、流程和伪代码写入 `docs/constraints/RECOMMENDATION_ALGORITHM_UPGRADE.md`。
-- 车型特征评分规则写入 `docs/constraints/RECOMMENDATION_ALGORITHM.md`。
-- 表结构和字段写入 `docs/constraints/DATABASE_DESIGN.md`。
-- 接口写入 `docs/constraints/API_DESIGN.md`。
-- 前端页面、交互和样式规范写入 `docs/constraints/FRONTEND_DESIGN.md`。
-- 交接说明写入 `docs/reference/HANDOFF.md`。
-- 阶段任务写入 `docs/reference/IMPLEMENTATION_TASKS.md`。
-- 已完成阶段和当前 MVP 状态写入 `docs/reference/COMPLETED_PHASES.md`。
-- 如后续恢复论文和答辩材料，放入 `docs/reference/DEFENSE_NOTES.md`。
-
-不要在多个文档中重复维护同一份详细内容，避免出现冲突。
-
-## 8. 阶段完成汇总规则
-
-每完成一个阶段或里程碑后，必须输出阶段工作汇总，不能只回复“已完成”。
-
-阶段汇总至少包含：
-
-- 阶段名称和完成范围。
-- 本阶段实际实现的功能。
-- 涉及的主要文件或模块。
-- 执行过的测试、构建或验证命令。
-- 测试结果和是否通过最低完成标准。
-- 未完成事项、已知风险或需要用户确认的问题。
-- 下一阶段建议开始的任务。
-
-如果某项测试无法执行，必须明确说明原因，并给出后续验证方式。
-
-## 第一性原理
-请使用第一性原理思考。你不能总是假设非常清楚自己想要什么和该怎么得到。请保持审慎，从原始需求和问题出发，如果动机和目标不清晰，停下来和我讨论。
-
-## 规范
-当需要你给出修改或重构方案时必须符合以下规范：
-不允许给出兼容性或补丁性的方案
--不允许过度设计，保持最短路径实现且不能违反第一条要求
--不允许自行给出我提供的需求以外的方案，这可能导致业务逻辑偏移问题
-- 必须确保方案的逻辑正确，必须经过全链路的逻辑验证
+- 不给出兼容性或补丁性绕路方案。
+- 不过度设计，选择满足需求的最短正确路径。
+- 不自行扩展用户没有要求的业务逻辑。
+- 修改完成后通过搜索、测试或构建验证关键链路。
