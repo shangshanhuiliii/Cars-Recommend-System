@@ -102,6 +102,40 @@ class RecommendationControllerTest {
         assertRecordAndItemSnapshotsSaved(familyRecommend, "FALLBACK");
         assertSavedRecommendationItemTexts(familyRecommend);
 
+        JsonNode narrowBudgetDemand = postDemand("""
+                {
+                  "budgetMin": 200000,
+                  "budgetMax": 210000,
+                  "bodyTypes": ["SUV"],
+                  "energyTypes": ["纯电"],
+                  "minSeats": 5,
+                  "scenes": ["综合需求"],
+                  "factorWeights": { "price": 10 },
+                  "excludedBrands": [],
+                  "excludedCarIds": []
+                }
+                """);
+        JsonNode narrowBudgetRecommend = generate(narrowBudgetDemand.path("id").asLong());
+        assertTrue(countMatchLevel(narrowBudgetRecommend.path("items"), "STRICT") > 0);
+        assertStrictItemsWithinBudget(
+                narrowBudgetRecommend.path("items"),
+                new BigDecimal("200000"),
+                new BigDecimal("210000"));
+        assertTrue(containsNonStrictOutsideBudget(
+                narrowBudgetRecommend.path("items"),
+                new BigDecimal("200000"),
+                new BigDecimal("210000")));
+        assertTrue(containsMatchLevelWithPrice(
+                narrowBudgetRecommend.path("items"),
+                "RELAX_BUDGET",
+                new BigDecimal("199900.00")));
+        assertTrue(containsMatchLevelWithPrice(
+                narrowBudgetRecommend.path("items"),
+                "RELAX_BUDGET",
+                new BigDecimal("229900.00")));
+        assertGroupedAndSorted(narrowBudgetRecommend);
+        assertRankNoAscending(narrowBudgetRecommend.path("items"));
+
         JsonNode budgetMinDemand = postDemand("""
                 {
                   "budgetMin": 200000,
@@ -624,6 +658,37 @@ class RecommendationControllerTest {
         for (JsonNode item : items) {
             if (item.path("guidePrice").decimalValue().compareTo(budgetMin) < 0
                     && item.path("priceScore").decimalValue().compareTo(new BigDecimal("90")) < 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void assertStrictItemsWithinBudget(JsonNode items, BigDecimal budgetMin, BigDecimal budgetMax) {
+        for (JsonNode item : items) {
+            if ("STRICT".equals(item.path("matchLevel").asText())) {
+                BigDecimal guidePrice = item.path("guidePrice").decimalValue();
+                assertTrue(guidePrice.compareTo(budgetMin) >= 0);
+                assertTrue(guidePrice.compareTo(budgetMax) <= 0);
+            }
+        }
+    }
+
+    private boolean containsNonStrictOutsideBudget(JsonNode items, BigDecimal budgetMin, BigDecimal budgetMax) {
+        for (JsonNode item : items) {
+            BigDecimal guidePrice = item.path("guidePrice").decimalValue();
+            if (!"STRICT".equals(item.path("matchLevel").asText())
+                    && (guidePrice.compareTo(budgetMin) < 0 || guidePrice.compareTo(budgetMax) > 0)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean containsMatchLevelWithPrice(JsonNode items, String matchLevel, BigDecimal guidePrice) {
+        for (JsonNode item : items) {
+            if (matchLevel.equals(item.path("matchLevel").asText())
+                    && item.path("guidePrice").decimalValue().compareTo(guidePrice) == 0) {
                 return true;
             }
         }

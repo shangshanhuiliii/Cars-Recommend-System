@@ -23,6 +23,9 @@ import org.springframework.util.StringUtils;
 @ConditionalOnProperty(prefix = "spring.datasource", name = "url")
 public class RecommendationCandidateService {
 
+    private static final BigDecimal BUDGET_RELAX_LOWER_RATIO = new BigDecimal("0.90");
+    private static final BigDecimal BUDGET_RELAX_UPPER_RATIO = new BigDecimal("1.10");
+
     private final CarModelMapper carModelMapper;
     private final CarFeatureScoreMapper carFeatureScoreMapper;
     private final ObjectMapper objectMapper;
@@ -114,12 +117,14 @@ public class RecommendationCandidateService {
     }
 
     private boolean matchesRelaxBudgetFilters(CarModel car, UserDemand demand) {
-        if (demand.getBudgetMax() == null) {
+        if (demand.getBudgetMin() == null && demand.getBudgetMax() == null) {
             return false;
         }
-        BigDecimal relaxedBudgetMax = demand.getBudgetMax().multiply(new BigDecimal("1.10"));
-        return car.getGuidePrice().compareTo(demand.getBudgetMax()) > 0
-                && car.getGuidePrice().compareTo(relaxedBudgetMax) <= 0
+        BigDecimal guidePrice = car.getGuidePrice();
+        if (guidePrice == null || matchesStrictBudget(car, demand)) {
+            return false;
+        }
+        return matchesRelaxedBudgetRange(guidePrice, demand)
                 && matchesStrictBodyType(car, demand)
                 && matchesStrictEnergyType(car, demand);
     }
@@ -145,7 +150,29 @@ public class RecommendationCandidateService {
     }
 
     private boolean matchesStrictBudget(CarModel car, UserDemand demand) {
-        return demand.getBudgetMax() == null || car.getGuidePrice().compareTo(demand.getBudgetMax()) <= 0;
+        BigDecimal guidePrice = car.getGuidePrice();
+        if (guidePrice == null) {
+            return false;
+        }
+        if (demand.getBudgetMin() != null && guidePrice.compareTo(demand.getBudgetMin()) < 0) {
+            return false;
+        }
+        if (demand.getBudgetMax() != null && guidePrice.compareTo(demand.getBudgetMax()) > 0) {
+            return false;
+        }
+        return true;
+    }
+
+    private boolean matchesRelaxedBudgetRange(BigDecimal guidePrice, UserDemand demand) {
+        if (demand.getBudgetMin() != null && guidePrice.compareTo(demand.getBudgetMin()) < 0) {
+            BigDecimal relaxedBudgetMin = demand.getBudgetMin().multiply(BUDGET_RELAX_LOWER_RATIO);
+            return guidePrice.compareTo(relaxedBudgetMin) >= 0;
+        }
+        if (demand.getBudgetMax() != null && guidePrice.compareTo(demand.getBudgetMax()) > 0) {
+            BigDecimal relaxedBudgetMax = demand.getBudgetMax().multiply(BUDGET_RELAX_UPPER_RATIO);
+            return guidePrice.compareTo(relaxedBudgetMax) <= 0;
+        }
+        return false;
     }
 
     private boolean matchesStrictBodyType(CarModel car, UserDemand demand) {

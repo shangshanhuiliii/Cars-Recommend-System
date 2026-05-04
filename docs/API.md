@@ -296,8 +296,8 @@ GET  /api/user/demand/{id}
 | `minSeats` | 最低座位数，作为硬约束，不参与放宽。 |
 | `scenes` | 使用场景，多选；为空时按 `综合需求` 处理。 |
 | `factorWeights` | 用户显式偏好权重，0-10；后端负责归一化。 |
-| `budgetMax` | 预算硬上限，严格匹配时过滤 `guidePrice > budgetMax` 的车型。 |
-| `budgetMin` | 预算软偏好，只参与动态价格分计算。 |
+| `budgetMin` | 预算下限；严格匹配时过滤 `guidePrice < budgetMin` 的车型。 |
+| `budgetMax` | 预算上限；严格匹配时过滤 `guidePrice > budgetMax` 的车型。 |
 | `excludedBrands` | 排除品牌，通过 `GET /api/car/brands` 搜索选择。 |
 | `excludedCarIds` | 排除车型，通过 `GET /api/car/options` 搜索选择。 |
 
@@ -404,6 +404,7 @@ GET  /api/recommend/{recordId}/algorithm-visualization
 - `tags` 来自推荐明细快照，不重新生成。
 - `reasonText` 和 `weaknessText` 来自推荐明细快照。
 - `matchLevel` 保存首次进入推荐集的匹配状态。
+- `matchLevel = STRICT` 表示车型满足预算区间、车型类型、动力类型、最低座位数和排除条件等严格条件；预算区间外但接近预算的车型只能进入 `RELAX_BUDGET` 等推荐组。
 - 推荐历史详情读取快照，不重新计算分数、标签、理由、不足或匹配状态。
 
 推荐历史列表：

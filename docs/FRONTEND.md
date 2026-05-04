@@ -56,7 +56,7 @@ font-family: "HarmonyOS Sans SC", "Source Han Sans SC", "Microsoft YaHei", "Ping
 | `--color-primary` | 主按钮、关键高亮 | `#2563EB` |
 | `--color-primary-dark` | 深色标题、座舱背景 | `#0F172A` |
 | `--color-accent` | 科技感强调 | `#0891B2` |
-| `--color-success` | 完全匹配、成功状态 | `#16A34A` |
+| `--color-success` | 严格匹配、成功状态 | `#16A34A` |
 | `--color-warning` | 补充推荐、预算放宽 | `#F59E0B` |
 | `--color-danger` | 删除、错误状态 | `#DC2626` |
 | `--color-bg` | 页面背景 | `#F6F8FB` |
@@ -168,8 +168,8 @@ font-family: "HarmonyOS Sans SC", "Source Han Sans SC", "Microsoft YaHei", "Ping
 推荐了什么？
 为什么推荐？
 哪里不足？
-是否完全匹配？
-如果不是完全匹配，系统如何补充推荐？
+是否满足严格推荐条件？
+如果不满足严格推荐条件，系统如何补充推荐？
 ```
 
 信息结构：
@@ -183,8 +183,8 @@ font-family: "HarmonyOS Sans SC", "Source Han Sans SC", "Microsoft YaHei", "Ping
 
 推荐分组：
 
-- `完全匹配车型`：`matchLevel = STRICT`。
-- `推荐`：非 `STRICT` 推荐项。
+- `为您推荐`：`matchLevel = STRICT`，表示满足预算区间、车型类型、动力类型、最低座位数和排除条件等严格条件。
+- `推荐`：非 `STRICT` 推荐项，表示系统在保持不可放宽约束的基础上，对预算、车型或动力做有限放宽的补充推荐。
 
 排序规则：
 

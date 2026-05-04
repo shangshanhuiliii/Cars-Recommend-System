@@ -105,7 +105,9 @@ POST /api/admin/cars/scores/recalculate
 - 不在 `excludedBrands`。
 - 不在 `excludedCarIds`。
 - `seats >= minSeats`。
-- 严格匹配时 `guidePrice <= budgetMax`。
+- 严格匹配时满足用户预算区间：`budgetMin <= guidePrice <= budgetMax`。
+- 只填写 `budgetMax` 时，严格匹配要求 `guidePrice <= budgetMax`。
+- 只填写 `budgetMin` 时，严格匹配要求 `guidePrice >= budgetMin`。
 - 严格匹配时命中 `bodyTypes`。
 - 严格匹配时命中展开后的 `energyTypes`。
 
@@ -124,11 +126,17 @@ POST /api/admin/cars/scores/recalculate
 - 同一车型只进入推荐集一次。
 - `matchLevel` 保留车型首次进入推荐集时的状态。
 - `minSeats`、`excludedBrands`、`excludedCarIds` 不参与放宽。
+- `RELAX_BUDGET` 只补充预算区间外但接近用户预算的车型；低于预算下限或高于预算上限的车型不能标记为 `STRICT`。
+- 预算放宽阶段仍要求命中严格车型类型和严格动力类型。
+- 若存在 `budgetMin`，预算放宽下界为 `budgetMin * 0.9`。
+- 若存在 `budgetMax`，预算放宽上界为 `budgetMax * 1.1`。
 - 推荐请求不包含推荐数量字段。
 
 ## 动态价格分
 
-`budgetMax` 是严格匹配的预算硬上限。`budgetMin` 是软偏好，只影响价格匹配分。
+`budgetMin` 和 `budgetMax` 都是 `STRICT` 阶段的预算边界。预算下限存在时，低于下限的车型不能进入 `STRICT`；预算上限存在时，高于上限的车型不能进入 `STRICT`。预算区间外但接近区间的车型只能作为预算放宽推荐进入推荐组。
+
+`priceScore` 是推荐生成时动态计算的价格匹配分，用于表示车型价格与用户预算区间的接近程度，不写入 `car_feature_score`。
 
 预算上下限都存在时：
 
@@ -414,7 +422,7 @@ GET /api/recommend/{recordId}/algorithm-visualization
 - 哪些车型在多指标决策下更适合。
 - 为什么推荐。
 - 哪里可能不足。
-- 如果没有完全匹配，系统如何补充推荐。
+- 如果没有严格匹配，系统如何补充推荐。
 - 历史推荐能否按当时快照回查。
 
 ## 边界情况

@@ -162,12 +162,12 @@ public class AlgorithmVisualizationServiceImpl implements AlgorithmVisualization
                 "预算上限",
                 "hard",
                 demand.getBudgetMax() == null ? "未设置" : formatWan(demand.getBudgetMax()) + "万元以内",
-                "budgetMax 作为 STRICT 阶段预算硬约束，超出后只能进入预算放宽或相似推荐阶段。"));
+                "budgetMax 作为 STRICT 阶段预算区间上边界，高于该值的车型不能进入 STRICT。"));
         constraints.add(new AlgorithmVisualizationConstraintVO(
                 "预算下限",
-                "soft",
+                "hard",
                 demand.getBudgetMin() == null ? "未设置" : formatWan(demand.getBudgetMin()) + "万元",
-                "budgetMin 不过滤候选，只影响推荐阶段动态 priceScore。"));
+                "budgetMin 作为 STRICT 阶段预算区间下边界，低于该值的车型不能进入 STRICT。"));
         constraints.add(new AlgorithmVisualizationConstraintVO(
                 "车型类型",
                 "hard",
@@ -259,8 +259,8 @@ public class AlgorithmVisualizationServiceImpl implements AlgorithmVisualization
                 new AlgorithmVisualizationPipelineStepVO(
                         2,
                         "解析硬性约束",
-                        "把预算上限、车型类型、动力类型、最低座位、排除品牌和排除车型拆成候选过滤条件。",
-                        "budgetMax、bodyTypes、energyTypes、minSeats、excludedBrands、excludedCarIds",
+                        "把预算区间、车型类型、动力类型、最低座位、排除品牌和排除车型拆成候选过滤条件。",
+                        "budgetMin、budgetMax、bodyTypes、energyTypes、minSeats、excludedBrands、excludedCarIds",
                         "STRICT 阶段硬约束和后续降级阶段保留约束",
                         "车型=" + joinOrAny(demand.getBodyTypes(), "不限") + "，动力=" + joinOrAny(demand.getEnergyTypes(), "不限")
                                 + "，最低座位=" + (demand.getMinSeats() == null ? "未设置" : demand.getMinSeats() + "座"),
@@ -285,7 +285,7 @@ public class AlgorithmVisualizationServiceImpl implements AlgorithmVisualization
                 new AlgorithmVisualizationPipelineStepVO(
                         5,
                         "生成 STRICT / 降级候选集",
-                        "先生成完全满足硬约束的 STRICT 候选；不足时按预算、车型、动力、相似推荐顺序补充候选。",
+                        "先生成满足完整预算区间、车型、动力等硬约束的 STRICT 候选；预算区间外但接近预算的车型只能进入预算放宽推荐组。",
                         "用户硬约束、审核通过车型、排除项",
                         "带 matchLevel 的候选集合",
                         "STRICT=" + strictCount + " 条，补充推荐=" + fallbackCount + " 条，推荐状态=" + record.getRecommendStatus(),
@@ -293,7 +293,7 @@ public class AlgorithmVisualizationServiceImpl implements AlgorithmVisualization
                 new AlgorithmVisualizationPipelineStepVO(
                         6,
                         "计算动态价格分 priceScore",
-                        "根据用户预算区间和车型指导价临时计算 priceScore；预算下限只影响价格匹配分，不过滤候选。",
+                        "根据用户预算区间和车型指导价临时计算 priceScore，用于表示车型价格与用户预算区间的接近程度。",
                         "budgetMin、budgetMax、car_model.guide_price",
                         "每个候选车的 priceScore",
                         snapshots.isEmpty()
