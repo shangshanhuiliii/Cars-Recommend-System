@@ -1,0 +1,11 @@
+# 修改代码，需提交到自己的分支
+git status
+git add .
+git commit -m "update car recommendation feature"
+git push origin feature/car-recommend-update
+
+# 如果main有更新，需同步main到自己的分支
+git checkout feature/car-recommend-update
+git fetch origin
+git merge origin/main
+
