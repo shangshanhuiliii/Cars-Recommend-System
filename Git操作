@@ -1,4 +1,4 @@
-# 修改代码，需提交到自己的分支
+# 修改代码，需提交到自己的分支（一般情况用这个即可）
 git status
 git add .
 git commit -m "update car recommendation feature"
@@ -8,4 +8,4 @@ git push origin feature/car-recommend-update
 git checkout feature/car-recommend-update
 git fetch origin
 git merge origin/main
-
+git push origin feature/car-recommend-update
