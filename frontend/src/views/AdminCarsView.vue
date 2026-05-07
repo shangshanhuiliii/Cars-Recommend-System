@@ -38,6 +38,11 @@
         </el-form>
 
         <el-table v-loading="loading" :data="cars" class="car-table" row-key="id">
+          <el-table-column label="图片" width="96">
+            <template #default="{ row }">
+              <img class="car-thumb" :src="carImageSrc(row.imageUrl)" :alt="row.modelName" @error="fallbackCarImage" />
+            </template>
+          </el-table-column>
           <el-table-column prop="brand" label="品牌" width="110" />
           <el-table-column prop="series" label="车系" width="130" />
           <el-table-column prop="modelName" label="车型名称" min-width="220" show-overflow-tooltip />
@@ -86,7 +91,7 @@
       </div>
     </div>
 
-    <el-dialog v-model="carDialogVisible" :title="carDialogTitle" width="680px">
+    <el-dialog v-model="carDialogVisible" :title="carDialogTitle" width="860px" @closed="resetImageManager">
       <el-form ref="carFormRef" :model="carForm" :rules="carRules" label-width="92px">
         <div class="form-grid">
           <el-form-item label="品牌" prop="brand">
@@ -133,6 +138,101 @@
           </el-form-item>
         </div>
       </el-form>
+
+      <div v-if="editingCarId" class="image-manager">
+        <div class="image-manager__header">
+          <div>
+            <h3>图片资源</h3>
+            <p>JPG / PNG，5MB 内。</p>
+          </div>
+          <el-tag :type="carForm.imageUrl ? 'success' : 'info'" effect="light">
+            {{ carForm.imageUrl ? '已有生效图片' : '暂无生效图片' }}
+          </el-tag>
+        </div>
+
+        <p
+          v-if="imageMessage"
+          class="inline-state"
+          :class="{ 'inline-state--error': imageMessageType === 'error' }"
+        >
+          {{ imageMessage }}
+        </p>
+
+        <div class="image-upload-row">
+          <div class="image-preview-box">
+            <img :src="selectedPreviewSrc" :alt="carForm.modelName || '车型图片预览'" @error="fallbackCarImage" />
+          </div>
+          <div class="image-upload-controls">
+            <input type="file" accept="image/jpeg,image/png" @change="handleImageFileChange" />
+            <div class="upload-actions">
+              <el-button
+                type="primary"
+                :icon="Upload"
+                :disabled="!selectedImageFile"
+                :loading="uploadingImage"
+                @click="uploadSelectedImage"
+              >
+                上传图片
+              </el-button>
+              <span v-if="selectedImageFile">{{ selectedImageFile.name }}</span>
+            </div>
+          </div>
+        </div>
+
+        <el-table
+          v-loading="imageAssetsLoading"
+          :data="imageAssets"
+          size="small"
+          class="image-asset-table"
+          empty-text="暂无图片资源"
+        >
+          <el-table-column label="预览" width="82">
+            <template #default="{ row }">
+              <img class="asset-thumb" :src="carImageSrc(row.publicUrl)" :alt="row.originalFilename" @error="fallbackCarImage" />
+            </template>
+          </el-table-column>
+          <el-table-column prop="originalFilename" label="文件" min-width="150" show-overflow-tooltip />
+          <el-table-column label="尺寸" width="120">
+            <template #default="{ row }">{{ formatImageSize(row) }}</template>
+          </el-table-column>
+          <el-table-column label="大小" width="96">
+            <template #default="{ row }">{{ formatFileSize(row.sizeBytes) }}</template>
+          </el-table-column>
+          <el-table-column prop="auditStatus" label="状态" width="96">
+            <template #default="{ row }">
+              <el-tag :type="auditTagType(row.auditStatus)" effect="light">{{ imageAuditLabel(row.auditStatus) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="审核操作" width="320">
+            <template #default="{ row }">
+              <div v-if="row.auditStatus === 'PENDING'" class="asset-actions">
+                <el-input
+                  v-model="rejectReasonMap[row.id]"
+                  size="small"
+                  maxlength="500"
+                  placeholder="拒绝原因"
+                />
+                <el-button size="small" type="success" :loading="auditingImageId === row.id" @click="approveImage(row)">
+                  通过
+                </el-button>
+                <el-button size="small" type="warning" :loading="auditingImageId === row.id" @click="rejectImage(row)">
+                  拒绝
+                </el-button>
+              </div>
+              <span v-else class="asset-review-text">{{ row.rejectReason || formatDate(row.reviewTime) }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="资源" width="92">
+            <template #default="{ row }">
+              <el-button size="small" type="danger" :loading="deletingImageId === row.id" @click="removeImage(row)">
+                删除
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+      <p v-else class="image-manager-note">保存车型后可维护图片资源。</p>
+
       <template #footer>
         <el-button @click="carDialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="savingCar" @click="submitCar">保存</el-button>
@@ -238,8 +338,8 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
-import { Delete, Edit, Plus, Refresh, Search, Setting } from '@element-plus/icons-vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { Delete, Edit, Plus, Refresh, Search, Setting, Upload } from '@element-plus/icons-vue'
 import { ElMessageBox as ConfirmBox } from 'element-plus'
 
 import {
@@ -253,7 +353,9 @@ import {
   saveAdminCarParam,
   updateAdminCar,
 } from '@/api/adminCars'
+import { auditCarImage, deleteCarImage, fetchCarImages, uploadCarImage } from '@/api/carImages'
 import { bodyTypes, carEnergyTypes } from '@/constants/enums'
+import { carImageSrc, fallbackCarImage } from '@/utils/carImage'
 
 const auditStatuses = ['APPROVED', 'PENDING', 'REJECTED']
 
@@ -278,6 +380,16 @@ const carFormRef = ref()
 const savingCar = ref(false)
 const editingCarId = ref(null)
 const carForm = reactive(defaultCarForm())
+const imageAssets = ref([])
+const imageAssetsLoading = ref(false)
+const selectedImageFile = ref(null)
+const selectedImagePreview = ref('')
+const uploadingImage = ref(false)
+const imageMessage = ref('')
+const imageMessageType = ref('info')
+const auditingImageId = ref(null)
+const deletingImageId = ref(null)
+const rejectReasonMap = reactive({})
 
 const paramDialogVisible = ref(false)
 const paramFormRef = ref()
@@ -293,6 +405,7 @@ const currentScore = ref(null)
 const carDialogTitle = computed(() => (editingCarId.value ? '编辑车型基础信息' : '新增车型'))
 const paramDialogTitle = computed(() => (currentParamCar.value ? `${currentParamCar.value.modelName} 参数维护` : '参数维护'))
 const scoreDialogTitle = computed(() => (currentScoreCar.value ? `${currentScoreCar.value.modelName} 特征评分` : '特征评分'))
+const selectedPreviewSrc = computed(() => selectedImagePreview.value || carImageSrc(carForm.imageUrl))
 const scoreRows = computed(() => {
   const score = currentScore.value || {}
   return [
@@ -329,6 +442,7 @@ const paramRules = {
 }
 
 onMounted(loadCars)
+onBeforeUnmount(revokeSelectedImagePreview)
 
 async function loadCars() {
   loading.value = true
@@ -380,11 +494,13 @@ function resetQuery() {
 function openCreateDialog() {
   editingCarId.value = null
   Object.assign(carForm, defaultCarForm())
+  resetImageManager()
   carDialogVisible.value = true
 }
 
 function openEditDialog(row) {
   editingCarId.value = row.id
+  resetImageManager()
   Object.assign(carForm, {
     brand: row.brand,
     series: row.series,
@@ -400,6 +516,7 @@ function openEditDialog(row) {
     auditStatus: row.auditStatus,
   })
   carDialogVisible.value = true
+  loadImageAssets(row.id)
 }
 
 async function submitCar() {
@@ -418,6 +535,107 @@ async function submitCar() {
     setOperationMessage(error?.response?.data?.message || error?.message || '车型保存失败。', 'error')
   } finally {
     savingCar.value = false
+  }
+}
+
+async function loadImageAssets(carId = editingCarId.value) {
+  if (!carId) {
+    imageAssets.value = []
+    return
+  }
+  imageAssetsLoading.value = true
+  try {
+    const response = await fetchCarImages({ page: 1, size: 100, carId })
+    imageAssets.value = response.data.records || []
+    imageAssets.value.forEach((asset) => {
+      if (asset.auditStatus === 'PENDING' && rejectReasonMap[asset.id] === undefined) {
+        rejectReasonMap[asset.id] = ''
+      }
+    })
+  } catch (error) {
+    setImageMessage(error?.response?.data?.message || error?.message || '图片资源加载失败。', 'error')
+  } finally {
+    imageAssetsLoading.value = false
+  }
+}
+
+function handleImageFileChange(event) {
+  const file = event.target.files?.[0] || null
+  selectedImageFile.value = file
+  revokeSelectedImagePreview()
+  if (file) {
+    selectedImagePreview.value = URL.createObjectURL(file)
+    setImageMessage('')
+  }
+  event.target.value = ''
+}
+
+async function uploadSelectedImage() {
+  if (!editingCarId.value || !selectedImageFile.value) {
+    return
+  }
+  uploadingImage.value = true
+  try {
+    const response = await uploadCarImage({ carId: editingCarId.value, file: selectedImageFile.value })
+    setImageMessage(`图片已上传，当前状态：${imageAuditLabel(response.data.auditStatus)}`)
+    selectedImageFile.value = null
+    revokeSelectedImagePreview()
+    await loadImageAssets()
+  } catch (error) {
+    setImageMessage(error?.response?.data?.message || error?.message || '图片上传失败。', 'error')
+  } finally {
+    uploadingImage.value = false
+  }
+}
+
+async function approveImage(row) {
+  auditingImageId.value = row.id
+  try {
+    const response = await auditCarImage(row.id, { auditStatus: 'APPROVED' })
+    carForm.imageUrl = response.data.publicUrl
+    setImageMessage('图片已通过审核并设为当前车型图片')
+    await loadImageAssets()
+    await loadCars()
+  } catch (error) {
+    setImageMessage(error?.response?.data?.message || error?.message || '图片审核失败。', 'error')
+  } finally {
+    auditingImageId.value = null
+  }
+}
+
+async function rejectImage(row) {
+  const rejectReason = (rejectReasonMap[row.id] || '').trim()
+  if (!rejectReason) {
+    setImageMessage('请填写拒绝原因。', 'error')
+    return
+  }
+  auditingImageId.value = row.id
+  try {
+    await auditCarImage(row.id, { auditStatus: 'REJECTED', rejectReason })
+    setImageMessage('图片已拒绝，车型当前图片保持不变')
+    await loadImageAssets()
+  } catch (error) {
+    setImageMessage(error?.response?.data?.message || error?.message || '图片审核失败。', 'error')
+  } finally {
+    auditingImageId.value = null
+  }
+}
+
+async function removeImage(row) {
+  try {
+    await ConfirmBox.confirm(`确认删除图片资源 ${row.originalFilename}？`, '删除图片资源', { type: 'warning' })
+  } catch {
+    return
+  }
+  deletingImageId.value = row.id
+  try {
+    await deleteCarImage(row.id)
+    setImageMessage('图片资源已删除')
+    await loadImageAssets()
+  } catch (error) {
+    setImageMessage(error?.response?.data?.message || error?.message || '图片资源删除失败。', 'error')
+  } finally {
+    deletingImageId.value = null
   }
 }
 
@@ -595,15 +813,63 @@ function formatDate(value) {
   return value.replace('T', ' ').slice(0, 16)
 }
 
+function formatFileSize(value) {
+  const bytes = Number(value || 0)
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / 1024 / 1024).toFixed(2)} MB`
+  }
+  if (bytes >= 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`
+  }
+  return `${bytes} B`
+}
+
+function formatImageSize(row) {
+  return `${row.width || 0} x ${row.height || 0}`
+}
+
 function auditTagType(value) {
   if (value === 'APPROVED') return 'success'
   if (value === 'REJECTED') return 'danger'
   return 'warning'
 }
 
+function imageAuditLabel(value) {
+  if (value === 'APPROVED') return '已通过'
+  if (value === 'REJECTED') return '已拒绝'
+  return '待审核'
+}
+
 function setOperationMessage(text, type = 'info') {
   operationMessage.value = text
   operationMessageType.value = type
+}
+
+function setImageMessage(text, type = 'info') {
+  imageMessage.value = text
+  imageMessageType.value = type
+}
+
+function resetImageManager() {
+  imageAssets.value = []
+  imageAssetsLoading.value = false
+  selectedImageFile.value = null
+  revokeSelectedImagePreview()
+  uploadingImage.value = false
+  imageMessage.value = ''
+  imageMessageType.value = 'info'
+  auditingImageId.value = null
+  deletingImageId.value = null
+  Object.keys(rejectReasonMap).forEach((key) => {
+    delete rejectReasonMap[key]
+  })
+}
+
+function revokeSelectedImagePreview() {
+  if (selectedImagePreview.value) {
+    URL.revokeObjectURL(selectedImagePreview.value)
+    selectedImagePreview.value = ''
+  }
 }
 </script>
 
@@ -639,6 +905,17 @@ function setOperationMessage(text, type = 'info') {
 
 .car-table {
   width: 100%;
+}
+
+.car-thumb,
+.asset-thumb {
+  display: block;
+  width: 64px;
+  height: 44px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  background: #f3f4f6;
 }
 
 .table-footer {
@@ -687,6 +964,94 @@ function setOperationMessage(text, type = 'info') {
   background: #f9fafb;
 }
 
+.image-manager {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+.image-manager__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.image-manager__header h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+
+.image-manager__header p,
+.image-manager-note {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.image-manager-note {
+  margin-top: 14px;
+}
+
+.image-upload-row {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+}
+
+.image-preview-box {
+  width: 180px;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: #f3f4f6;
+}
+
+.image-preview-box img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.image-upload-controls {
+  display: grid;
+  gap: 10px;
+}
+
+.upload-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.upload-actions span {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.image-asset-table {
+  width: 100%;
+}
+
+.asset-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.asset-review-text {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
 .score-overview {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -714,7 +1079,16 @@ function setOperationMessage(text, type = 'info') {
 @media (max-width: 760px) {
   .form-grid,
   .feature-switches,
+  .image-upload-row,
   .score-overview {
+    grid-template-columns: 1fr;
+  }
+
+  .image-preview-box {
+    width: 100%;
+  }
+
+  .asset-actions {
     grid-template-columns: 1fr;
   }
 

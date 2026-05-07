@@ -22,6 +22,7 @@ public class RecommendItemMapper {
                     resultSet.getString("body_type"),
                     resultSet.getString("energy_type"),
                     resultSet.getInt("seats"),
+                    resultSet.getString("image_url"),
                     resultSet.getBigDecimal("total_score"),
                     resultSet.getBigDecimal("price_score"),
                     resultSet.getBigDecimal("space_score"),
@@ -101,7 +102,7 @@ public class RecommendItemMapper {
                         SELECT
                             ri.rank_no, ri.car_id,
                             cm.brand, cm.series, cm.model_name, cm.guide_price,
-                            cm.body_type, cm.energy_type, cm.seats,
+                            cm.body_type, cm.energy_type, cm.seats, cm.image_url,
                             ri.total_score, ri.price_score,
                             ri.space_score, ri.safety_score, ri.energy_score, ri.intelligence_score,
                             ri.comfort_score, ri.power_score, ri.reputation_score, ri.popularity_score,

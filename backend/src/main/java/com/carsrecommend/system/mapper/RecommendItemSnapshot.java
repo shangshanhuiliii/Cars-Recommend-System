@@ -12,6 +12,7 @@ public record RecommendItemSnapshot(
         String bodyType,
         String energyType,
         Integer seats,
+        String imageUrl,
         BigDecimal totalScore,
         BigDecimal priceScore,
         BigDecimal spaceScore,

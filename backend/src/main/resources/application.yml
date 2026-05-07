@@ -7,9 +7,21 @@ spring:
   autoconfigure:
     exclude:
       - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
   jackson:
     time-zone: Asia/Shanghai
     date-format: yyyy-MM-dd HH:mm:ss
+
+app:
+  storage:
+    car-image-root: .run/uploads/car-images
+    car-image-public-path: /uploads/car-images
+    car-image-max-size-bytes: 5242880
+    car-image-max-edge: 1600
+    car-image-jpeg-quality: 0.82
 
 debug: false
 

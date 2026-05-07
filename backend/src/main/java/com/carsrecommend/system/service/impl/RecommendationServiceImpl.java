@@ -322,6 +322,7 @@ public class RecommendationServiceImpl implements RecommendationService {
         vo.setBodyType(scoredItem.car().getBodyType());
         vo.setEnergyType(scoredItem.car().getEnergyType());
         vo.setSeats(scoredItem.car().getSeats());
+        vo.setImageUrl(scoredItem.car().getImageUrl());
         vo.setTotalScore(scoredItem.totalScore());
         vo.setPriceScore(scoredItem.priceScore());
         vo.setSpaceScore(scoredItem.featureScore().getSpaceScore());

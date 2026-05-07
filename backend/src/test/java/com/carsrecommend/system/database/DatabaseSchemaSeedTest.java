@@ -69,6 +69,11 @@ class DatabaseSchemaSeedTest {
                             + "comfort_score, power_score, reputation_score, popularity_score, match_level, "
                             + "reason_text, weakness_text FROM recommend_item WHERE 1 = 0");
             assertColumnSelectable(connection,
+                    "SELECT car_id, original_filename, stored_filename, content_type, size_bytes, width, height, "
+                            + "public_url, storage_path, checksum, audit_status, reject_reason, "
+                            + "created_by_admin_id, reviewed_by_admin_id, deleted, create_time, update_time, review_time "
+                            + "FROM car_image_asset WHERE 1 = 0");
+            assertColumnSelectable(connection,
                     "SELECT user_id, car_id, deleted, create_time, update_time FROM user_favorite WHERE 1 = 0");
             assertColumnSelectable(connection,
                     "SELECT user_id, record_id, satisfaction_score, satisfaction_level, reason_tags, comment "
@@ -77,6 +82,7 @@ class DatabaseSchemaSeedTest {
             assertEquals(0, count(connection, "SELECT COUNT(*) FROM car_feature_score"));
             assertEquals(0, count(connection, "SELECT COUNT(*) FROM recommend_record"));
             assertEquals(0, count(connection, "SELECT COUNT(*) FROM recommend_item"));
+            assertEquals(0, count(connection, "SELECT COUNT(*) FROM car_image_asset"));
             assertEquals(0, count(connection, "SELECT COUNT(*) FROM user_favorite"));
             assertEquals(0, count(connection, "SELECT COUNT(*) FROM recommend_feedback"));
 

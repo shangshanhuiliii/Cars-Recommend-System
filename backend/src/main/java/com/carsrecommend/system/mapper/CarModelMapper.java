@@ -189,6 +189,17 @@ public class CarModelMapper {
                 carModel.getId());
     }
 
+    public int updateImageUrl(Long id, String imageUrl) {
+        return jdbcTemplate.update(
+                """
+                        UPDATE car_model
+                        SET image_url = ?, update_time = CURRENT_TIMESTAMP
+                        WHERE id = ? AND deleted = FALSE
+                        """,
+                imageUrl,
+                id);
+    }
+
     public int softDelete(Long id) {
         return jdbcTemplate.update(
                 "UPDATE car_model SET deleted = TRUE, update_time = CURRENT_TIMESTAMP WHERE id = ? AND deleted = FALSE",

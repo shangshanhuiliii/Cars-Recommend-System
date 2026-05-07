@@ -19,6 +19,7 @@
 | `app_user` | 普通用户账户，关联需求、推荐历史、收藏和反馈。 |
 | `admin` | 管理员账户。 |
 | `car_model` | 车型基础展示信息和基础过滤字段。 |
+| `car_image_asset` | 车型图片上传资源、压缩后文件元数据和审核状态。 |
 | `car_param` | 车型参数和配置，作为车型评分来源。 |
 | `car_feature_score` | 八维车型静态评分。 |
 | `user_demand` | 用户购车需求、画像文本和主观权重。 |
@@ -97,7 +98,42 @@ username = demo_admin
 | `create_time` | 创建时间 |
 | `update_time` | 更新时间 |
 
+`car_model.image_url` 是当前生效图片地址。管理端图片资源上传后先保存到 `car_image_asset`，只有审核通过时才会更新该字段。
+
 `car_model.energy_type` 不保存 `新能源`。用户需求侧选择 `新能源` 时，由后端展开为 `纯电 / 插混 / 增程`。
+
+### `car_image_asset`
+
+保存车型图片资源的上传、压缩、访问地址和审核状态。该表只增强车型展示资源，不参与推荐评分、候选生成、排序或历史快照重算。
+
+| 字段 | 说明 |
+| --- | --- |
+| `id` | 主键 |
+| `car_id` | 绑定车型 ID |
+| `original_filename` | 用户上传时的原始文件名，仅用于展示 |
+| `stored_filename` | 后端重新生成的存储文件名，唯一 |
+| `content_type` | `image/jpeg` / `image/png` |
+| `size_bytes` | 压缩/缩放后文件大小 |
+| `width` | 压缩/缩放后图片宽度 |
+| `height` | 压缩/缩放后图片高度 |
+| `public_url` | 静态访问路径，例如 `/uploads/car-images/{storedFilename}` |
+| `storage_path` | 存储根目录下的相对路径 |
+| `checksum` | 压缩/缩放后文件的 SHA-256 |
+| `audit_status` | `PENDING` / `APPROVED` / `REJECTED` |
+| `reject_reason` | 拒绝原因 |
+| `created_by_admin_id` | 上传管理员，当前默认 `admin.id = 1` |
+| `reviewed_by_admin_id` | 审核管理员，当前默认 `admin.id = 1` |
+| `deleted` | 软删除 |
+| `create_time` | 创建时间 |
+| `update_time` | 更新时间 |
+| `review_time` | 审核时间 |
+
+规则：
+
+- 上传成功后默认 `audit_status = PENDING`，不会覆盖 `car_model.image_url`。
+- 审核通过后资源状态改为 `APPROVED`，并将对应车型 `car_model.image_url` 更新为该资源 `public_url`。
+- 审核拒绝后资源状态改为 `REJECTED`，保存 `reject_reason`，车型当前图片保持不变。
+- 删除资源只更新 `deleted`，不物理删除文件；当前被 `car_model.image_url` 使用的已通过资源不能直接删除。
 
 ### `car_param`
 
@@ -311,6 +347,7 @@ user_demand 1 - n recommend_record
 recommend_record 1 - n recommend_item
 car_model 1 - 1 car_param
 car_model 1 - 1 car_feature_score
+car_model 1 - n car_image_asset
 car_model 1 - n recommend_item
 recommend_record 1 - n recommend_feedback
 app_user 1 - n user_favorite
@@ -366,6 +403,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\init-dev-db.ps1 -Recreate
 - 车型评分。
 - 推荐记录。
 - 推荐明细。
+- 图片资源。
 - 收藏。
 - 反馈。
 
@@ -399,6 +437,10 @@ car_feature_score = 120
 - `car_model(body_type)`
 - `car_model(energy_type)`
 - `car_model(guide_price)`
+- `car_image_asset(stored_filename)` 唯一约束
+- `car_image_asset(car_id)`
+- `car_image_asset(audit_status)`
+- `car_image_asset(car_id, audit_status)`
 - `car_param(car_id)` 唯一约束
 - `car_feature_score(car_id)` 唯一约束
 - `user_demand(user_id)`

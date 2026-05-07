@@ -14,6 +14,7 @@ public class RecommendationItemVO {
     private String bodyType;
     private String energyType;
     private Integer seats;
+    private String imageUrl;
     private BigDecimal totalScore;
     private BigDecimal priceScore;
     private BigDecimal spaceScore;
@@ -99,6 +100,14 @@ public class RecommendationItemVO {
 
     public void setSeats(Integer seats) {
         this.seats = seats;
+    }
+
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
     }
 
     public BigDecimal getTotalScore() {

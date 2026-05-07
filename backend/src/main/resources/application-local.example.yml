@@ -4,3 +4,7 @@ spring:
     username: root
     password: your_mysql_password
     driver-class-name: com.mysql.cj.jdbc.Driver
+
+app:
+  storage:
+    car-image-root: .run/uploads/car-images

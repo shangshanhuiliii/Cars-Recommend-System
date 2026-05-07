@@ -126,6 +126,8 @@ DELETE /api/admin/cars/{id}
 }
 ```
 
+`imageUrl` 是当前生效图片地址。管理端图片资源上传后默认不覆盖该字段，只有图片资源审核通过后才会由后端更新。
+
 用户端车型只读接口：
 
 ```text
@@ -157,6 +159,117 @@ GET /api/car/options
   }
 ]
 ```
+
+## 管理端车型图片资源接口
+
+图片资源用于管理车型图片的上传、压缩、审核和绑定。当前默认使用本地文件系统存储，公开访问路径为：
+
+```text
+/uploads/car-images/{storedFilename}
+```
+
+资源状态：
+
+| 状态 | 说明 |
+| --- | --- |
+| `PENDING` | 上传成功后的默认状态，可预览但不会覆盖车型当前图片。 |
+| `APPROVED` | 审核通过，后端将对应 `car_model.image_url` 更新为资源 `publicUrl`。 |
+| `REJECTED` | 审核拒绝，保存 `rejectReason`，不更新车型当前图片。 |
+
+资源响应核心字段：
+
+```json
+{
+  "id": 1,
+  "carId": 2,
+  "originalFilename": "song-plus.png",
+  "storedFilename": "car-2-uuid.png",
+  "contentType": "image/png",
+  "sizeBytes": 126000,
+  "width": 1600,
+  "height": 900,
+  "publicUrl": "/uploads/car-images/car-2-uuid.png",
+  "storagePath": "car-2-uuid.png",
+  "checksum": "sha256hex",
+  "auditStatus": "PENDING",
+  "rejectReason": null,
+  "createdByAdminId": 1,
+  "reviewedByAdminId": null,
+  "createTime": "2026-05-07T10:30:00",
+  "updateTime": "2026-05-07T10:30:00",
+  "reviewTime": null
+}
+```
+
+上传车型图片：
+
+```text
+POST /api/admin/car-images
+Content-Type: multipart/form-data
+```
+
+表单字段：
+
+| 字段 | 说明 |
+| --- | --- |
+| `file` | 必填，JPEG / PNG 图片。业务限制 5MB。 |
+| `carId` | 必填，绑定车型 ID。 |
+
+规则：
+
+- 后端校验图片真实内容，不只信任扩展名或请求 `contentType`。
+- 文件名由后端重新生成，原始文件名只作为展示字段保存。
+- 上传时执行压缩/缩放，最长边不超过 1600px；JPEG 使用质量参数压缩，PNG 至少执行尺寸缩放。
+- 上传成功后资源状态为 `PENDING`，返回元数据和 `publicUrl`，不覆盖 `car_model.image_url`。
+
+分页查询图片资源：
+
+```text
+GET /api/admin/car-images?page=1&size=10&carId=&auditStatus=
+```
+
+查询参数：
+
+| 参数 | 说明 |
+| --- | --- |
+| `page` | 页码，默认 1。 |
+| `size` | 每页数量，默认 10，最大 100。 |
+| `carId` | 按车型过滤，可选。 |
+| `auditStatus` | 按 `PENDING / APPROVED / REJECTED` 过滤，可选。 |
+
+审核图片资源：
+
+```text
+PUT /api/admin/car-images/{id}/audit
+```
+
+请求：
+
+```json
+{
+  "auditStatus": "APPROVED",
+  "rejectReason": ""
+}
+```
+
+规则：
+
+- 只审核 `PENDING` 资源。
+- `auditStatus = APPROVED` 时更新资源状态，并将对应车型 `car_model.image_url` 更新为资源 `publicUrl`。
+- `auditStatus = REJECTED` 时需要填写 `rejectReason`，不更新车型当前图片。
+- 审核不触发车型评分重算，不影响推荐排序或历史推荐快照。
+
+删除图片资源：
+
+```text
+DELETE /api/admin/car-images/{id}
+```
+
+规则：
+
+- 删除为软删除，只更新 `deleted`。
+- 不物理删除上传文件。
+- 如果已通过资源正被对应车型 `image_url` 使用，接口返回清晰错误，车型图片保持不变。
 
 ## 车型参数接口
 
@@ -376,6 +489,7 @@ GET  /api/recommend/{recordId}/algorithm-visualization
       "bodyType": "SUV",
       "energyType": "插混",
       "seats": 5,
+      "imageUrl": "/uploads/car-images/car-1-demo.png",
       "totalScore": 88.6,
       "priceScore": 92.5,
       "spaceScore": 88,

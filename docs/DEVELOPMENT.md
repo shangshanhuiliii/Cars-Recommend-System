@@ -65,7 +65,7 @@ POST http://localhost:8080/api/admin/cars/scores/recalculate
 powershell -ExecutionPolicy Bypass -File .\scripts\init-dev-db.ps1 -RecalculateScores
 ```
 
-`-Recreate` 会删除本地需求、推荐记录、收藏、反馈和评分等业务数据。不要对真实库或他人共享库执行，除非已经明确确认。
+`-Recreate` 会删除本地需求、推荐记录、收藏、反馈、评分和图片资源等业务数据。不要对真实库或他人共享库执行，除非已经明确确认。
 
 ## 后端启动
 

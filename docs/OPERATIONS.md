@@ -50,6 +50,28 @@ Copy-Item backend/src/main/resources/application-local.example.yml backend/src/m
 - `.env.local`
 - 真实密码、token、密钥
 
+## 本地图片存储
+
+车型图片资源默认使用本地文件系统存储。安全默认配置在 `backend/src/main/resources/application.yml` 中：
+
+```yaml
+app:
+  storage:
+    car-image-root: .run/uploads/car-images
+    car-image-public-path: /uploads/car-images
+    car-image-max-size-bytes: 5242880
+    car-image-max-edge: 1600
+    car-image-jpeg-quality: 0.82
+```
+
+说明：
+
+- `app.storage.car-image-root` 是压缩/缩放后图片文件的存储目录，可在 `application-local.yml` 中按本机路径覆盖。
+- `.run/` 已被 Git 忽略，不提交上传文件。
+- 后端通过 Spring MVC 静态资源映射暴露 `/uploads/car-images/{storedFilename}`。
+- 管理端上传资源默认状态为 `PENDING`，审核通过后才会更新 `car_model.image_url`。
+- 当前不需要也不允许提交真实对象存储密钥；云对象存储、CDN 和迁移策略属于后续增强。
+
 ## 数据库初始化脚本
 
 脚本路径：
@@ -96,7 +118,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\init-dev-db.ps1 `
 
 脚本不会打印数据库密码。若缺少密码，会用安全输入提示。
 
-`-Recreate` 会删除目标库中的需求、推荐记录、收藏、反馈和评分等数据。只对自己的本地开发库使用；真实库、共享库或生产库必须先明确确认。
+`-Recreate` 会删除目标库中的需求、推荐记录、收藏、反馈、评分和图片资源等数据。只对自己的本地开发库使用；真实库、共享库或生产库必须先明确确认。
 
 ## 种子数据
 
@@ -174,6 +196,7 @@ Vite proxy 会将 `/api` 转发到 `http://localhost:8080`。
 ## 常用接口
 
 - 健康检查：`GET /api/health`
+- 管理端图片资源：`POST /api/admin/car-images`、`GET /api/admin/car-images`、`PUT /api/admin/car-images/{id}/audit`、`DELETE /api/admin/car-images/{id}`
 - 用户需求保存：`POST /api/user/demand`
 - 自然语言解析：`POST /api/user/demand/parse-text`
 - 推荐生成：`POST /api/recommend/generate`
@@ -240,5 +263,6 @@ POST /api/admin/cars/scores/recalculate
 - `dist/`
 - `node_modules/`
 - `.run/`
+- 上传图片文件
 - 日志文件
 - 含真实密码、token、密钥的任何文件

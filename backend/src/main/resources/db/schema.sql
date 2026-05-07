@@ -50,6 +50,40 @@ CREATE INDEX idx_car_model_body_type ON car_model (body_type);
 CREATE INDEX idx_car_model_energy_type ON car_model (energy_type);
 CREATE INDEX idx_car_model_guide_price ON car_model (guide_price);
 
+CREATE TABLE IF NOT EXISTS car_image_asset (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    car_id BIGINT NOT NULL,
+    original_filename VARCHAR(255) NOT NULL,
+    stored_filename VARCHAR(255) NOT NULL,
+    content_type VARCHAR(32) NOT NULL,
+    size_bytes BIGINT NOT NULL,
+    width INT NOT NULL,
+    height INT NOT NULL,
+    public_url VARCHAR(512) NOT NULL,
+    storage_path VARCHAR(1000) NOT NULL,
+    checksum CHAR(64) NOT NULL,
+    audit_status VARCHAR(16) NOT NULL DEFAULT 'PENDING',
+    reject_reason VARCHAR(500),
+    created_by_admin_id BIGINT NOT NULL,
+    reviewed_by_admin_id BIGINT,
+    deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    review_time TIMESTAMP,
+    CONSTRAINT fk_car_image_asset_car_id FOREIGN KEY (car_id) REFERENCES car_model (id),
+    CONSTRAINT fk_car_image_asset_created_by_admin_id FOREIGN KEY (created_by_admin_id) REFERENCES admin (id),
+    CONSTRAINT fk_car_image_asset_reviewed_by_admin_id FOREIGN KEY (reviewed_by_admin_id) REFERENCES admin (id),
+    CONSTRAINT uk_car_image_asset_stored_filename UNIQUE (stored_filename),
+    CONSTRAINT ck_car_image_asset_content_type CHECK (content_type IN ('image/jpeg', 'image/png')),
+    CONSTRAINT ck_car_image_asset_size CHECK (size_bytes > 0),
+    CONSTRAINT ck_car_image_asset_dimension CHECK (width > 0 AND height > 0),
+    CONSTRAINT ck_car_image_asset_audit_status CHECK (audit_status IN ('APPROVED', 'PENDING', 'REJECTED'))
+);
+
+CREATE INDEX idx_car_image_asset_car_id ON car_image_asset (car_id);
+CREATE INDEX idx_car_image_asset_audit_status ON car_image_asset (audit_status);
+CREATE INDEX idx_car_image_asset_car_status ON car_image_asset (car_id, audit_status);
+
 CREATE TABLE IF NOT EXISTS car_param (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     car_id BIGINT NOT NULL,

@@ -147,6 +147,7 @@ public class RecommendationRecordServiceImpl implements RecommendationRecordServ
         vo.setBodyType(snapshot.bodyType());
         vo.setEnergyType(snapshot.energyType());
         vo.setSeats(snapshot.seats());
+        vo.setImageUrl(snapshot.imageUrl());
         vo.setTotalScore(snapshot.totalScore());
         vo.setPriceScore(snapshot.priceScore());
         vo.setSpaceScore(snapshot.spaceScore());
