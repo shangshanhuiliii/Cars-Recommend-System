@@ -40,7 +40,7 @@ util         评分、解析、权重归一化等工具
 
 - 车型管理：维护 `car_model`、`car_param`，并提供车型详情、品牌选项和车型选项。
 - 图片资源管理：管理端上传、压缩、审核和软删除车型图片资源，审核通过后更新 `car_model.image_url`。
-- 登录认证：基于 `app_user` 和 `admin` 登录，支持普通用户注册，签发 HS256 JWT，`AuthInterceptor` 统一校验 token、角色和接口权限。
+- 登录认证：基于 `app_user` 和 `admin` 登录，支持普通用户注册，签发 HS256 JWT，`AuthInterceptor` 统一校验 token、角色和接口权限，并对未归类 `/api/**` 采用默认拒绝的 fail-closed 策略。
 - 管理端用户管理：管理员查看普通用户状态、最近需求、推荐历史、收藏和反馈，并维护 `app_user.status`。
 - 车型评分：根据车型参数生成 `car_feature_score`。
 - 用户需求：保存结构化需求，生成画像文本和主观权重。
@@ -128,6 +128,7 @@ POST /api/auth/user/login 或 /api/auth/admin/login
 -> 后续请求由 Axios 附加 Authorization
 -> AuthInterceptor 校验 token、principalType 和角色权限
 -> AuthContext 暴露当前用户或管理员 ID
+-> 未归类 /api/** 默认拒绝，新增 API 必须显式归类为 public / USER / ADMIN
 ```
 
 用户注册与管理数据流：

@@ -22,7 +22,7 @@
           />
 
           <el-empty v-else-if="!records.length" description="暂无推荐记录">
-            <el-button type="primary" @click="$router.push('/recommend')">生成一条推荐</el-button>
+            <el-button type="primary" @click="$router.push('/admin/users')">查看用户管理</el-button>
           </el-empty>
 
           <template v-else>

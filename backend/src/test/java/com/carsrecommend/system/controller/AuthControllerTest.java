@@ -174,6 +174,30 @@ class AuthControllerTest {
     }
 
     @Test
+    void unmatchedApiEndpointsFailClosed() throws Exception {
+        mockMvc.perform(get("/api/not-exist-with-auth-rule"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(401));
+
+        String userToken = login("/api/auth/user/login", "demo_user", "demo123456")
+                .andReturnData()
+                .path("token")
+                .asText();
+        String adminToken = login("/api/auth/admin/login", "demo_admin", "admin123456")
+                .andReturnData()
+                .path("token")
+                .asText();
+
+        mockMvc.perform(get("/api/not-exist-with-auth-rule").header(HttpHeaders.AUTHORIZATION, bearer(userToken)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(404));
+
+        mockMvc.perform(get("/api/not-exist-with-auth-rule").header(HttpHeaders.AUTHORIZATION, bearer(adminToken)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(404));
+    }
+
+    @Test
     void invalidOrExpiredTokenReturnsUnauthorized() throws Exception {
         mockMvc.perform(get("/api/user/demand/latest").header(HttpHeaders.AUTHORIZATION, "Bearer invalid.token.value"))
                 .andExpect(status().isUnauthorized())

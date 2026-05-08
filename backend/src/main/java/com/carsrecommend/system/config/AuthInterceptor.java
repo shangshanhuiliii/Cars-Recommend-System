@@ -68,21 +68,24 @@ public class AuthInterceptor implements HandlerInterceptor {
             return true;
         }
         String path = request.getRequestURI();
+        if (!isApiPath(path)) {
+            return true;
+        }
         if (isPublic(request.getMethod(), path)) {
             return true;
         }
 
         PrincipalType requiredType = requiredPrincipalType(path);
         boolean requiresAuthentication = requiredType != null || matchesAny(path, AUTHENTICATED_PATTERNS);
-        if (!requiresAuthentication) {
-            return true;
-        }
-
         AuthPrincipal principal;
         try {
             principal = jwtTokenService.parse(resolveBearerToken(request));
         } catch (BusinessException exception) {
             writeFailure(response, ErrorCode.UNAUTHORIZED, exception.getMessage());
+            return false;
+        }
+        if (!requiresAuthentication) {
+            writeFailure(response, ErrorCode.NOT_FOUND, "api endpoint is not registered for access");
             return false;
         }
         if (requiredType != null && principal.principalType() != requiredType) {
@@ -103,6 +106,10 @@ public class AuthInterceptor implements HandlerInterceptor {
             return true;
         }
         return "POST".equalsIgnoreCase(method) && matchesAny(path, PUBLIC_POST_PATTERNS);
+    }
+
+    private boolean isApiPath(String path) {
+        return "/api".equals(path) || path.startsWith("/api/");
     }
 
     private PrincipalType requiredPrincipalType(String path) {
