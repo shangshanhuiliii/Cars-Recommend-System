@@ -77,6 +77,16 @@ public class RecommendRecordMapper {
         return total == null ? 0 : total;
     }
 
+    public long countAll(Long userId) {
+        if (userId == null) {
+            Long total = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM recommend_record WHERE deleted = FALSE",
+                    Long.class);
+            return total == null ? 0 : total;
+        }
+        return countByUserId(userId);
+    }
+
     public List<RecommendRecord> findPageByUserId(Long userId, long limit, long offset) {
         return jdbcTemplate.query(
                 "SELECT " + SELECT_COLUMNS
@@ -95,6 +105,27 @@ public class RecommendRecordMapper {
                 ROW_MAPPER,
                 recordId,
                 userId);
+        return records.stream().findFirst();
+    }
+
+    public List<RecommendRecord> findPageAll(Long userId, long limit, long offset) {
+        if (userId == null) {
+            return jdbcTemplate.query(
+                    "SELECT " + SELECT_COLUMNS
+                            + " FROM recommend_record WHERE deleted = FALSE"
+                            + " ORDER BY create_time DESC, id DESC LIMIT ? OFFSET ?",
+                    ROW_MAPPER,
+                    limit,
+                    offset);
+        }
+        return findPageByUserId(userId, limit, offset);
+    }
+
+    public Optional<RecommendRecord> findById(Long recordId) {
+        List<RecommendRecord> records = jdbcTemplate.query(
+                "SELECT " + SELECT_COLUMNS + " FROM recommend_record WHERE id = ? AND deleted = FALSE",
+                ROW_MAPPER,
+                recordId);
         return records.stream().findFirst();
     }
 

@@ -38,19 +38,21 @@
 | --- | --- |
 | `id` | 主键 |
 | `username` | 用户名，唯一 |
-| `password` | 密码密文 |
+| `password` | PBKDF2 密码哈希，格式为 `pbkdf2$iterations$base64Salt$base64Hash` |
 | `nickname` | 昵称 |
 | `phone` | 手机号 |
 | `deleted` | 软删除 |
 | `create_time` | 创建时间 |
 | `update_time` | 更新时间 |
 
-默认演示用户：
+本地 seed 默认用户账号：
 
 ```text
-app_user.id = 1
 username = demo_user
+password = demo123456
 ```
+
+`app_user.id = 1` 只表示本地 seed 账号主键，不再作为接口默认身份来源。用户端接口身份必须来自 JWT。
 
 ### `admin`
 
@@ -60,18 +62,21 @@ username = demo_user
 | --- | --- |
 | `id` | 主键 |
 | `username` | 管理员用户名，唯一 |
-| `password` | 密码密文 |
+| `password` | PBKDF2 密码哈希，格式为 `pbkdf2$iterations$base64Salt$base64Hash` |
 | `role` | 角色，当前默认为 `ADMIN` |
 | `deleted` | 软删除 |
 | `create_time` | 创建时间 |
 | `update_time` | 更新时间 |
 
-默认演示管理员：
+本地 seed 默认管理员账号：
 
 ```text
-admin.id = 1
 username = demo_admin
+password = admin123456
+role = ADMIN
 ```
+
+`admin.id = 1` 只表示本地 seed 管理员主键，不再作为管理端接口默认身份来源。管理端写入字段必须来自 JWT 当前管理员。
 
 ## 车型数据表
 
@@ -121,8 +126,8 @@ username = demo_admin
 | `checksum` | 压缩/缩放后文件的 SHA-256 |
 | `audit_status` | `PENDING` / `APPROVED` / `REJECTED` |
 | `reject_reason` | 拒绝原因 |
-| `created_by_admin_id` | 上传管理员，当前默认 `admin.id = 1` |
-| `reviewed_by_admin_id` | 审核管理员，当前默认 `admin.id = 1` |
+| `created_by_admin_id` | 上传管理员，来自 JWT 当前管理员；认证关闭的测试模式才回退本地 seed 管理员 |
+| `reviewed_by_admin_id` | 审核管理员，来自 JWT 当前管理员；认证关闭的测试模式才回退本地 seed 管理员 |
 | `deleted` | 软删除 |
 | `create_time` | 创建时间 |
 | `update_time` | 更新时间 |
@@ -203,7 +208,7 @@ username = demo_admin
 | 字段 | 说明 |
 | --- | --- |
 | `id` | 主键 |
-| `user_id` | 用户 ID；接口未传时写入默认演示用户 |
+| `user_id` | 用户 ID；用户端接口由 JWT 当前 `USER` 写入 |
 | `raw_text` | 自然语言原始输入，可空 |
 | `budget_min` | 预算下限，单位元 |
 | `budget_max` | 预算上限，单位元 |
@@ -393,8 +398,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\init-dev-db.ps1 -Recreate
 
 `seed-data.sql` 当前提供：
 
-- 默认演示用户 `app_user.id = 1`。
-- 默认演示管理员 `admin.id = 1`。
+- 本地默认普通用户 `demo_user / demo123456`，密码以 PBKDF2 hash 保存。
+- 本地默认管理员 `demo_admin / admin123456`，`role = ADMIN`，密码以 PBKDF2 hash 保存。
 - 120 条车型基础数据。
 - 120 条车型参数数据。
 

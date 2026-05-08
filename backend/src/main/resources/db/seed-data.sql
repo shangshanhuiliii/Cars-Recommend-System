@@ -1,8 +1,8 @@
 INSERT INTO app_user (id, username, password, nickname, phone) VALUES
-(1, 'demo_user', 'demo_user_password_hash_placeholder', '演示用户', NULL);
+(1, 'demo_user', 'pbkdf2$310000$ZGVtb191c2VyX3NhbHQxNg==$9w9/M2pOGlYqpRoEtjTJr5MwQ6UMyGM2/OSH577wGCY=', '演示用户', NULL);
 
 INSERT INTO admin (id, username, password, role) VALUES
-(1, 'demo_admin', 'demo_admin_password_hash_placeholder', 'ADMIN');
+(1, 'demo_admin', 'pbkdf2$310000$ZGVtb19hZG1pbl9zYWx0MQ==$Gcee8nYBbp/Z6ZlUWTYT3hj3g/LqGiwpUhUUav4c34U=', 'ADMIN');
 
 INSERT INTO car_model (
     id, brand, series, model_name, guide_price, body_type, energy_type,

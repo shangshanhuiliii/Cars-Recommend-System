@@ -2,6 +2,7 @@ package com.carsrecommend.system.controller;
 
 import com.carsrecommend.system.common.ApiResponse;
 import com.carsrecommend.system.common.PageResult;
+import com.carsrecommend.system.auth.AuthContext;
 import com.carsrecommend.system.dto.RecommendationGenerateRequest;
 import com.carsrecommend.system.dto.RecommendationFeedbackRequest;
 import com.carsrecommend.system.service.RecommendationFeedbackService;
@@ -44,6 +45,10 @@ public class RecommendationController {
 
     @PostMapping("/generate")
     public ApiResponse<RecommendationResponseVO> generate(@Valid @RequestBody RecommendationGenerateRequest request) {
+        Long currentUserId = AuthContext.currentUserIdOrNull();
+        if (currentUserId != null) {
+            request.setUserId(currentUserId);
+        }
         return ApiResponse.success(recommendationService.generate(request));
     }
 
@@ -52,6 +57,10 @@ public class RecommendationController {
             @RequestParam(required = false) Long userId,
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size) {
+        Long currentUserId = AuthContext.currentUserIdOrNull();
+        if (currentUserId != null) {
+            userId = currentUserId;
+        }
         return ApiResponse.success(recommendationRecordService.history(userId, page, size));
     }
 
@@ -59,6 +68,10 @@ public class RecommendationController {
     public ApiResponse<RecommendationHistoryDetailVO> detail(
             @PathVariable @Positive Long recordId,
             @RequestParam(required = false) Long userId) {
+        Long currentUserId = AuthContext.currentUserIdOrNull();
+        if (currentUserId != null) {
+            userId = currentUserId;
+        }
         return ApiResponse.success(recommendationRecordService.detail(recordId, userId));
     }
 
@@ -66,6 +79,10 @@ public class RecommendationController {
     public ApiResponse<RecommendationFeedbackVO> submitFeedback(
             @PathVariable @Positive Long recordId,
             @Valid @RequestBody RecommendationFeedbackRequest request) {
+        Long currentUserId = AuthContext.currentUserIdOrNull();
+        if (currentUserId != null) {
+            request.setUserId(currentUserId);
+        }
         return ApiResponse.success(recommendationFeedbackService.submit(recordId, request));
     }
 
@@ -73,6 +90,10 @@ public class RecommendationController {
     public ApiResponse<RecommendationFeedbackVO> feedback(
             @PathVariable @Positive Long recordId,
             @RequestParam(required = false) Long userId) {
+        Long currentUserId = AuthContext.currentUserIdOrNull();
+        if (currentUserId != null) {
+            userId = currentUserId;
+        }
         return ApiResponse.success(recommendationFeedbackService.get(recordId, userId));
     }
 }

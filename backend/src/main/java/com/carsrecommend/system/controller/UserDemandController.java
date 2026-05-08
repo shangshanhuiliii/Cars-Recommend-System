@@ -1,6 +1,7 @@
 package com.carsrecommend.system.controller;
 
 import com.carsrecommend.system.common.ApiResponse;
+import com.carsrecommend.system.auth.AuthContext;
 import com.carsrecommend.system.dto.DemandTextParseRequest;
 import com.carsrecommend.system.dto.UserDemandSaveRequest;
 import com.carsrecommend.system.service.DemandTextParseService;
@@ -35,21 +36,37 @@ public class UserDemandController {
 
     @PostMapping
     public ApiResponse<UserDemandVO> save(@Valid @RequestBody UserDemandSaveRequest request) {
+        Long currentUserId = AuthContext.currentUserIdOrNull();
+        if (currentUserId != null) {
+            request.setUserId(currentUserId);
+        }
         return ApiResponse.success(userProfileService.saveDemand(request));
     }
 
     @PostMapping("/parse-text")
     public ApiResponse<DemandTextParseVO> parseText(@Valid @RequestBody DemandTextParseRequest request) {
+        Long currentUserId = AuthContext.currentUserIdOrNull();
+        if (currentUserId != null) {
+            request = new DemandTextParseRequest(currentUserId, request.text());
+        }
         return ApiResponse.success(demandTextParseService.parse(request));
     }
 
     @GetMapping("/latest")
     public ApiResponse<UserDemandVO> latest(@RequestParam(required = false) @Positive Long userId) {
+        Long currentUserId = AuthContext.currentUserIdOrNull();
+        if (currentUserId != null) {
+            userId = currentUserId;
+        }
         return ApiResponse.success(userProfileService.getLatestDemand(userId));
     }
 
     @GetMapping("/{id}")
     public ApiResponse<UserDemandVO> detail(@PathVariable @Positive Long id) {
+        Long currentUserId = AuthContext.currentUserIdOrNull();
+        if (currentUserId != null) {
+            return ApiResponse.success(userProfileService.getDemandById(id, currentUserId));
+        }
         return ApiResponse.success(userProfileService.getDemandById(id));
     }
 }

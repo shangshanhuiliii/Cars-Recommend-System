@@ -18,6 +18,7 @@ Cars Recommend System 是一个可运行、可继续维护的汽车购买推荐�
 - 推荐历史读取 `recommend_record` 与 `recommend_item` 快照，不重新计算覆盖历史结果。
 - 自然语言解析辅助填表、车型对比、收藏、反馈和管理端统计。
 - `/algorithm-demo` 算法可视化页面以只读方式展示推荐快照中的算法过程。
+- 用户登录、管理员登录、JWT 鉴权、当前身份识别、USER / ADMIN 接口权限和菜单权限。
 
 ## 技术栈
 
@@ -41,6 +42,15 @@ Copy-Item backend/src/main/resources/application-local.example.yml backend/src/m
 ```
 
 编辑 `backend/src/main/resources/application-local.yml`，写入本机 MySQL 连接信息。该文件不能提交到 Git。
+
+本地 seed 默认账号：
+
+| 类型 | 用户名 | 密码 |
+| --- | --- | --- |
+| 普通用户 | `demo_user` | `demo123456` |
+| 管理员 | `demo_admin` | `admin123456` |
+
+JWT 配置位于 `app.auth`，`jwt-secret` 至少 32 bytes；生产环境必须使用独立密钥，不要提交真实密钥。
 
 初始化本地开发库：
 

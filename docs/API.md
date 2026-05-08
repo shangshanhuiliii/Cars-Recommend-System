@@ -52,20 +52,98 @@
 
 `新能源` 只作为用户需求中的宽泛动力偏好。后端匹配时展开为 `纯电 / 插混 / 增程`，车型表不保存该值。
 
-## 默认用户
+## 登录认证与权限
 
-需要用户上下文的接口可以传 `userId`。`userId` 为空时，后端使用默认用户上下文：
-
-```text
-app_user.id = 1
-```
-
-管理端默认管理员上下文：
+当前基础认证能力已经实现。除公开接口外，请求必须携带：
 
 ```text
-admin.id = 1
+Authorization: Bearer <token>
 ```
 
+角色边界：
+
+| 角色 | 身份来源 | 说明 |
+| --- | --- | --- |
+| `USER` | `app_user` 登录 token | 用户端需求、推荐、历史、收藏、反馈和对比菜单。 |
+| `ADMIN` | `admin` 登录 token，且 `admin.role = ADMIN` | 管理端车型、图片、推荐记录、统计、健康检查和算法可视化。 |
+
+公开接口：
+
+- `GET /api/health`
+- `POST /api/auth/user/login`
+- `POST /api/auth/admin/login`
+- `GET /api/car/**`
+- `/uploads/**` 静态图片资源
+
+`OPTIONS` 请求放行，用于 CORS 预检。无 token 或 token 过期、签名错误返回 `401`；角色不匹配返回 `403`。前端菜单隐藏不是安全边界，后端拦截器才是接口权限边界。
+
+本地 seed 默认账号仅用于本地开发登录，不再作为接口默认身份来源：
+
+| 类型 | 用户名 | 密码 |
+| --- | --- | --- |
+| 普通用户 | `demo_user` | `demo123456` |
+| 管理员 | `demo_admin` | `admin123456` |
+
+## 认证接口
+
+普通用户登录：
+
+```text
+POST /api/auth/user/login
+```
+
+管理员登录：
+
+```text
+POST /api/auth/admin/login
+```
+
+请求：
+
+```json
+{
+  "username": "demo_user",
+  "password": "demo123456"
+}
+```
+
+响应 `data`：
+
+```json
+{
+  "token": "...",
+  "tokenType": "Bearer",
+  "expiresAt": "2026-05-08 12:00:00",
+  "principal": {
+    "id": 1,
+    "username": "demo_user",
+    "displayName": "演示用户",
+    "principalType": "USER",
+    "role": "USER",
+    "permissions": ["user:demand", "user:recommend"],
+    "menus": [
+      { "code": "home", "label": "Home", "path": "/" },
+      { "code": "recommend", "label": "Recommendation", "path": "/recommend" }
+    ]
+  }
+}
+```
+
+当前登录身份：
+
+```text
+GET /api/auth/me
+```
+
+返回当前 principal、permissions 和 menus。
+
+退出登录：
+
+```text
+POST /api/auth/logout
+```
+
+后端不维护 token 黑名单，该接口用于前端清理型退出；前端仍需删除本地 token。
 ## 健康检查
 
 ```text
@@ -376,7 +454,6 @@ GET  /api/user/demand/{id}
 
 ```json
 {
-  "userId": 1,
   "rawText": "",
   "budgetMin": 100000,
   "budgetMax": 150000,
@@ -414,6 +491,8 @@ GET  /api/user/demand/{id}
 | `excludedBrands` | 排除品牌，通过 `GET /api/car/brands` 搜索选择。 |
 | `excludedCarIds` | 排除车型，通过 `GET /api/car/options` 搜索选择。 |
 
+需求接口需要 `USER` 权限。`userId` 始终来自 JWT 当前用户；即使请求体或查询参数传入 `userId`，后端也不会用它覆盖当前登录身份。需求详情只返回当前用户自己的需求，不属于当前用户时返回 `404`。
+
 需求响应包含 `profileText` 和归一化后的九维 `weights`。
 
 ## 自然语言解析接口
@@ -426,7 +505,6 @@ POST /api/user/demand/parse-text
 
 ```json
 {
-  "userId": 1,
   "text": "我想买15万以内的SUV，家用，最好省油安全"
 }
 ```
@@ -452,19 +530,17 @@ POST /api/user/demand/parse-text
 POST /api/recommend/generate
 GET  /api/recommend/history
 GET  /api/recommend/{recordId}
-GET  /api/recommend/{recordId}/algorithm-visualization
 ```
 
 推荐生成请求：
 
 ```json
 {
-  "userId": 1,
   "demandId": 10
 }
 ```
 
-推荐生成请求不包含推荐数量字段。后端按候选集、分组和排序规则返回结果。
+推荐接口需要 `USER` 权限。推荐生成请求不包含推荐数量字段，`userId` 来自 JWT 当前用户，`demandId` 必须属于当前用户。后端按候选集、分组和排序规则返回结果。
 
 推荐响应核心结构：
 
@@ -524,26 +600,27 @@ GET  /api/recommend/{recordId}/algorithm-visualization
 推荐历史列表：
 
 ```text
-GET /api/recommend/history?userId=1&page=1&size=10
+GET /api/recommend/history?page=1&size=10
 ```
 
-`userId` 为空时使用默认用户上下文。`size` 默认 10，最大 100。
+返回当前登录用户自己的推荐历史。`size` 默认 10，最大 100。
 
 历史详情：
 
 ```text
-GET /api/recommend/{recordId}?userId=1
+GET /api/recommend/{recordId}
 ```
 
 只返回当前用户自己的推荐记录。历史详情结构与推荐生成响应保持一致，并额外返回需求和权重信息。
 
-算法可视化接口：
+算法可视化接口属于 `ADMIN` 权限：
 
 ```text
 GET /api/recommend/{recordId}/algorithm-visualization
+GET /api/admin/recommend-records/{recordId}/algorithm-visualization
 ```
 
-该接口只读取推荐快照和相关车型数据，用于 `/algorithm-demo` 页面。它不重新生成推荐，不写数据库，不覆盖历史快照。
+推荐使用更清晰的管理端路径。该接口只读取推荐快照和相关车型数据，用于 `/algorithm-demo` 页面。它不重新生成推荐，不写数据库，不覆盖历史快照。
 
 核心返回内容：
 
@@ -585,7 +662,7 @@ GET    /api/user/favorites/status?carIds=1,2,3
 
 规则：
 
-- `userId` 可作为查询参数传入；为空时使用默认用户上下文。
+- 需要 `USER` 权限，`userId` 来自 JWT 当前用户。
 - 收藏已收藏车型时幂等返回成功。
 - 取消未收藏车型时幂等返回成功。
 - 只允许收藏未删除车型。
@@ -603,7 +680,6 @@ GET  /api/recommend/{recordId}/feedback
 
 ```json
 {
-  "userId": 1,
   "satisfactionScore": 4,
   "reasonTags": ["推荐有帮助", "解释清楚"],
   "comment": "推荐结果比较符合家用需求"
@@ -612,7 +688,7 @@ GET  /api/recommend/{recordId}/feedback
 
 规则：
 
-- `userId` 为空时使用默认用户上下文。
+- 需要 `USER` 权限，`userId` 来自 JWT 当前用户。
 - 只能反馈自己的推荐记录。
 - `satisfactionScore` 范围为 1-5。
 - `satisfactionLevel` 由后端按分数生成：4-5 为 `SATISFIED`，3 为 `NEUTRAL`，1-2 为 `DISSATISFIED`。
@@ -621,13 +697,23 @@ GET  /api/recommend/{recordId}/feedback
 - 同一用户同一推荐记录只保留一条反馈，重复提交会覆盖原反馈。
 - 反馈不修改推荐记录、推荐明细、权重或排序。
 
+## 管理端推荐记录接口
+
+```text
+GET /api/admin/recommend-records?page=1&size=10&userId=
+GET /api/admin/recommend-records/{recordId}
+GET /api/admin/recommend-records/{recordId}/algorithm-visualization
+```
+
+这些接口需要 `ADMIN` 权限。管理员可以查看全量推荐记录，也可以通过 `userId` 过滤某个用户的推荐记录。普通用户不能通过用户端推荐历史接口查看他人记录。
+
 ## 管理端统计接口
 
 ```text
 GET /api/admin/stat/overview
 ```
 
-统计数据必须来自当前数据库，不使用随机数或前端假数据。当前总览包含：
+该接口需要 `ADMIN` 权限。统计数据必须来自当前数据库，不使用随机数或前端假数据。当前总览包含：
 
 | 字段 | 说明 |
 | --- | --- |

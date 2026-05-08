@@ -16,6 +16,10 @@ spring:
     date-format: yyyy-MM-dd HH:mm:ss
 
 app:
+  auth:
+    enabled: true
+    jwt-secret: change-this-local-development-secret-please-keep-at-least-32-bytes
+    token-expire-seconds: 7200
   storage:
     car-image-root: .run/uploads/car-images
     car-image-public-path: /uploads/car-images

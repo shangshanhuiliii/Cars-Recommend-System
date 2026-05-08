@@ -1,5 +1,6 @@
 package com.carsrecommend.system.service.impl;
 
+import com.carsrecommend.system.auth.AuthContext;
 import com.carsrecommend.system.common.BusinessException;
 import com.carsrecommend.system.common.ErrorCode;
 import com.carsrecommend.system.common.PageResult;
@@ -76,7 +77,36 @@ public class RecommendationRecordServiceImpl implements RecommendationRecordServ
         Long resolvedUserId = resolveUserId(userId);
         RecommendRecord record = recommendRecordMapper.findByIdAndUserId(recordId, resolvedUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "recommend record not found"));
+        return toDetailVO(record);
+    }
 
+    @Override
+    @Transactional(readOnly = true)
+    public PageResult<RecommendationHistoryItemVO> adminHistory(Long userId, Integer page, Integer size) {
+        if (userId != null && !userDemandMapper.existsActiveUser(userId)) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "app user not found");
+        }
+        int pageNo = normalizePage(page);
+        int pageSize = normalizeSize(size);
+        long total = recommendRecordMapper.countAll(userId);
+        long offset = (long) (pageNo - 1) * pageSize;
+        List<RecommendationHistoryItemVO> records = recommendRecordMapper
+                .findPageAll(userId, pageSize, offset)
+                .stream()
+                .map(this::toHistoryItemVO)
+                .toList();
+        return PageResult.of(records, total, pageNo, pageSize);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public RecommendationHistoryDetailVO adminDetail(Long recordId) {
+        RecommendRecord record = recommendRecordMapper.findById(recordId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "recommend record not found"));
+        return toDetailVO(record);
+    }
+
+    private RecommendationHistoryDetailVO toDetailVO(RecommendRecord record) {
         RecommendationHistoryDetailVO vo = new RecommendationHistoryDetailVO();
         vo.setRecordId(record.getId());
         vo.setUserId(record.getUserId());
@@ -97,7 +127,8 @@ public class RecommendationRecordServiceImpl implements RecommendationRecordServ
     }
 
     private Long resolveUserId(Long userId) {
-        Long resolvedUserId = userId == null ? DEFAULT_DEMO_USER_ID : userId;
+        Long currentUserId = AuthContext.currentUserIdOrNull();
+        Long resolvedUserId = currentUserId != null ? currentUserId : (userId == null ? DEFAULT_DEMO_USER_ID : userId);
         if (!userDemandMapper.existsActiveUser(resolvedUserId)) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "app user not found");
         }

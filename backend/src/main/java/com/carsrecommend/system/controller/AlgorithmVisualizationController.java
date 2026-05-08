@@ -25,9 +25,7 @@ public class AlgorithmVisualizationController {
     }
 
     @GetMapping("/{recordId}/algorithm-visualization")
-    public ApiResponse<AlgorithmVisualizationVO> detail(
-            @PathVariable @Positive Long recordId,
-            @RequestParam(required = false) Long userId) {
-        return ApiResponse.success(algorithmVisualizationService.getVisualization(recordId, userId));
+    public ApiResponse<AlgorithmVisualizationVO> detail(@PathVariable @Positive Long recordId) {
+        return ApiResponse.success(algorithmVisualizationService.getVisualizationForAdmin(recordId));
     }
 }

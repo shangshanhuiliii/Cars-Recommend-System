@@ -18,19 +18,22 @@
           :default-active="activeRoute"
         >
           <el-menu-item index="/">首页</el-menu-item>
-          <el-menu-item index="/recommend">购车推荐</el-menu-item>
-          <el-menu-item index="/history">推荐历史</el-menu-item>
-          <el-menu-item index="/favorites">我的收藏</el-menu-item>
-          <el-menu-item index="/compare">车型对比</el-menu-item>
-          <el-sub-menu index="/admin">
-            <template #title>管理端入口</template>
-            <el-menu-item index="/admin/cars">车型管理</el-menu-item>
-            <el-menu-item index="/admin/recommend-records">推荐记录</el-menu-item>
-            <el-menu-item index="/admin/dashboard">统计仪表盘</el-menu-item>
-            <el-menu-item index="/admin/health">系统健康检查</el-menu-item>
-            <el-menu-item index="/algorithm-demo">算法可视化</el-menu-item>
-          </el-sub-menu>
+          <template v-if="authStore.isAuthenticated">
+            <el-menu-item v-for="item in visibleMenus" :key="item.code" :index="item.path">
+              {{ menuLabel(item) }}
+            </el-menu-item>
+          </template>
+          <el-menu-item v-else index="/login">登录</el-menu-item>
         </el-menu>
+
+        <div class="identity-box">
+          <template v-if="authStore.isAuthenticated">
+            <span class="identity-box__role">{{ roleLabel }}</span>
+            <strong>{{ authStore.displayName }}</strong>
+            <el-button link type="primary" @click="logout">退出</el-button>
+          </template>
+          <RouterLink v-else class="login-link" to="/login">登录</RouterLink>
+        </div>
       </div>
     </el-header>
 
@@ -42,16 +45,45 @@
 
 <script setup>
 import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+
+import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
+const router = useRouter()
+const authStore = useAuthStore()
+
+const labelMap = {
+  recommend: '购车推荐',
+  history: '推荐历史',
+  favorites: '我的收藏',
+  compare: '车型对比',
+  'admin-cars': '车型管理',
+  'admin-recommend-records': '推荐记录',
+  'admin-dashboard': '统计仪表盘',
+  'admin-health': '系统健康检查',
+  'algorithm-demo': '算法可视化',
+}
+
+const visibleMenus = computed(() => (authStore.menus || []).filter((item) => item.code !== 'home'))
+const roleLabel = computed(() => (authStore.principalType === 'ADMIN' ? '管理员' : '用户'))
+
 const activeRoute = computed(() => {
   if (route.path.startsWith('/recommend/result')) {
     return '/recommend'
   }
   if (route.path.startsWith('/car/')) {
-    return '/recommend'
+    return authStore.principalType === 'USER' ? '/recommend' : '/'
   }
   return route.path
 })
+
+function menuLabel(item) {
+  return labelMap[item.code] || item.label || item.code
+}
+
+async function logout() {
+  await authStore.logout()
+  await router.push('/login')
+}
 </script>

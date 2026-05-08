@@ -1,5 +1,6 @@
 package com.carsrecommend.system.service.impl;
 
+import com.carsrecommend.system.auth.AuthContext;
 import com.carsrecommend.system.dto.DemandTextParseRequest;
 import com.carsrecommend.system.service.DemandTextParseService;
 import com.carsrecommend.system.vo.DemandTextParseVO;
@@ -112,7 +113,7 @@ public class DemandTextParseServiceImpl implements DemandTextParseService {
                 ambiguousTerms);
 
         return new DemandTextParseVO(
-                request.userId() == null ? DEFAULT_DEMO_USER_ID : request.userId(),
+                resolveUserId(request.userId()),
                 rawText,
                 budgetRange.min(),
                 budgetRange.max(),
@@ -127,6 +128,11 @@ public class DemandTextParseServiceImpl implements DemandTextParseService {
                 unsupportedTerms,
                 ambiguousTerms,
                 confidenceScore);
+    }
+
+    private Long resolveUserId(Long userId) {
+        Long currentUserId = AuthContext.currentUserIdOrNull();
+        return currentUserId != null ? currentUserId : (userId == null ? DEFAULT_DEMO_USER_ID : userId);
     }
 
     private BudgetRange parseBudget(String text) {

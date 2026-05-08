@@ -1,5 +1,6 @@
 package com.carsrecommend.system.service.impl;
 
+import com.carsrecommend.system.auth.AuthContext;
 import com.carsrecommend.system.common.BusinessException;
 import com.carsrecommend.system.common.ErrorCode;
 import com.carsrecommend.system.common.PageResult;
@@ -83,7 +84,7 @@ public class CarImageAssetServiceImpl implements CarImageAssetService {
         asset.setStoragePath(storedImage.storagePath());
         asset.setChecksum(storedImage.checksum());
         asset.setAuditStatus(AuditStatus.PENDING.getCode());
-        asset.setCreatedByAdminId(DEFAULT_DEMO_ADMIN_ID);
+        asset.setCreatedByAdminId(currentAdminId());
         CarImageAsset created = carImageAssetMapper.insert(asset);
         return getExisting(created.getId());
     }
@@ -117,7 +118,7 @@ public class CarImageAssetServiceImpl implements CarImageAssetService {
                     asset.getId(),
                     AuditStatus.APPROVED.getCode(),
                     null,
-                    DEFAULT_DEMO_ADMIN_ID) == 0) {
+                    currentAdminId()) == 0) {
                 throw new BusinessException(ErrorCode.NOT_FOUND, "car image asset not found");
             }
             if (carModelMapper.updateImageUrl(asset.getCarId(), asset.getPublicUrl()) == 0) {
@@ -134,7 +135,7 @@ public class CarImageAssetServiceImpl implements CarImageAssetService {
                 asset.getId(),
                 AuditStatus.REJECTED.getCode(),
                 rejectReason,
-                DEFAULT_DEMO_ADMIN_ID) == 0) {
+                currentAdminId()) == 0) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "car image asset not found");
         }
         return getExisting(asset.getId());
@@ -157,6 +158,11 @@ public class CarImageAssetServiceImpl implements CarImageAssetService {
 
     private CarImageAssetVO getExisting(Long id) {
         return toVO(findExisting(id));
+    }
+
+    private Long currentAdminId() {
+        Long currentAdminId = AuthContext.currentAdminIdOrNull();
+        return currentAdminId == null ? DEFAULT_DEMO_ADMIN_ID : currentAdminId;
     }
 
     private CarImageAsset findExisting(Long id) {

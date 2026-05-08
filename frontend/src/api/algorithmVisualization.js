@@ -1,5 +1,5 @@
 import http from './http'
 
-export function fetchAlgorithmVisualization(recordId, params = {}) {
-  return http.get(`/recommend/${recordId}/algorithm-visualization`, { params })
+export function fetchAlgorithmVisualization(recordId) {
+  return http.get(`/admin/recommend-records/${recordId}/algorithm-visualization`)
 }

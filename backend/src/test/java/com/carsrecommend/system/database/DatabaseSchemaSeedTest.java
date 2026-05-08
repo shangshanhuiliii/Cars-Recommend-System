@@ -26,6 +26,14 @@ class DatabaseSchemaSeedTest {
 
             assertEquals(1, count(connection, "SELECT COUNT(*) FROM app_user WHERE id = 1 AND username = 'demo_user'"));
             assertEquals(1, count(connection, "SELECT COUNT(*) FROM admin WHERE id = 1 AND username = 'demo_admin'"));
+            assertEquals(1, count(connection,
+                    "SELECT COUNT(*) FROM app_user WHERE id = 1 AND password LIKE 'pbkdf2$310000$%'"));
+            assertEquals(1, count(connection,
+                    "SELECT COUNT(*) FROM admin WHERE id = 1 AND password LIKE 'pbkdf2$310000$%'"));
+            assertEquals(0, count(connection,
+                    "SELECT COUNT(*) FROM app_user WHERE password LIKE '%password_hash_placeholder%'"));
+            assertEquals(0, count(connection,
+                    "SELECT COUNT(*) FROM admin WHERE password LIKE '%password_hash_placeholder%'"));
 
             assertEquals(120, count(connection, "SELECT COUNT(*) FROM car_model"));
             assertEquals(120, count(connection, "SELECT COUNT(*) FROM car_param"));

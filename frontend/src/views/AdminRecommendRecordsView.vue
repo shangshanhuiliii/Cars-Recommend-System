@@ -202,7 +202,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 
-import { fetchRecommendationDetail, fetchRecommendationHistory } from '@/api/recommend'
+import { fetchAdminRecommendationDetail, fetchAdminRecommendationHistory } from '@/api/adminRecommendRecords'
 
 const loadingList = ref(false)
 const loadingDetail = ref(false)
@@ -281,7 +281,7 @@ async function loadRecords() {
   loadingList.value = true
   listError.value = ''
   try {
-    const response = await fetchRecommendationHistory({
+    const response = await fetchAdminRecommendationHistory({
       page: query.page,
       size: query.size,
     })
@@ -319,7 +319,7 @@ async function selectRecord(recordId) {
   loadingDetail.value = true
   detailError.value = ''
   try {
-    const response = await fetchRecommendationDetail(recordId)
+    const response = await fetchAdminRecommendationDetail(recordId)
     detail.value = response.data
   } catch (error) {
     detail.value = null

@@ -10,4 +10,6 @@ public interface UserProfileService {
     UserDemandVO getLatestDemand(Long userId);
 
     UserDemandVO getDemandById(Long id);
+
+    UserDemandVO getDemandById(Long id, Long userId);
 }

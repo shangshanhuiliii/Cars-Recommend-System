@@ -122,6 +122,15 @@ public class UserDemandMapper {
         return demands.stream().findFirst();
     }
 
+    public Optional<UserDemand> findByIdAndUserId(Long id, Long userId) {
+        List<UserDemand> demands = jdbcTemplate.query(
+                "SELECT " + SELECT_COLUMNS + " FROM user_demand WHERE id = ? AND user_id = ? AND deleted = FALSE",
+                ROW_MAPPER,
+                id,
+                userId);
+        return demands.stream().findFirst();
+    }
+
     public Optional<UserDemand> findLatestByUserId(Long userId) {
         List<UserDemand> demands = jdbcTemplate.query(
                 "SELECT " + SELECT_COLUMNS

@@ -1,5 +1,6 @@
 package com.carsrecommend.system.service.impl;
 
+import com.carsrecommend.system.auth.AuthContext;
 import com.carsrecommend.system.common.BusinessException;
 import com.carsrecommend.system.common.ErrorCode;
 import com.carsrecommend.system.common.PageResult;
@@ -85,7 +86,8 @@ public class UserFavoriteServiceImpl implements UserFavoriteService {
     }
 
     private Long resolveUserId(Long userId) {
-        Long resolvedUserId = userId == null ? DEFAULT_DEMO_USER_ID : userId;
+        Long currentUserId = AuthContext.currentUserIdOrNull();
+        Long resolvedUserId = currentUserId != null ? currentUserId : (userId == null ? DEFAULT_DEMO_USER_ID : userId);
         if (!userDemandMapper.existsActiveUser(resolvedUserId)) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "app user not found");
         }

@@ -73,21 +73,17 @@ font-family: "HarmonyOS Sans SC", "Source Han Sans SC", "Microsoft YaHei", "Ping
 
 ## 全局布局
 
-用户端顶部导航：
+顶部导航按当前登录身份展示：
 
 ```text
-系统名称 / 首页 / 购车推荐 / 车型对比 / 我的收藏 / 推荐历史 / 管理端入口
+未登录：系统名称 / 首页 / 登录
+USER：系统名称 / 首页 / 购车推荐 / 推荐历史 / 我的收藏 / 车型对比 / 当前用户 / 退出
+ADMIN：系统名称 / 首页 / 车型管理 / 推荐记录 / 统计仪表盘 / 系统健康检查 / 算法可视化 / 当前管理员 / 退出
 ```
 
 主体区域建议最大宽度 `1200px`，左右留白 `24px`。
 
-管理端布局：
-
-```text
-左侧菜单：车型管理 / 推荐记录 / 统计仪表盘 / 系统健康检查 / 算法可视化
-顶部区域：当前页面标题、管理员信息
-主体区域：表格、表单、图表
-```
+菜单来自登录响应或 `/api/auth/me` 返回的 `menus`，也可以用 `principalType` 做兜底展示。菜单隐藏不是安全边界，后端接口权限才是安全边界。
 
 普通操作成功或失败不使用顶部 toast。收藏、取消收藏、加入对比、提交反馈、自然语言解析等操作使用按钮状态、卡片内提示、表单区域提示或页面内状态条表达结果。
 
@@ -96,17 +92,26 @@ font-family: "HarmonyOS Sans SC", "Source Han Sans SC", "Microsoft YaHei", "Ping
 | 路由 | 页面 | 说明 |
 | --- | --- | --- |
 | `/` | 首页 | 面向普通用户的产品首页，提供轮播引导、购车推荐、历史、收藏和对比入口。 |
-| `/recommend` | 购车需求页 | 结构化需求表单和自然语言解析辅助填表。 |
-| `/recommend/result/:recordId` | 推荐结果页 | 读取推荐详情快照，按后端 `rankNo` 展示。 |
+| `/login` | 登录页 | 支持普通用户和管理员登录，成功后保存 token、principal、permissions 和 menus。 |
+| `/unauthorized` | 无权限页 | 登录身份与路由权限不匹配时展示。 |
+| `/recommend` | 购车需求页 | USER 路由；结构化需求表单和自然语言解析辅助填表。 |
+| `/recommend/result/:recordId` | 推荐结果页 | USER 路由；读取推荐详情快照，按后端 `rankNo` 展示。 |
 | `/car/:id` | 车型详情页 | 展示车型基础信息、参数和评分来源。 |
-| `/history` | 推荐历史页 | 展示推荐历史列表和详情入口。 |
-| `/compare` | 车型对比页 | 支持 1-3 款车型横向对比。 |
-| `/favorites` | 我的收藏页 | 展示当前用户收藏车型。 |
-| `/algorithm-demo` | 算法可视化页面 | 管理端导航中的只读工具页，展示推荐快照中的算法过程。 |
-| `/admin/cars` | 管理端车型管理 | 车型、参数、评分维护。 |
-| `/admin/recommend-records` | 管理端推荐记录 | 追溯需求、权重、分数和解释。 |
-| `/admin/dashboard` | 管理端统计仪表盘 | 展示需求、推荐、车型和反馈统计。 |
-| `/admin/health` | 管理端系统健康检查 | 调用 `GET /api/health` 查看后端服务和数据库状态。 |
+| `/history` | 推荐历史页 | USER 路由；展示当前用户推荐历史列表和详情入口。 |
+| `/compare` | 车型对比页 | USER 路由；支持 1-3 款车型横向对比。 |
+| `/favorites` | 我的收藏页 | USER 路由；展示当前用户收藏车型。 |
+| `/algorithm-demo` | 算法可视化页面 | ADMIN 路由；管理端导航中的只读工具页，展示推荐快照中的算法过程。 |
+| `/admin/cars` | 管理端车型管理 | ADMIN 路由；车型、参数、评分维护。 |
+| `/admin/recommend-records` | 管理端推荐记录 | ADMIN 路由；追溯需求、权重、分数和解释。 |
+| `/admin/dashboard` | 管理端统计仪表盘 | ADMIN 路由；展示需求、推荐、车型和反馈统计。 |
+| `/admin/health` | 管理端系统健康检查 | ADMIN 路由；调用 `GET /api/health` 查看后端服务和数据库状态。 |
+
+路由守卫规则：
+
+- 未登录访问 USER / ADMIN 路由时跳转 `/login`，并保留 `redirect`。
+- USER 访问 ADMIN 路由、ADMIN 访问 USER 路由时进入 `/unauthorized`。
+- Axios 请求拦截器自动附加 `Authorization: Bearer <token>`。
+- Axios 响应拦截器遇到 `401` 清除本地登录态并跳转 `/login`。
 
 ## 首页
 
@@ -419,8 +424,8 @@ font-family: "HarmonyOS Sans SC", "Source Han Sans SC", "Microsoft YaHei", "Ping
 页面只调用：
 
 ```text
-GET /api/recommend/history
-GET /api/recommend/{recordId}/algorithm-visualization
+GET /api/admin/recommend-records
+GET /api/admin/recommend-records/{recordId}/algorithm-visualization
 ```
 
 页面不得调用 `POST /api/recommend/generate`，不得在前端重新计算推荐排序，也不得覆盖后端 `rankNo`。

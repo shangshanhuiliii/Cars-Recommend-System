@@ -43,6 +43,18 @@ Copy-Item backend/src/main/resources/application-local.example.yml backend/src/m
 
 然后填写本机 MySQL 配置。真实密码只能保存在本地文件或环境变量中，不能提交到仓库。
 
+认证配置位于 `app.auth`：
+
+```yaml
+app:
+  auth:
+    enabled: true
+    jwt-secret: change-this-local-development-secret-please-keep-at-least-32-bytes
+    token-expire-seconds: 7200
+```
+
+`jwt-secret` 至少 32 bytes，本地开发可以使用示例值或自行覆盖；生产环境必须使用独立密钥并保存在本地配置或环境变量中。`token-expire-seconds` 默认 7200 秒。
+
 不要提交：
 
 - `backend/src/main/resources/application-local.yml`
@@ -124,8 +136,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\init-dev-db.ps1 `
 
 `seed-data.sql` 当前包含：
 
-- 默认演示用户 `app_user.id = 1`。
-- 默认演示管理员 `admin.id = 1`。
+- 本地默认普通用户 `demo_user / demo123456`，密码以 PBKDF2 hash 保存。
+- 本地默认管理员 `demo_admin / admin123456`，`role = ADMIN`，密码以 PBKDF2 hash 保存。
 - 120 条车型基础数据。
 - 120 条车型参数数据。
 
@@ -183,6 +195,7 @@ Vite proxy 会将 `/api` 转发到 `http://localhost:8080`。
 ## 常用页面
 
 - `/`
+- `/login`
 - `/recommend`
 - `/recommend/result/:recordId`
 - `/history`
@@ -196,17 +209,21 @@ Vite proxy 会将 `/api` 转发到 `http://localhost:8080`。
 ## 常用接口
 
 - 健康检查：`GET /api/health`
+- 普通用户登录：`POST /api/auth/user/login`
+- 管理员登录：`POST /api/auth/admin/login`
+- 当前身份：`GET /api/auth/me`
 - 管理端图片资源：`POST /api/admin/car-images`、`GET /api/admin/car-images`、`PUT /api/admin/car-images/{id}/audit`、`DELETE /api/admin/car-images/{id}`
 - 用户需求保存：`POST /api/user/demand`
 - 自然语言解析：`POST /api/user/demand/parse-text`
 - 推荐生成：`POST /api/recommend/generate`
 - 推荐详情：`GET /api/recommend/{recordId}`
 - 推荐历史：`GET /api/recommend/history`
-- 算法可视化：`GET /api/recommend/{recordId}/algorithm-visualization`
+- 算法可视化：`GET /api/admin/recommend-records/{recordId}/algorithm-visualization`
 - 车型详情：`GET /api/car/{id}`
 - 车型对比：`GET /api/car/compare`
 - 收藏：`POST /api/user/favorites/{carId}`、`DELETE /api/user/favorites/{carId}`、`GET /api/user/favorites`
 - 反馈：`POST /api/recommend/{recordId}/feedback`、`GET /api/recommend/{recordId}/feedback`
+- 管理端推荐记录：`GET /api/admin/recommend-records`、`GET /api/admin/recommend-records/{recordId}`
 - 管理端统计：`GET /api/admin/stat/overview`
 
 ## 常见问题

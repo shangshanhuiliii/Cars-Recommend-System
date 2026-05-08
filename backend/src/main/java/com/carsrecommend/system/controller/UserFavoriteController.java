@@ -1,6 +1,7 @@
 package com.carsrecommend.system.controller;
 
 import com.carsrecommend.system.common.ApiResponse;
+import com.carsrecommend.system.auth.AuthContext;
 import com.carsrecommend.system.common.BusinessException;
 import com.carsrecommend.system.common.PageResult;
 import com.carsrecommend.system.service.UserFavoriteService;
@@ -35,6 +36,10 @@ public class UserFavoriteController {
     public ApiResponse<Void> favorite(
             @PathVariable @Positive Long carId,
             @RequestParam(required = false) Long userId) {
+        Long currentUserId = AuthContext.currentUserIdOrNull();
+        if (currentUserId != null) {
+            userId = currentUserId;
+        }
         userFavoriteService.favorite(userId, carId);
         return ApiResponse.success();
     }
@@ -43,6 +48,10 @@ public class UserFavoriteController {
     public ApiResponse<Void> cancel(
             @PathVariable @Positive Long carId,
             @RequestParam(required = false) Long userId) {
+        Long currentUserId = AuthContext.currentUserIdOrNull();
+        if (currentUserId != null) {
+            userId = currentUserId;
+        }
         userFavoriteService.cancel(userId, carId);
         return ApiResponse.success();
     }
@@ -52,6 +61,10 @@ public class UserFavoriteController {
             @RequestParam(required = false) Long userId,
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size) {
+        Long currentUserId = AuthContext.currentUserIdOrNull();
+        if (currentUserId != null) {
+            userId = currentUserId;
+        }
         return ApiResponse.success(userFavoriteService.list(userId, page, size));
     }
 
@@ -59,6 +72,10 @@ public class UserFavoriteController {
     public ApiResponse<List<FavoriteStatusVO>> status(
             @RequestParam(required = false) Long userId,
             @RequestParam(required = false) String carIds) {
+        Long currentUserId = AuthContext.currentUserIdOrNull();
+        if (currentUserId != null) {
+            userId = currentUserId;
+        }
         return ApiResponse.success(userFavoriteService.status(userId, parseCarIds(carIds)));
     }
 

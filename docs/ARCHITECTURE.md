@@ -40,6 +40,7 @@ util         评分、解析、权重归一化等工具
 
 - 车型管理：维护 `car_model`、`car_param`，并提供车型详情、品牌选项和车型选项。
 - 图片资源管理：管理端上传、压缩、审核和软删除车型图片资源，审核通过后更新 `car_model.image_url`。
+- 登录认证：基于 `app_user` 和 `admin` 登录，签发 HS256 JWT，`AuthInterceptor` 统一校验 token、角色和接口权限。
 - 车型评分：根据车型参数生成 `car_feature_score`。
 - 用户需求：保存结构化需求，生成画像文本和主观权重。
 - 自然语言解析：解析文本并返回表单草稿，不保存需求、不生成推荐。
@@ -84,9 +85,11 @@ util         评分、解析、权重归一化等工具
 推荐生成数据流：
 
 ```text
-用户填写 /recommend
--> POST /api/user/demand
--> POST /api/recommend/generate
+USER 登录 -> 前端保存 token
+-> 用户填写 /recommend
+-> Authorization: Bearer <token>
+-> POST /api/user/demand（userId 来自 JWT）
+-> POST /api/recommend/generate（demandId 必须属于当前用户）
 -> 写入 recommend_record / recommend_item
 -> 前端跳转 /recommend/result/:recordId
 -> GET /api/recommend/{recordId}
@@ -106,17 +109,30 @@ util         评分、解析、权重归一化等工具
 算法可视化数据流：
 
 ```text
-/algorithm-demo
--> GET /api/recommend/history
--> GET /api/recommend/{recordId}/algorithm-visualization
+ADMIN 登录 -> /algorithm-demo
+-> GET /api/admin/recommend-records
+-> GET /api/admin/recommend-records/{recordId}/algorithm-visualization
 -> 基于推荐快照展示算法过程
+```
+
+认证与权限数据流：
+
+```text
+POST /api/auth/user/login 或 /api/auth/admin/login
+-> PasswordHasher 校验 PBKDF2 hash
+-> JwtTokenService 签发 HS256 token
+-> 前端保存 token / principal / permissions / menus
+-> 后续请求由 Axios 附加 Authorization
+-> AuthInterceptor 校验 token、principalType 和角色权限
+-> AuthContext 暴露当前用户或管理员 ID
 ```
 
 ## 当前已实现功能
 
 - 后端健康检查和管理端系统健康检查页面。
 - 本地数据库初始化脚本。
-- 默认用户上下文 `app_user.id = 1` 和默认管理员上下文 `admin.id = 1`。
+- 用户登录、管理员登录、JWT 鉴权、当前身份识别、USER / ADMIN 接口权限和菜单权限。
+- 本地 seed 默认账号 `demo_user` 和 `demo_admin`；固定 ID 只作为 seed 主键，不再作为接口默认身份来源。
 - 120 条车型基础数据和 120 条车型参数种子数据。
 - 车型管理、车型参数维护、车型评分查询和评分重算。
 - 车型图片上传、压缩、本地静态访问、资源审核和软删除。

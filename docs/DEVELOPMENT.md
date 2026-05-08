@@ -105,7 +105,10 @@ mvn package
 ```powershell
 cd backend
 mvn test "-Dtest=RecommendationControllerTest"
+mvn test "-Dtest=AuthControllerTest"
 ```
+
+非认证专项 Controller 测试可以设置 `app.auth.enabled=false`，避免测试目标被登录细节污染。认证专项测试必须启用 `app.auth.enabled=true`，并使用真实登录 token 或测试辅助 token 覆盖 401 / 403 场景。
 
 前端：
 
@@ -151,6 +154,7 @@ git diff --check
 - 推荐历史读取保存快照，不重新计算覆盖。
 - 自然语言解析只辅助填表，不直接保存需求或生成推荐。
 - 算法可视化接口只读，不写数据库。
+- 用户端接口身份来自 JWT 当前 `USER`，管理端接口身份来自 JWT 当前 `ADMIN`；不要在前端或请求参数中依赖默认 `userId` / `admin.id`。
 - 收藏不影响推荐排序。
 - 反馈只进入统计，不做在线学习。
 - 不引入与当前需求无关的复杂依赖。

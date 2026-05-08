@@ -433,7 +433,7 @@
 import { computed, defineComponent, h, onMounted, ref } from 'vue'
 
 import { fetchAlgorithmVisualization } from '@/api/algorithmVisualization'
-import { fetchRecommendationHistory } from '@/api/recommend'
+import { fetchAdminRecommendationHistory } from '@/api/adminRecommendRecords'
 import { displayTags, matchTagType } from '@/utils/recommendPresentation'
 
 const WeightBar = defineComponent({
@@ -577,7 +577,7 @@ async function loadLatestRecord() {
   error.value = ''
   empty.value = false
   try {
-    const response = await fetchRecommendationHistory({ page: 1, size: 1 })
+    const response = await fetchAdminRecommendationHistory({ page: 1, size: 1 })
     const records = response.data?.records || []
     if (!records.length) {
       detail.value = null
