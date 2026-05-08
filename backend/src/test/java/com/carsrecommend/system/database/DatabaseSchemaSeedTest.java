@@ -16,6 +16,8 @@ import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 
 class DatabaseSchemaSeedTest {
 
+    private static final String PASSWORD_PLACEHOLDER_PATTERN = "%password_hash_" + "placeholder%";
+
     @Test
     void schemaAndSeedDataSupportStageOneRequirements() throws Exception {
         try (Connection connection = DriverManager.getConnection(
@@ -25,15 +27,17 @@ class DatabaseSchemaSeedTest {
             loadScripts(connection);
 
             assertEquals(1, count(connection, "SELECT COUNT(*) FROM app_user WHERE id = 1 AND username = 'demo_user'"));
+            assertEquals(1, count(connection,
+                    "SELECT COUNT(*) FROM app_user WHERE id = 1 AND username = 'demo_user' AND status = 'ACTIVE'"));
             assertEquals(1, count(connection, "SELECT COUNT(*) FROM admin WHERE id = 1 AND username = 'demo_admin'"));
             assertEquals(1, count(connection,
                     "SELECT COUNT(*) FROM app_user WHERE id = 1 AND password LIKE 'pbkdf2$310000$%'"));
             assertEquals(1, count(connection,
                     "SELECT COUNT(*) FROM admin WHERE id = 1 AND password LIKE 'pbkdf2$310000$%'"));
             assertEquals(0, count(connection,
-                    "SELECT COUNT(*) FROM app_user WHERE password LIKE '%password_hash_placeholder%'"));
+                    "SELECT COUNT(*) FROM app_user WHERE password LIKE '" + PASSWORD_PLACEHOLDER_PATTERN + "'"));
             assertEquals(0, count(connection,
-                    "SELECT COUNT(*) FROM admin WHERE password LIKE '%password_hash_placeholder%'"));
+                    "SELECT COUNT(*) FROM admin WHERE password LIKE '" + PASSWORD_PLACEHOLDER_PATTERN + "'"));
 
             assertEquals(120, count(connection, "SELECT COUNT(*) FROM car_model"));
             assertEquals(120, count(connection, "SELECT COUNT(*) FROM car_param"));
@@ -81,6 +85,8 @@ class DatabaseSchemaSeedTest {
                             + "public_url, storage_path, checksum, audit_status, reject_reason, "
                             + "created_by_admin_id, reviewed_by_admin_id, deleted, create_time, update_time, review_time "
                             + "FROM car_image_asset WHERE 1 = 0");
+            assertColumnSelectable(connection,
+                    "SELECT username, password, nickname, phone, status, deleted FROM app_user WHERE 1 = 0");
             assertColumnSelectable(connection,
                     "SELECT user_id, car_id, deleted, create_time, update_time FROM user_favorite WHERE 1 = 0");
             assertColumnSelectable(connection,

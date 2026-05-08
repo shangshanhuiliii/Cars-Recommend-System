@@ -7,6 +7,7 @@ import com.carsrecommend.system.auth.PrincipalType;
 import com.carsrecommend.system.common.BusinessException;
 import com.carsrecommend.system.common.ErrorCode;
 import com.carsrecommend.system.dto.LoginRequest;
+import com.carsrecommend.system.dto.UserRegisterRequest;
 import com.carsrecommend.system.entity.Admin;
 import com.carsrecommend.system.entity.AppUser;
 import com.carsrecommend.system.mapper.AdminMapper;
@@ -17,6 +18,7 @@ import com.carsrecommend.system.vo.AuthPrincipalVO;
 import com.carsrecommend.system.vo.AuthTokenVO;
 import java.util.List;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -26,6 +28,7 @@ public class AuthServiceImpl implements AuthService {
 
     private static final String USER_ROLE = "USER";
     private static final String ADMIN_ROLE = "ADMIN";
+    private static final String USER_STATUS_ACTIVE = "ACTIVE";
 
     private static final List<String> USER_PERMISSIONS = List.of(
             "user:demand",
@@ -38,6 +41,7 @@ public class AuthServiceImpl implements AuthService {
     private static final List<String> ADMIN_PERMISSIONS = List.of(
             "admin:cars",
             "admin:car-images",
+            "admin:users",
             "admin:recommend-records",
             "admin:dashboard",
             "admin:health",
@@ -53,6 +57,7 @@ public class AuthServiceImpl implements AuthService {
     private static final List<AuthMenuVO> ADMIN_MENUS = List.of(
             new AuthMenuVO("home", "Home", "/"),
             new AuthMenuVO("admin-cars", "Cars", "/admin/cars"),
+            new AuthMenuVO("admin-users", "Users", "/admin/users"),
             new AuthMenuVO("admin-recommend-records", "Recommendation Records", "/admin/recommend-records"),
             new AuthMenuVO("admin-dashboard", "Dashboard", "/admin/dashboard"),
             new AuthMenuVO("admin-health", "Health", "/admin/health"),
@@ -111,6 +116,36 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    public AuthTokenVO registerUser(UserRegisterRequest request) {
+        String username = normalizeUsername(request.getUsername());
+        String password = normalizePassword(request.getPassword());
+        validateRegisterRequest(request, username, password);
+        if (appUserMapper.existsByUsername(username)) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "用户名已存在");
+        }
+
+        AppUser user = new AppUser();
+        user.setUsername(username);
+        user.setPassword(passwordHasher.hash(password));
+        user.setNickname(normalizeNickname(request.getNickname(), username));
+        user.setPhone(normalizePhone(request.getPhone()));
+        user.setStatus(USER_STATUS_ACTIVE);
+        try {
+            appUserMapper.insert(user);
+        } catch (DataIntegrityViolationException exception) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "用户名已存在");
+        }
+
+        AuthPrincipal principal = new AuthPrincipal(
+                user.getId(),
+                PrincipalType.USER,
+                user.getUsername(),
+                USER_ROLE,
+                StringUtils.hasText(user.getNickname()) ? user.getNickname() : user.getUsername());
+        return toTokenVO(principal);
+    }
+
+    @Override
     public AuthPrincipalVO current(AuthPrincipal principal) {
         return toPrincipalVO(principal);
     }
@@ -144,5 +179,43 @@ public class AuthServiceImpl implements AuthService {
 
     private BusinessException invalidCredentials() {
         return new BusinessException(ErrorCode.UNAUTHORIZED, "username or password is incorrect");
+    }
+
+    private void validateRegisterRequest(UserRegisterRequest request, String username, String password) {
+        if (username.length() < 4 || username.length() > 32 || !username.matches("[A-Za-z0-9_]+")) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "用户名必须为4-32位字母、数字或下划线");
+        }
+        if (password.length() < 8 || password.length() > 32
+                || password.chars().noneMatch(Character::isLetter)
+                || password.chars().noneMatch(Character::isDigit)) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "密码必须为8-32位且至少包含字母和数字");
+        }
+        if (!password.equals(request.getConfirmPassword())) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "两次输入的密码不一致");
+        }
+        String nickname = request.getNickname();
+        if (StringUtils.hasText(nickname) && nickname.trim().length() > 32) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "昵称最多32个字符");
+        }
+        String phone = normalizePhone(request.getPhone());
+        if (phone != null && !phone.matches("1\\d{10}") && !phone.matches("\\d{11,}")) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "手机号格式不正确");
+        }
+    }
+
+    private String normalizeUsername(String username) {
+        return username == null ? "" : username.trim();
+    }
+
+    private String normalizePassword(String password) {
+        return password == null ? "" : password;
+    }
+
+    private String normalizeNickname(String nickname, String username) {
+        return StringUtils.hasText(nickname) ? nickname.trim() : username;
+    }
+
+    private String normalizePhone(String phone) {
+        return StringUtils.hasText(phone) ? phone.trim() : null;
     }
 }

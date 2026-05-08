@@ -59,6 +59,7 @@ const labelMap = {
   favorites: '我的收藏',
   compare: '车型对比',
   'admin-cars': '车型管理',
+  'admin-users': '用户管理',
   'admin-recommend-records': '推荐记录',
   'admin-dashboard': '统计仪表盘',
   'admin-health': '系统健康检查',

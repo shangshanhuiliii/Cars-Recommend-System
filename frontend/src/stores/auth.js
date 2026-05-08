@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 
-import { fetchCurrentPrincipal, loginAdmin, loginUser, logoutAuth } from '@/api/auth'
+import { fetchCurrentPrincipal, loginAdmin, loginUser, logoutAuth, registerUser } from '@/api/auth'
 
 const STORAGE_KEY = 'cars-recommend-auth'
 
@@ -44,6 +44,11 @@ export const useAuthStore = defineStore('auth', {
       const response = loginType === 'ADMIN'
         ? await loginAdmin(credentials)
         : await loginUser(credentials)
+      this.setSession(response.data)
+      return response.data
+    },
+    async register(payload) {
+      const response = await registerUser(payload)
       this.setSession(response.data)
       return response.data
     },

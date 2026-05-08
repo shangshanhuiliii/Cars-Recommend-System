@@ -4,10 +4,12 @@ CREATE TABLE IF NOT EXISTS app_user (
     password VARCHAR(255) NOT NULL,
     nickname VARCHAR(64),
     phone VARCHAR(32),
+    status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE',
     deleted BOOLEAN NOT NULL DEFAULT FALSE,
     create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uk_app_user_username UNIQUE (username)
+    CONSTRAINT uk_app_user_username UNIQUE (username),
+    CONSTRAINT ck_app_user_status CHECK (status IN ('ACTIVE', 'DISABLED'))
 );
 
 CREATE TABLE IF NOT EXISTS admin (

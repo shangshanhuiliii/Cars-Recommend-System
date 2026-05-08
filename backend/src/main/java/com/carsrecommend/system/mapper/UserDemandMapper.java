@@ -140,6 +140,14 @@ public class UserDemandMapper {
         return demands.stream().findFirst();
     }
 
+    public long countByUserId(Long userId) {
+        Long total = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM user_demand WHERE user_id = ? AND deleted = FALSE",
+                Long.class,
+                userId);
+        return total == null ? 0 : total;
+    }
+
     private static Integer readInteger(ResultSet resultSet, String column) throws SQLException {
         int value = resultSet.getInt(column);
         return resultSet.wasNull() ? null : value;

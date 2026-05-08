@@ -200,7 +200,8 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 
 import { fetchAdminRecommendationDetail, fetchAdminRecommendationHistory } from '@/api/adminRecommendRecords'
 
@@ -212,9 +213,11 @@ const records = ref([])
 const total = ref(0)
 const selectedRecordId = ref(null)
 const detail = ref(null)
+const route = useRoute()
 const query = reactive({
   page: 1,
   size: 10,
+  userId: route.query.userId || '',
 })
 
 const weightConfig = [
@@ -277,6 +280,14 @@ const algorithmRows = computed(() => [
 
 onMounted(loadRecords)
 
+watch(
+  () => route.query.userId,
+  (value) => {
+    query.userId = value || ''
+    reloadFirstPage()
+  },
+)
+
 async function loadRecords() {
   loadingList.value = true
   listError.value = ''
@@ -284,6 +295,7 @@ async function loadRecords() {
     const response = await fetchAdminRecommendationHistory({
       page: query.page,
       size: query.size,
+      userId: query.userId || undefined,
     })
     records.value = response.data.records || []
     total.value = response.data.total || 0

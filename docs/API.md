@@ -49,6 +49,7 @@
 | `recommendStatus` | `SUCCESS` / `FALLBACK` / `EMPTY` |
 | `matchLevel` | `STRICT` / `RELAX_BUDGET` / `RELAX_BODY_TYPE` / `RELAX_ENERGY_TYPE` / `SIMILAR_RECOMMEND` |
 | `satisfactionLevel` | `SATISFIED` / `NEUTRAL` / `DISSATISFIED` |
+| `appUser.status` | `ACTIVE` / `DISABLED` |
 
 `新能源` 只作为用户需求中的宽泛动力偏好。后端匹配时展开为 `纯电 / 插混 / 增程`，车型表不保存该值。
 
@@ -65,12 +66,13 @@ Authorization: Bearer <token>
 | 角色 | 身份来源 | 说明 |
 | --- | --- | --- |
 | `USER` | `app_user` 登录 token | 用户端需求、推荐、历史、收藏、反馈和对比菜单。 |
-| `ADMIN` | `admin` 登录 token，且 `admin.role = ADMIN` | 管理端车型、图片、推荐记录、统计、健康检查和算法可视化。 |
+| `ADMIN` | `admin` 登录 token，且 `admin.role = ADMIN` | 管理端车型、图片、用户管理、推荐记录、统计、健康检查和算法可视化。 |
 
 公开接口：
 
 - `GET /api/health`
 - `POST /api/auth/user/login`
+- `POST /api/auth/user/register`
 - `POST /api/auth/admin/login`
 - `GET /api/car/**`
 - `/uploads/**` 静态图片资源
@@ -128,6 +130,34 @@ POST /api/auth/admin/login
   }
 }
 ```
+
+普通用户注册：
+
+```text
+POST /api/auth/user/register
+```
+
+请求：
+
+```json
+{
+  "username": "new_user",
+  "password": "User123456",
+  "confirmPassword": "User123456",
+  "nickname": "新用户",
+  "phone": "13800000000"
+}
+```
+
+字段规则：
+
+- `username` 必填，trim 后 4-32 位，只允许字母、数字、下划线，且唯一。
+- `password` 必填，8-32 位，至少包含字母和数字。
+- `confirmPassword` 必须与 `password` 一致。
+- `nickname` 可选，最多 32 个字符；为空时默认使用用户名。
+- `phone` 可选，当前仅做格式校验，不强制唯一。
+
+注册成功返回与登录相同的 `AuthTokenVO`，`principalType = USER`；注册接口只能创建普通 `app_user`，不能创建管理员账号。重复用户名返回 `400`，禁用用户再次登录返回 `401`。
 
 当前登录身份：
 
@@ -696,6 +726,50 @@ GET  /api/recommend/{recordId}/feedback
 - `comment` 最大 500 字。
 - 同一用户同一推荐记录只保留一条反馈，重复提交会覆盖原反馈。
 - 反馈不修改推荐记录、推荐明细、权重或排序。
+
+## 管理端用户管理接口
+
+以下接口均需要 `ADMIN` token。管理端用户管理只管理 `app_user`，不管理 `admin`，也不会触发推荐生成或反馈学习。
+
+分页查询普通用户：
+
+```text
+GET /api/admin/users?page=1&size=10&keyword=&status=
+```
+
+返回 `PageResult<AdminUserListItemVO>`，列表项包含 `id`、`username`、`nickname`、`phone`、`status`、`deleted`、`recommendRecordCount`、`favoriteCount`、`feedbackCount`、`createTime`、`updateTime`。
+
+用户详情：
+
+```text
+GET /api/admin/users/{userId}
+```
+
+返回用户基础信息、`summary` 计数、`latestDemand`、`recentRecommendRecords`、`favorites` 和 `feedbacks`。
+
+按用户查看推荐历史、收藏和反馈：
+
+```text
+GET /api/admin/users/{userId}/recommend-records?page=1&size=10
+GET /api/admin/users/{userId}/favorites?page=1&size=10
+GET /api/admin/users/{userId}/feedbacks?page=1&size=10
+```
+
+启用 / 禁用普通用户：
+
+```text
+PUT /api/admin/users/{userId}/status
+```
+
+请求：
+
+```json
+{
+  "status": "DISABLED"
+}
+```
+
+`status` 只能为 `ACTIVE` 或 `DISABLED`。禁用后用户不能重新登录；当前轻量 JWT 不维护服务端黑名单，已签发 token 在过期前仍可能有效。
 
 ## 管理端推荐记录接口
 

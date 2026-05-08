@@ -8,6 +8,10 @@ export function loginAdmin(data) {
   return http.post('/auth/admin/login', data)
 }
 
+export function registerUser(data) {
+  return http.post('/auth/user/register', data)
+}
+
 export function fetchCurrentPrincipal() {
   return http.get('/auth/me')
 }

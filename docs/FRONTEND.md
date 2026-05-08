@@ -76,9 +76,9 @@ font-family: "HarmonyOS Sans SC", "Source Han Sans SC", "Microsoft YaHei", "Ping
 顶部导航按当前登录身份展示：
 
 ```text
-未登录：系统名称 / 首页 / 登录
+未登录：系统名称 / 首页 / 登录（登录页提供注册入口）
 USER：系统名称 / 首页 / 购车推荐 / 推荐历史 / 我的收藏 / 车型对比 / 当前用户 / 退出
-ADMIN：系统名称 / 首页 / 车型管理 / 推荐记录 / 统计仪表盘 / 系统健康检查 / 算法可视化 / 当前管理员 / 退出
+ADMIN：系统名称 / 首页 / 车型管理 / 用户管理 / 推荐记录 / 统计仪表盘 / 系统健康检查 / 算法可视化 / 当前管理员 / 退出
 ```
 
 主体区域建议最大宽度 `1200px`，左右留白 `24px`。
@@ -93,6 +93,7 @@ ADMIN：系统名称 / 首页 / 车型管理 / 推荐记录 / 统计仪表盘 / 
 | --- | --- | --- |
 | `/` | 首页 | 面向普通用户的产品首页，提供轮播引导、购车推荐、历史、收藏和对比入口。 |
 | `/login` | 登录页 | 支持普通用户和管理员登录，成功后保存 token、principal、permissions 和 menus。 |
+| `/register` | 注册页 | 公开页面，只创建普通 USER 账号，成功后自动登录并进入 `/recommend`。 |
 | `/unauthorized` | 无权限页 | 登录身份与路由权限不匹配时展示。 |
 | `/recommend` | 购车需求页 | USER 路由；结构化需求表单和自然语言解析辅助填表。 |
 | `/recommend/result/:recordId` | 推荐结果页 | USER 路由；读取推荐详情快照，按后端 `rankNo` 展示。 |
@@ -102,6 +103,7 @@ ADMIN：系统名称 / 首页 / 车型管理 / 推荐记录 / 统计仪表盘 / 
 | `/favorites` | 我的收藏页 | USER 路由；展示当前用户收藏车型。 |
 | `/algorithm-demo` | 算法可视化页面 | ADMIN 路由；管理端导航中的只读工具页，展示推荐快照中的算法过程。 |
 | `/admin/cars` | 管理端车型管理 | ADMIN 路由；车型、参数、评分维护。 |
+| `/admin/users` | 管理端用户管理 | ADMIN 路由；查看普通用户状态、最近需求、推荐历史、收藏和反馈，支持启用 / 禁用。 |
 | `/admin/recommend-records` | 管理端推荐记录 | ADMIN 路由；追溯需求、权重、分数和解释。 |
 | `/admin/dashboard` | 管理端统计仪表盘 | ADMIN 路由；展示需求、推荐、车型和反馈统计。 |
 | `/admin/health` | 管理端系统健康检查 | ADMIN 路由；调用 `GET /api/health` 查看后端服务和数据库状态。 |
@@ -109,6 +111,7 @@ ADMIN：系统名称 / 首页 / 车型管理 / 推荐记录 / 统计仪表盘 / 
 路由守卫规则：
 
 - 未登录访问 USER / ADMIN 路由时跳转 `/login`，并保留 `redirect`。
+- `/register` 保留 `redirect`，注册成功后自动保存登录态；若 redirect 指向管理端则回到默认 `/recommend`。
 - USER 访问 ADMIN 路由、ADMIN 访问 USER 路由时进入 `/unauthorized`。
 - Axios 请求拦截器自动附加 `Authorization: Bearer <token>`。
 - Axios 响应拦截器遇到 `401` 清除本地登录态并跳转 `/login`。

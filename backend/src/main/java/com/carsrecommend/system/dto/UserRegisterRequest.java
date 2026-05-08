@@ -1,25 +1,27 @@
-package com.carsrecommend.system.entity;
+package com.carsrecommend.system.dto;
 
-import com.baomidou.mybatisplus.annotation.TableField;
-import com.baomidou.mybatisplus.annotation.TableName;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
-@TableName("app_user")
-public class AppUser extends BaseEntity {
+public class UserRegisterRequest {
 
-    @TableField("username")
+    @NotBlank
+    @Size(max = 64)
     private String username;
 
-    @TableField("password")
+    @NotBlank
+    @Size(max = 128)
     private String password;
 
-    @TableField("nickname")
+    @NotBlank
+    @Size(max = 128)
+    private String confirmPassword;
+
+    @Size(max = 64)
     private String nickname;
 
-    @TableField("phone")
+    @Size(max = 32)
     private String phone;
-
-    @TableField("status")
-    private String status;
 
     public String getUsername() {
         return username;
@@ -37,6 +39,14 @@ public class AppUser extends BaseEntity {
         this.password = password;
     }
 
+    public String getConfirmPassword() {
+        return confirmPassword;
+    }
+
+    public void setConfirmPassword(String confirmPassword) {
+        this.confirmPassword = confirmPassword;
+    }
+
     public String getNickname() {
         return nickname;
     }
@@ -51,13 +61,5 @@ public class AppUser extends BaseEntity {
 
     public void setPhone(String phone) {
         this.phone = phone;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
     }
 }

@@ -55,6 +55,8 @@ app:
 
 `jwt-secret` 至少 32 bytes，本地开发可以使用示例值或自行覆盖；生产环境必须使用独立密钥并保存在本地配置或环境变量中。`token-expire-seconds` 默认 7200 秒。
 
+普通用户注册只创建 `USER` 账号，密码以 PBKDF2 hash 写入 `app_user.password`，账号状态默认为 `ACTIVE`。管理员将用户状态改为 `DISABLED` 后，该用户不能再次登录；当前轻量 JWT 不维护服务端黑名单，已签发 token 在过期前仍可能可用，如需立即失效需后续增加 tokenVersion 或 token blacklist。
+
 不要提交：
 
 - `backend/src/main/resources/application-local.yml`
@@ -136,7 +138,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\init-dev-db.ps1 `
 
 `seed-data.sql` 当前包含：
 
-- 本地默认普通用户 `demo_user / demo123456`，密码以 PBKDF2 hash 保存。
+- 本地默认普通用户 `demo_user / demo123456`，`status = ACTIVE`，密码以 PBKDF2 hash 保存。
 - 本地默认管理员 `demo_admin / admin123456`，`role = ADMIN`，密码以 PBKDF2 hash 保存。
 - 120 条车型基础数据。
 - 120 条车型参数数据。

@@ -20,6 +20,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.context.jdbc.SqlConfig;
 import org.springframework.test.web.servlet.MockMvc;
@@ -50,6 +51,9 @@ class AuthControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
     @Test
     void userLoginReturnsTokenPrincipalMenusAndPermissions() throws Exception {
         JsonNode data = login("/api/auth/user/login", "demo_user", "demo123456")
@@ -78,7 +82,61 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.data.principal.principalType").value("ADMIN"))
                 .andExpect(jsonPath("$.data.principal.role").value("ADMIN"))
                 .andExpect(jsonPath("$.data.principal.permissions[0]").value("admin:cars"))
-                .andExpect(jsonPath("$.data.principal.menus[1].code").value("admin-cars"));
+                .andExpect(jsonPath("$.data.principal.menus[1].code").value("admin-cars"))
+                .andExpect(jsonPath("$.data.principal.menus[2].code").value("admin-users"));
+    }
+
+    @Test
+    void registerUserReturnsTokenAndUserPrincipal() throws Exception {
+        register("register_success_user", "User123456", "User123456")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.token").isString())
+                .andExpect(jsonPath("$.data.principal.principalType").value("USER"))
+                .andExpect(jsonPath("$.data.principal.role").value("USER"))
+                .andExpect(jsonPath("$.data.principal.menus[1].code").value("recommend"));
+    }
+
+    @Test
+    void registeredUserCanLogin() throws Exception {
+        register("register_login_user", "User123456", "User123456")
+                .andExpect(status().isOk());
+
+        login("/api/auth/user/login", "register_login_user", "User123456")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.principal.username").value("register_login_user"));
+    }
+
+    @Test
+    void duplicateUsernameRegisterReturnsBadRequest() throws Exception {
+        register("demo_user", "User123456", "User123456")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400));
+    }
+
+    @Test
+    void invalidRegisterFieldsReturnBadRequest() throws Exception {
+        register("short_password_user", "User12", "User12")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400));
+
+        register("mismatch_password_user", "User123456", "User654321")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400));
+
+        register("bad-name", "User123456", "User123456")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400));
+    }
+
+    @Test
+    void disabledUserCannotLogin() throws Exception {
+        register("disabled_login_user", "User123456", "User123456")
+                .andExpect(status().isOk());
+        jdbcTemplate.update("UPDATE app_user SET status = 'DISABLED' WHERE username = ?", "disabled_login_user");
+
+        login("/api/auth/user/login", "disabled_login_user", "User123456")
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(401));
     }
 
     @Test
@@ -146,6 +204,24 @@ class AuthControllerTest {
                 }
                 """.formatted(username, password);
         MvcResult result = mockMvc.perform(post(url)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .characterEncoding(StandardCharsets.UTF_8)
+                        .content(payload))
+                .andReturn();
+        return new ResultActionsWithData(result);
+    }
+
+    private ResultActionsWithData register(String username, String password, String confirmPassword) throws Exception {
+        String payload = """
+                {
+                  "username": "%s",
+                  "password": "%s",
+                  "confirmPassword": "%s",
+                  "nickname": "%s",
+                  "phone": "13800000000"
+                }
+                """.formatted(username, password, confirmPassword, username);
+        MvcResult result = mockMvc.perform(post("/api/auth/user/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .characterEncoding(StandardCharsets.UTF_8)
                         .content(payload))

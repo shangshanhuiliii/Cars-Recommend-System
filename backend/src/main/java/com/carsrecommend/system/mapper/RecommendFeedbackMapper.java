@@ -93,6 +93,25 @@ public class RecommendFeedbackMapper {
                 feedback.getRecordId());
     }
 
+    public long countByUserId(Long userId) {
+        Long total = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM recommend_feedback WHERE user_id = ? AND deleted = FALSE",
+                Long.class,
+                userId);
+        return total == null ? 0 : total;
+    }
+
+    public List<RecommendFeedback> findPageByUserId(Long userId, long limit, long offset) {
+        return jdbcTemplate.query(
+                "SELECT " + SELECT_COLUMNS
+                        + " FROM recommend_feedback WHERE user_id = ? AND deleted = FALSE"
+                        + " ORDER BY update_time DESC, id DESC LIMIT ? OFFSET ?",
+                ROW_MAPPER,
+                userId,
+                limit,
+                offset);
+    }
+
     private static LocalDateTime readLocalDateTime(ResultSet resultSet, String column) throws SQLException {
         Timestamp timestamp = resultSet.getTimestamp(column);
         return timestamp == null ? null : timestamp.toLocalDateTime();

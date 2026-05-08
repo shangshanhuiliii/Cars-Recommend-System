@@ -31,6 +31,7 @@ public class AuthInterceptor implements HandlerInterceptor {
             "/uploads/**");
     private static final List<String> PUBLIC_POST_PATTERNS = List.of(
             "/api/auth/user/login",
+            "/api/auth/user/register",
             "/api/auth/admin/login");
     private static final List<String> USER_PATTERNS = List.of(
             "/api/user/demand",

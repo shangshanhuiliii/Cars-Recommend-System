@@ -53,13 +53,18 @@
         <el-button class="login-submit" type="primary" :loading="loading" @click="submitLogin">
           登录
         </el-button>
+
+        <p class="login-switch">
+          没有账号？
+          <RouterLink :to="{ path: '/register', query: registerQuery }">立即注册</RouterLink>
+        </p>
       </el-form>
     </el-card>
   </section>
 </template>
 
 <script setup>
-import { reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/stores/auth'
@@ -73,6 +78,7 @@ const loading = ref(false)
 const error = ref('')
 const loginType = ref(route.query.type === 'admin' ? 'ADMIN' : 'USER')
 const form = reactive(defaultForm(loginType.value))
+const registerQuery = computed(() => (route.query.redirect ? { redirect: route.query.redirect } : {}))
 
 const rules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
@@ -244,6 +250,18 @@ function defaultForm(type) {
 
 .login-submit {
   width: 100%;
+}
+
+.login-switch {
+  margin: 16px 0 0;
+  color: var(--color-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.login-switch a {
+  color: var(--color-primary);
+  font-weight: 700;
 }
 
 @media (max-width: 900px) {

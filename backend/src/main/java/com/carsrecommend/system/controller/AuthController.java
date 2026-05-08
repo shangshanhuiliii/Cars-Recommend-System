@@ -5,6 +5,7 @@ import com.carsrecommend.system.common.ApiResponse;
 import com.carsrecommend.system.common.BusinessException;
 import com.carsrecommend.system.common.ErrorCode;
 import com.carsrecommend.system.dto.LoginRequest;
+import com.carsrecommend.system.dto.UserRegisterRequest;
 import com.carsrecommend.system.service.AuthService;
 import com.carsrecommend.system.vo.AuthPrincipalVO;
 import com.carsrecommend.system.vo.AuthTokenVO;
@@ -32,6 +33,11 @@ public class AuthController {
     @PostMapping("/user/login")
     public ApiResponse<AuthTokenVO> userLogin(@Valid @RequestBody LoginRequest request) {
         return ApiResponse.success(authService.loginUser(request));
+    }
+
+    @PostMapping("/user/register")
+    public ApiResponse<AuthTokenVO> userRegister(@Valid @RequestBody UserRegisterRequest request) {
+        return ApiResponse.success(authService.registerUser(request));
     }
 
     @PostMapping("/admin/login")

@@ -4,6 +4,7 @@ import AdminCarsView from '@/views/AdminCarsView.vue'
 import AdminDashboardView from '@/views/AdminDashboardView.vue'
 import AdminHealthView from '@/views/AdminHealthView.vue'
 import AdminRecommendRecordsView from '@/views/AdminRecommendRecordsView.vue'
+import AdminUsersView from '@/views/AdminUsersView.vue'
 import AlgorithmDemoView from '@/views/AlgorithmDemoView.vue'
 import CarDetailView from '@/views/CarDetailView.vue'
 import CarCompareView from '@/views/CarCompareView.vue'
@@ -13,6 +14,7 @@ import HomeView from '@/views/HomeView.vue'
 import LoginView from '@/views/LoginView.vue'
 import RecommendDemandView from '@/views/RecommendDemandView.vue'
 import RecommendResultView from '@/views/RecommendResultView.vue'
+import RegisterView from '@/views/RegisterView.vue'
 import UnauthorizedView from '@/views/UnauthorizedView.vue'
 import { useAuthStore } from '@/stores/auth'
 
@@ -29,6 +31,12 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       component: LoginView,
+      meta: { public: true },
+    },
+    {
+      path: '/register',
+      name: 'register',
+      component: RegisterView,
       meta: { public: true },
     },
     {
@@ -91,6 +99,12 @@ const router = createRouter({
       meta: { requiredRole: 'ADMIN', requiredPermission: 'admin:recommend-records' },
     },
     {
+      path: '/admin/users',
+      name: 'admin-users',
+      component: AdminUsersView,
+      meta: { requiredRole: 'ADMIN', requiredPermission: 'admin:users' },
+    },
+    {
       path: '/admin/dashboard',
       name: 'admin-dashboard',
       component: AdminDashboardView,
@@ -107,7 +121,7 @@ const router = createRouter({
 
 router.beforeEach((to) => {
   const authStore = useAuthStore()
-  if (to.name === 'login' && authStore.isAuthenticated) {
+  if ((to.name === 'login' || to.name === 'register') && authStore.isAuthenticated) {
     return authStore.principalType === 'ADMIN' ? '/admin/dashboard' : '/recommend'
   }
   if (to.meta.public || to.name === 'unauthorized') {

@@ -40,7 +40,8 @@ util         评分、解析、权重归一化等工具
 
 - 车型管理：维护 `car_model`、`car_param`，并提供车型详情、品牌选项和车型选项。
 - 图片资源管理：管理端上传、压缩、审核和软删除车型图片资源，审核通过后更新 `car_model.image_url`。
-- 登录认证：基于 `app_user` 和 `admin` 登录，签发 HS256 JWT，`AuthInterceptor` 统一校验 token、角色和接口权限。
+- 登录认证：基于 `app_user` 和 `admin` 登录，支持普通用户注册，签发 HS256 JWT，`AuthInterceptor` 统一校验 token、角色和接口权限。
+- 管理端用户管理：管理员查看普通用户状态、最近需求、推荐历史、收藏和反馈，并维护 `app_user.status`。
 - 车型评分：根据车型参数生成 `car_feature_score`。
 - 用户需求：保存结构化需求，生成画像文本和主观权重。
 - 自然语言解析：解析文本并返回表单草稿，不保存需求、不生成推荐。
@@ -68,6 +69,7 @@ util         评分、解析、权重归一化等工具
 | 路由 | 页面 | 边界 |
 | --- | --- | --- |
 | `/` | 首页 | 面向普通用户的产品首页，提供轮播引导、购车推荐、历史、收藏和对比入口。 |
+| `/register` | 注册页 | 公开页面，只创建普通 `USER` 账号，成功后保存 token 并进入用户端。 |
 | `/recommend` | 购车需求页 | 结构化需求表单，自然语言解析只辅助填表。 |
 | `/recommend/result/:recordId` | 推荐结果页 | 读取推荐详情快照，按 `rankNo` 展示。 |
 | `/car/:id` | 车型详情页 | 展示车型基础信息、参数和评分来源。 |
@@ -76,6 +78,7 @@ util         评分、解析、权重归一化等工具
 | `/favorites` | 我的收藏页 | 展示收藏车型，收藏不参与推荐排序。 |
 | `/algorithm-demo` | 算法可视化页面 | 管理端导航中的只读工具页，展示推荐快照中的权重、矩阵、Pareto 和 TOPSIS 过程。 |
 | `/admin/cars` | 管理端车型管理 | 维护车型、参数和评分。 |
+| `/admin/users` | 管理端用户管理 | 查看普通用户状态、最近需求、推荐历史、收藏和反馈，支持启用 / 禁用。 |
 | `/admin/recommend-records` | 管理端推荐记录 | 查看需求、权重、分数、理由和匹配状态。 |
 | `/admin/dashboard` | 管理端统计仪表盘 | 展示需求、推荐、车型和反馈统计。 |
 | `/admin/health` | 管理端系统健康检查 | 调用健康检查接口查看后端服务和数据库状态。 |
@@ -127,11 +130,27 @@ POST /api/auth/user/login 或 /api/auth/admin/login
 -> AuthContext 暴露当前用户或管理员 ID
 ```
 
+用户注册与管理数据流：
+
+```text
+POST /api/auth/user/register
+-> 校验 username / password / confirmPassword / nickname / phone
+-> PasswordHasher 生成 PBKDF2 hash
+-> 写入 app_user，status = ACTIVE
+-> 签发 USER token 并自动登录
+
+ADMIN 登录 -> /admin/users
+-> GET /api/admin/users 或 /api/admin/users/{userId}
+-> 按用户读取 user_demand / recommend_record / user_favorite / recommend_feedback
+-> PUT /api/admin/users/{userId}/status 更新 ACTIVE / DISABLED
+```
+
 ## 当前已实现功能
 
 - 后端健康检查和管理端系统健康检查页面。
 - 本地数据库初始化脚本。
-- 用户登录、管理员登录、JWT 鉴权、当前身份识别、USER / ADMIN 接口权限和菜单权限。
+- 用户注册、用户登录、管理员登录、JWT 鉴权、当前身份识别、USER / ADMIN 接口权限和菜单权限。
+- 管理端用户管理、用户详情、用户推荐历史、收藏、反馈查看和启用 / 禁用。
 - 本地 seed 默认账号 `demo_user` 和 `demo_admin`；固定 ID 只作为 seed 主键，不再作为接口默认身份来源。
 - 120 条车型基础数据和 120 条车型参数种子数据。
 - 车型管理、车型参数维护、车型评分查询和评分重算。
