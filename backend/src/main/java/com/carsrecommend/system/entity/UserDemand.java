@@ -19,11 +19,17 @@ public class UserDemand extends BaseEntity {
     @TableField("budget_max")
     private BigDecimal budgetMax;
 
+    @TableField("brands")
+    private String brands;
+
     @TableField("body_types")
     private String bodyTypes;
 
     @TableField("energy_types")
     private String energyTypes;
+
+    @TableField("seat_options")
+    private String seatOptions;
 
     @TableField("min_seats")
     private Integer minSeats;
@@ -102,6 +108,14 @@ public class UserDemand extends BaseEntity {
         this.budgetMax = budgetMax;
     }
 
+    public String getBrands() {
+        return brands;
+    }
+
+    public void setBrands(String brands) {
+        this.brands = brands;
+    }
+
     public String getBodyTypes() {
         return bodyTypes;
     }
@@ -116,6 +130,14 @@ public class UserDemand extends BaseEntity {
 
     public void setEnergyTypes(String energyTypes) {
         this.energyTypes = energyTypes;
+    }
+
+    public String getSeatOptions() {
+        return seatOptions;
+    }
+
+    public void setSeatOptions(String seatOptions) {
+        this.seatOptions = seatOptions;
     }
 
     public Integer getMinSeats() {

@@ -113,8 +113,10 @@ class UserDemandControllerTest {
                   "rawText": "家庭出行，想要空间和安全都好一些",
                   "budgetMin": 100000,
                   "budgetMax": 150000,
+                  "brands": ["BYD", "Toyota"],
                   "bodyTypes": ["SUV", "MPV"],
                   "energyTypes": ["插混", "新能源"],
+                  "seatOptions": ["5", "7_PLUS"],
                   "minSeats": 5,
                   "scenes": ["家庭出行", "长途自驾"],
                   "factorWeights": {
@@ -134,10 +136,14 @@ class UserDemandControllerTest {
                 """);
         long familyId = family.path("id").asLong();
         assertEquals(1L, family.path("userId").asLong());
+        assertEquals("BYD", family.path("brands").get(0).asText());
+        assertEquals("Toyota", family.path("brands").get(1).asText());
         assertEquals("SUV", family.path("bodyTypes").get(0).asText());
         assertEquals("MPV", family.path("bodyTypes").get(1).asText());
         assertEquals("插混", family.path("energyTypes").get(0).asText());
         assertEquals("新能源", family.path("energyTypes").get(1).asText());
+        assertEquals("5", family.path("seatOptions").get(0).asText());
+        assertEquals("7_PLUS", family.path("seatOptions").get(1).asText());
         assertEquals(5, family.path("minSeats").asInt());
         assertEquals("家庭出行", family.path("scenes").get(0).asText());
         assertEquals(8, family.path("factorWeights").path("space").asInt());
@@ -175,8 +181,8 @@ class UserDemandControllerTest {
                 }
                 """);
         assertWeightSumIsOne(sceneDefault);
-        assertDecimalEquals("0.1750", weight(sceneDefault, "price"));
-        assertDecimalEquals("0.1850", weight(sceneDefault, "safety"));
+        assertDecimalEquals("0.1600", weight(sceneDefault, "price"));
+        assertDecimalEquals("0.1800", weight(sceneDefault, "safety"));
         assertDecimalEquals("0.1750", weight(sceneDefault, "energy"));
         assertTrue(weight(sceneDefault, "safety").compareTo(weight(sceneDefault, "comfort")) > 0);
 
@@ -189,7 +195,35 @@ class UserDemandControllerTest {
                 """);
         assertWeightSumIsOne(defaultScene);
         assertEquals("综合需求", defaultScene.path("scenes").get(0).asText());
+        assertEquals(0, defaultScene.path("brands").size());
+        assertEquals(0, defaultScene.path("seatOptions").size());
         assertDecimalEquals("0.1500", weight(defaultScene, "price"));
+
+        JsonNode productFilters = postDemand("""
+                {
+                  "brands": ["BYD"],
+                  "bodyTypes": ["\\u8dd1\\u8f66", "\\u5361\\u8f66"],
+                  "seatOptions": ["2", "4", "5", "6", "7", "7_PLUS"],
+                  "scenes": ["\\u79d1\\u6280\\u667a\\u80fd"],
+                  "factorWeights": {}
+                }
+                """);
+        assertEquals("BYD", productFilters.path("brands").get(0).asText());
+        assertEquals("\u8dd1\u8f66", productFilters.path("bodyTypes").get(0).asText());
+        assertEquals("\u5361\u8f66", productFilters.path("bodyTypes").get(1).asText());
+        assertEquals("7_PLUS", productFilters.path("seatOptions").get(5).asText());
+        assertEquals("\u79d1\u6280\u667a\u80fd", productFilters.path("scenes").get(0).asText());
+
+        mockMvc.perform(post("/api/user/demand")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .characterEncoding(StandardCharsets.UTF_8)
+                        .content("""
+                                {
+                                  "seatOptions": ["3"]
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400));
 
         JsonNode newEnergy = postDemand("""
                 {

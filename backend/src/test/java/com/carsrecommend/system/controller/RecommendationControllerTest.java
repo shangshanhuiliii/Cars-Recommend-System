@@ -71,6 +71,44 @@ class RecommendationControllerTest {
         assertGroupedAndSorted(broadRecommend);
         assertRankNoAscending(broadRecommend.path("items"));
 
+        JsonNode sevenPlusDemand = postDemand("""
+                {
+                  "brands": ["BYD"],
+                  "seatOptions": ["7_PLUS"],
+                  "factorWeights": {}
+                }
+                """);
+        JsonNode sevenPlusRecommend = generate(sevenPlusDemand.path("id").asLong());
+        assertFalse(sevenPlusRecommend.path("items").isEmpty());
+        for (JsonNode item : sevenPlusRecommend.path("items")) {
+            assertEquals("BYD", item.path("brand").asText());
+            assertTrue(item.path("seats").asInt() >= 7);
+        }
+        assertRankNoAscending(sevenPlusRecommend.path("items"));
+
+        JsonNode exactSeatDemand = postDemand("""
+                {
+                  "brands": ["BYD"],
+                  "seatOptions": ["4"],
+                  "factorWeights": {}
+                }
+                """);
+        JsonNode exactSeatRecommend = generate(exactSeatDemand.path("id").asLong());
+        assertFalse(exactSeatRecommend.path("items").isEmpty());
+        for (JsonNode item : exactSeatRecommend.path("items")) {
+            assertEquals("BYD", item.path("brand").asText());
+            assertEquals(4, item.path("seats").asInt());
+        }
+
+        JsonNode bodyTypeDemand = postDemand("""
+                {
+                  "bodyTypes": ["\\u8dd1\\u8f66", "\\u5361\\u8f66"],
+                  "factorWeights": {}
+                }
+                """);
+        assertEquals("\u8dd1\u8f66", bodyTypeDemand.path("bodyTypes").get(0).asText());
+        assertEquals("\u5361\u8f66", bodyTypeDemand.path("bodyTypes").get(1).asText());
+
         JsonNode familyDemand = postDemand("""
                 {
                   "budgetMin": 100000,

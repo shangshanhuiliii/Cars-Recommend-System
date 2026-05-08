@@ -2,9 +2,9 @@
   <section class="register-page">
     <div class="register-panel">
       <div class="register-copy">
-        <p class="eyebrow">创建 USER 账号</p>
-        <h1>注册后即可保存你的购车需求、推荐历史、收藏和反馈</h1>
-        <p>注册只创建普通用户账号，不能创建管理员账号。密码会在后端使用 PBKDF2 哈希保存。</p>
+        <p class="eyebrow">创建账号</p>
+        <h1>保存你的购车需求、推荐结果、收藏和对比</h1>
+        <p>注册后可在不同时间继续查看已生成的推荐结果，收藏感兴趣的车型并加入对比。</p>
       </div>
 
       <el-card class="register-card" shadow="never">
@@ -54,7 +54,7 @@
           <p v-if="error" class="inline-error">{{ error }}</p>
 
           <el-button class="register-submit" type="primary" :loading="loading" @click="submitRegister">
-            注册并进入推荐
+            注册
           </el-button>
         </el-form>
       </el-card>
@@ -154,11 +154,7 @@ async function submitRegister() {
 }
 
 function resolveTarget() {
-  const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : ''
-  if (redirect && redirect !== '/login' && redirect !== '/register' && !redirect.startsWith('/admin')) {
-    return redirect
-  }
-  return '/recommend'
+  return '/'
 }
 </script>
 

@@ -57,7 +57,7 @@ app:
 
 普通用户注册只创建 `USER` 账号，密码以 PBKDF2 hash 写入 `app_user.password`，账号状态默认为 `ACTIVE`。管理员将用户状态改为 `DISABLED` 后，该用户不能再次登录；当前轻量 JWT 不维护服务端黑名单，已签发 token 在过期前仍可能可用，如需立即失效需后续增加 tokenVersion 或 token blacklist。
 
-前端登录入口拆分为 `/login` 和 `/admin/login`：普通用户登录页不展示默认测试账号，保留注册入口；管理员登录页不展示注册入口，登录后默认进入 `/admin/cars`。管理员界面不展示首页入口，访问首页会重定向到车型管理。
+前端登录入口拆分为 `/login` 和 `/admin/login`：普通用户登录页不展示默认测试账号，保留注册入口，登录成功默认进入首页 `/`；普通用户注册成功也进入首页 `/`。管理员登录页不展示注册入口，登录后默认进入 `/admin/cars`。管理员界面不展示首页入口，访问首页会重定向到车型管理。
 
 不要提交：
 
@@ -222,7 +222,7 @@ Vite proxy 会将 `/api` 转发到 `http://localhost:8080`。
 - 当前身份：`GET /api/auth/me`
 - 管理端图片资源：`POST /api/admin/car-images`、`GET /api/admin/car-images`、`PUT /api/admin/car-images/{id}/audit`、`DELETE /api/admin/car-images/{id}`
 - 用户需求保存：`POST /api/user/demand`
-- 自然语言解析：`POST /api/user/demand/parse-text`
+- 自然语言解析：`POST /api/user/demand/parse-text`，后端保留，当前产品前端不展示入口。
 - 推荐生成：`POST /api/recommend/generate`
 - 推荐详情：`GET /api/recommend/{recordId}`
 - 推荐历史：`GET /api/recommend/history`

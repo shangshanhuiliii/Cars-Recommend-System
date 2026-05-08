@@ -24,11 +24,17 @@ public class UserDemandSaveRequest {
     @DecimalMin("0")
     private BigDecimal budgetMax;
 
+    @Size(max = 30)
+    private List<@Size(max = 64) String> brands;
+
     @Size(max = 10)
     private List<@Size(max = 16) String> bodyTypes;
 
     @Size(max = 10)
     private List<@Size(max = 16) String> energyTypes;
+
+    @Size(max = 10)
+    private List<@Size(max = 16) String> seatOptions;
 
     @Min(2)
     @Max(9)
@@ -77,6 +83,14 @@ public class UserDemandSaveRequest {
         this.budgetMax = budgetMax;
     }
 
+    public List<String> getBrands() {
+        return brands;
+    }
+
+    public void setBrands(List<String> brands) {
+        this.brands = brands;
+    }
+
     public List<String> getBodyTypes() {
         return bodyTypes;
     }
@@ -91,6 +105,14 @@ public class UserDemandSaveRequest {
 
     public void setEnergyTypes(List<String> energyTypes) {
         this.energyTypes = energyTypes;
+    }
+
+    public List<String> getSeatOptions() {
+        return seatOptions;
+    }
+
+    public void setSeatOptions(List<String> seatOptions) {
+        this.seatOptions = seatOptions;
     }
 
     public Integer getMinSeats() {

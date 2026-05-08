@@ -3,7 +3,7 @@
     <div class="page-header">
       <div>
         <h1 class="page-title">车型对比</h1>
-        <p class="page-subtitle">最多选择 3 款车型，横向查看基础信息、参数和八维静态评分。对比不生成推荐，也不影响推荐排序。</p>
+        <p class="page-subtitle">最多选择 3 款车型，横向查看基础信息、参数和八维评分，帮助你快速看清差异。</p>
       </div>
       <el-button type="primary" plain @click="returnToSource">返回推荐结果</el-button>
     </div>

@@ -8,7 +8,7 @@ export const matchLevels = [
 
 export const recommendStatuses = ['SUCCESS', 'FALLBACK', 'EMPTY']
 
-export const bodyTypes = ['SUV', '轿车', 'MPV']
+export const bodyTypes = ['轿车', 'SUV', 'MPV', '跑车', '卡车']
 
 export const carEnergyTypes = ['燃油', '纯电', '插混', '增程']
 

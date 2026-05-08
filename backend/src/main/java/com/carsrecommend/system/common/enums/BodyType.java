@@ -7,7 +7,9 @@ public enum BodyType {
 
     SUV("SUV"),
     SEDAN("轿车"),
-    MPV("MPV");
+    MPV("MPV"),
+    SPORTS("跑车"),
+    TRUCK("卡车");
 
     private final String code;
 

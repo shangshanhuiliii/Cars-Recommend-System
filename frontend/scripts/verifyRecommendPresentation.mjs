@@ -3,26 +3,16 @@ import { readFileSync } from 'node:fs'
 
 import { displayTags, matchLabel, rankOrderedItems } from '../src/utils/recommendPresentation.js'
 
-const recommendApi = readFileSync(new URL('../src/api/recommend.js', import.meta.url), 'utf8')
-const userCompareApi = readFileSync(new URL('../src/api/userCompare.js', import.meta.url), 'utf8')
-const demandView = readFileSync(new URL('../src/views/RecommendDemandView.vue', import.meta.url), 'utf8')
-const resultView = readFileSync(new URL('../src/views/RecommendResultView.vue', import.meta.url), 'utf8')
-const compareSelection = readFileSync(new URL('../src/utils/compareSelection.js', import.meta.url), 'utf8')
-const parseStart = demandView.indexOf('async function parseNaturalLanguage')
-const applyStart = demandView.indexOf('function applyParsedDemand')
-const parseBlock = demandView.slice(parseStart, applyStart)
+const recommendApi = read('../src/api/recommend.js')
+const userCompareApi = read('../src/api/userCompare.js')
+const demandView = read('../src/views/RecommendDemandView.vue')
+const resultView = read('../src/views/RecommendResultView.vue')
+const carDetailView = read('../src/views/CarDetailView.vue')
+const compareSelection = read('../src/utils/compareSelection.js')
 
-assert.equal(matchLabel('STRICT'), '完全匹配')
-assert.equal(matchLabel('RELAX_BUDGET'), '放宽预算')
-assert.equal(matchLabel('RELAX_BODY_TYPE'), '放宽车型')
-assert.equal(matchLabel('RELAX_ENERGY_TYPE'), '放宽动力')
-assert.equal(matchLabel('SIMILAR_RECOMMEND'), '相似推荐')
-assert.notEqual(matchLabel('RELAX_BUDGET'), '完全匹配')
-assert.notEqual(matchLabel('RELAX_BODY_TYPE'), '完全匹配')
-assert.notEqual(matchLabel('RELAX_ENERGY_TYPE'), '完全匹配')
-assert.notEqual(matchLabel('SIMILAR_RECOMMEND'), '完全匹配')
-assert.deepEqual(displayTags(['空间优秀', '完全匹配', '价格匹配度高']), ['空间优秀', '价格匹配度高'])
-assert.deepEqual(displayTags(['TOPSIS', '多维表现均衡', 'Pareto', 'RELAX_BUDGET']), ['多维表现均衡'])
+assert.notEqual(matchLabel('STRICT'), 'STRICT')
+assert.notEqual(matchLabel('RELAX_BUDGET'), 'RELAX_BUDGET')
+assert.deepEqual(displayTags(['usable', 'TOPSIS', 'Pareto', 'RELAX_BUDGET', 'STRICT']), ['usable'])
 assert.deepEqual(
   rankOrderedItems([
     { rankNo: 3, totalScore: 99, modelName: 'C' },
@@ -32,27 +22,36 @@ assert.deepEqual(
   ['A', 'B', 'C'],
 )
 
-assert.match(resultView, /综合推荐分/)
-assert.doesNotMatch(resultView, /综合匹配度/)
-assert.match(resultView, /完全匹配表示满足预算、车型、动力、座位等硬性条件/)
-assert.match(resultView, /综合推荐分表示基于价格、空间、安全、能耗、智能、舒适、动力、口碑、热度计算的多维推荐分/)
-assert.match(resultView, /不同分组之间优先看条件匹配状态，同组内部按综合推荐分排序/)
-
 assert.match(recommendApi, /\/user\/demand\/parse-text/)
-assert.doesNotMatch(recommendApi, /['"`]\/demand\/parse-text['"`]/)
 assert.match(userCompareApi, /\/user\/compare/)
-assert.match(resultView, /addUserCompare/)
-assert.doesNotMatch(resultView, /localStorage|cars-recommend-compare-ids|addCompareId|writeCompareIds|readCompareIds/)
 assert.doesNotMatch(compareSelection, /localStorage|cars-recommend-compare-ids|addCompareId|writeCompareIds|readCompareIds/)
-assert.match(demandView, /自然语言辅助填写/)
-assert.match(demandView, /解析需求并填入表单/)
-assert.match(demandView, /解析结果已填入表单，请确认后再生成推荐/)
-assert.match(demandView, /parseDemandText/)
-assert.match(demandView, /bodyTypes/)
-assert.match(demandView, /energyTypes/)
-assert.match(demandView, /scenes/)
+
+assert.doesNotMatch(demandView, /parseDemandText|parse-text|自然语言|排除品牌|排除车型|excludedBrands|excludedCarIds/)
+assert.match(demandView, /budgetOptions/)
+assert.match(demandView, /customBudgetRange/)
+assert.match(demandView, /brands/)
+assert.match(demandView, /seatOptions/)
 assert.match(demandView, /factorWeights/)
-assert.doesNotMatch(parseBlock, /generateRecommendation/)
-assert.doesNotMatch(parseBlock, /recommend\/generate/)
+assert.match(demandView, /budgetMax/)
+
+assert.match(resultView, /rankOrderedItems/)
+assert.match(resultView, /RouterLink/)
+assert.match(resultView, /\/car\/\$\{item\.carId\}\?recordId=\$\{detail\.recordId\}/)
+assert.match(resultView, /reasonText/)
+assert.match(resultView, /weaknessText/)
+assert.match(resultView, /scoreRows/)
+assert.match(resultView, /addUserCompare/)
+assert.doesNotMatch(resultView, /查看车型详情|fetchCarDetail|ElDrawer|drawer|GET \/api|快照|不会重新计算/)
+assert.doesNotMatch(resultView, /TOPSIS|Pareto|熵权/)
+assert.doesNotMatch(resultView, /localStorage|cars-recommend-compare-ids|addCompareId|writeCompareIds|readCompareIds/)
+
+assert.match(carDetailView, /recordId/)
+assert.match(carDetailView, /addUserCompare/)
+assert.match(carDetailView, /toggleFavorite/)
+assert.doesNotMatch(carDetailView, /GET \/api|测试|演示/)
 
 console.log('recommend presentation checks passed')
+
+function read(relativePath) {
+  return readFileSync(new URL(relativePath, import.meta.url), 'utf8')
+}

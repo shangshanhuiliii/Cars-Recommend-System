@@ -43,15 +43,16 @@
 
 当前用户需求 API 只使用以下字段：
 
-- `bodyTypes`
-- `energyTypes`
-- `scenes`
-- `factorWeights`
-- `minSeats`
 - `budgetMin`
 - `budgetMax`
-- `excludedBrands`
-- `excludedCarIds`
+- `brands`
+- `bodyTypes`
+- `energyTypes`
+- `seatOptions`
+- `scenes`
+- `factorWeights`
+
+`brands`、`bodyTypes`、`energyTypes`、`seatOptions` 为空数组时分别表示全部品牌、全部级别、全部动力和全部座位；`scenes` 为空时按综合需求计算；`budgetMax = null` 表示预算上限不限。`minSeats`、`excludedBrands`、`excludedCarIds` 仅作为后端兼容字段保留，当前产品前端不再展示排除品牌或排除车型入口。
 
 动力规则：
 
@@ -71,7 +72,7 @@
 - 收藏只维护用户关注车型，不影响推荐排序。
 - 反馈只维护反馈记录和统计数据，不改变推荐结果。
 - 车型对比是当前登录 `USER` 的后端持久化列表，写入 `user_compare_car`；不得使用固定 localStorage key 保存车型 ID，不得通过 `userId` 参数操作他人对比。
-- 自然语言解析只辅助填表，不直接保存需求或生成推荐。
+- 自然语言解析后端接口保留，但当前产品前端不展示入口；它不直接保存需求或生成推荐，也不参与主推荐流程。
 - `/api/recommend/{recordId}/algorithm-visualization` 只读，不写数据库，不生成推荐。
 - 推荐生成请求不包含推荐数量字段，后端按候选集、分组和排序规则返回结果。
 - 修改 API、数据库、前端或推荐算法时，必须同步更新对应文档和测试。

@@ -55,8 +55,10 @@ class AlgorithmVisualizationControllerTest {
                 {
                   "budgetMin": 100000,
                   "budgetMax": 150000,
+                  "brands": ["BYD"],
                   "bodyTypes": ["SUV"],
                   "energyTypes": ["插混"],
+                  "seatOptions": ["5"],
                   "minSeats": 5,
                   "scenes": ["家庭出行"],
                   "factorWeights": {
@@ -80,10 +82,12 @@ class AlgorithmVisualizationControllerTest {
         assertTrue(visualization.path("weights").path("subjectiveWeight").path("space").isNumber());
         assertTrue(visualization.path("weights").path("objectiveWeight").path("space").isNumber());
         assertTrue(visualization.path("weights").path("finalWeight").path("space").isNumber());
+        assertEquals("BYD", visualization.path("demand").path("brands").get(0).asText());
         assertEquals("SUV", visualization.path("demand").path("bodyTypes").get(0).asText());
         assertEquals("插混", visualization.path("demand").path("energyTypes").get(0).asText());
+        assertEquals("5", visualization.path("demand").path("seatOptions").get(0).asText());
         assertEquals(5, visualization.path("demand").path("minSeats").asInt());
-        assertTrue(visualization.path("constraints").size() >= 6);
+        assertTrue(visualization.path("constraints").size() >= 8);
         assertEquals(15, visualization.path("pipeline").size());
         assertPipelineDetailed(visualization.path("pipeline"));
         assertEquals(5, visualization.path("stageStats").size());

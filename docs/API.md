@@ -40,10 +40,11 @@
 
 | 字段 | 可选值 |
 | --- | --- |
-| `bodyTypes[]` | `SUV` / `轿车` / `MPV` |
+| `bodyTypes[]` | `轿车` / `SUV` / `MPV` / `跑车` / `卡车` |
 | `carModel.energyType` | `燃油` / `纯电` / `插混` / `增程` |
 | `userDemand.energyTypes[]` | `燃油` / `纯电` / `插混` / `增程` / `新能源` |
-| `scenes[]` | `城市通勤` / `家庭出行` / `长途自驾` / `新手代步` / `商务接待` / `综合需求` |
+| `seatOptions[]` | `2` / `4` / `5` / `6` / `7` / `7_PLUS` |
+| `scenes[]` | `城市通勤` / `家庭出行` / `长途自驾` / `新手代步` / `商务接待` / `接送孩子` / `露营旅行` / `年轻运动` / `豪华舒适` / `低成本通勤` / `科技智能` / `综合需求` |
 | `factorWeights` keys | `price` / `space` / `safety` / `energy` / `intelligence` / `comfort` / `power` / `reputation` / `popularity` |
 | `auditStatus` | `APPROVED` / `PENDING` / `REJECTED` |
 | `recommendStatus` | `SUCCESS` / `FALLBACK` / `EMPTY` |
@@ -486,13 +487,13 @@ GET  /api/user/demand/{id}
 
 ```json
 {
-  "rawText": "",
   "budgetMin": 100000,
-  "budgetMax": 150000,
-  "bodyTypes": ["SUV", "MPV"],
+  "budgetMax": null,
+  "brands": ["BYD", "Toyota"],
+  "bodyTypes": ["SUV"],
   "energyTypes": ["插混", "新能源"],
-  "minSeats": 5,
-  "scenes": ["家庭出行", "长途自驾"],
+  "seatOptions": ["5", "7_PLUS"],
+  "scenes": ["家庭出行", "科技智能"],
   "factorWeights": {
     "price": 0,
     "space": 8,
@@ -503,9 +504,7 @@ GET  /api/user/demand/{id}
     "power": 0,
     "reputation": 4,
     "popularity": 0
-  },
-  "excludedBrands": ["特斯拉"],
-  "excludedCarIds": [12]
+  }
 }
 ```
 
@@ -513,19 +512,21 @@ GET  /api/user/demand/{id}
 
 | 字段 | 说明 |
 | --- | --- |
-| `bodyTypes` | 可接受车型类型，多选；为空表示不以车型类型作为硬过滤。 |
-| `energyTypes` | 可接受动力类型，多选；包含 `新能源` 时展开为 `纯电 / 插混 / 增程`。 |
-| `minSeats` | 最低座位数，作为硬约束，不参与放宽。 |
+| `budgetMin` | 预算下限，单位元；为空表示不限制下限。 |
+| `budgetMax` | 预算上限，单位元；为空表示不限上限。 |
+| `brands` | 正向品牌筛选，多选；为空表示全部品牌。 |
+| `bodyTypes` | 可接受车型类型，多选；为空表示全部级别。 |
+| `energyTypes` | 可接受动力类型，多选；为空表示全部动力；包含 `新能源` 时展开为 `纯电 / 插混 / 增程`。 |
+| `seatOptions` | 座位选项，多选；为空表示全部座位。`7_PLUS` 表示 `seats >= 7`。 |
 | `scenes` | 使用场景，多选；为空时按 `综合需求` 处理。 |
-| `factorWeights` | 用户显式偏好权重，0-10；后端负责归一化。 |
-| `budgetMin` | 预算下限；严格匹配时过滤 `guidePrice < budgetMin` 的车型。 |
-| `budgetMax` | 预算上限；严格匹配时过滤 `guidePrice > budgetMax` 的车型。 |
-| `excludedBrands` | 排除品牌，通过 `GET /api/car/brands` 搜索选择。 |
-| `excludedCarIds` | 排除车型，通过 `GET /api/car/options` 搜索选择。 |
+| `factorWeights` | 用户显式偏好权重，0-10；全为 0 时使用场景模板，后端负责归一化。 |
+| `minSeats` | 兼容旧字段；当 `seatOptions` 为空时才作为最低座位数硬约束。 |
+| `excludedBrands` | 兼容旧字段；当前产品前端不展示排除品牌入口。 |
+| `excludedCarIds` | 兼容旧字段；当前产品前端不展示排除车型入口。 |
 
 需求接口需要 `USER` 权限。`userId` 始终来自 JWT 当前用户；即使请求体或查询参数传入 `userId`，后端也不会用它覆盖当前登录身份。需求详情只返回当前用户自己的需求，不属于当前用户时返回 `404`。
 
-需求响应包含 `profileText` 和归一化后的九维 `weights`。
+需求响应包含 `brands`、`seatOptions`、`profileText` 和归一化后的九维 `weights`。
 
 ## 自然语言解析接口
 
@@ -554,7 +555,7 @@ POST /api/user/demand/parse-text
 - 不保存 `user_demand`。
 - 不生成推荐。
 - 不写入 `recommend_record` 或 `recommend_item`。
-- 前端必须让用户确认或修改解析结果后，再提交结构化需求。
+- 当前产品前端不展示该入口；主推荐流程只通过结构化需求表单提交。
 
 ## 推荐接口
 

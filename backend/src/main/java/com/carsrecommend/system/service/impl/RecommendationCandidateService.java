@@ -96,6 +96,10 @@ public class RecommendationCandidateService {
     }
 
     private boolean matchesCommonFilters(CarModel car, UserDemand demand) {
+        Set<String> brands = new HashSet<>(readStringList(demand.getBrands()));
+        if (!brands.isEmpty() && !brands.contains(car.getBrand())) {
+            return false;
+        }
         Set<String> excludedBrands = new HashSet<>(readStringList(demand.getExcludedBrands()));
         if (excludedBrands.contains(car.getBrand())) {
             return false;
@@ -103,6 +107,10 @@ public class RecommendationCandidateService {
         Set<Long> excludedCarIds = new HashSet<>(readLongList(demand.getExcludedCarIds()));
         if (excludedCarIds.contains(car.getId())) {
             return false;
+        }
+        Set<String> seatOptions = new LinkedHashSet<>(readStringList(demand.getSeatOptions()));
+        if (!seatOptions.isEmpty()) {
+            return matchesSeatOptions(car.getSeats(), seatOptions);
         }
         if (demand.getMinSeats() != null && (car.getSeats() == null || car.getSeats() < demand.getMinSeats())) {
             return false;
@@ -183,6 +191,21 @@ public class RecommendationCandidateService {
     private boolean matchesStrictEnergyType(CarModel car, UserDemand demand) {
         Set<String> energyTypes = expandedDemandEnergyTypes(demand);
         return energyTypes.isEmpty() || energyTypes.contains(car.getEnergyType());
+    }
+
+    private boolean matchesSeatOptions(Integer seats, Set<String> seatOptions) {
+        if (seats == null) {
+            return false;
+        }
+        for (String option : seatOptions) {
+            if ("7_PLUS".equals(option) && seats >= 7) {
+                return true;
+            }
+            if (String.valueOf(seats).equals(option)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private Set<String> demandBodyTypes(UserDemand demand) {

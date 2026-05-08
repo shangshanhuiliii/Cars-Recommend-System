@@ -95,7 +95,7 @@ role = ADMIN
 | `series` | 车系 |
 | `model_name` | 车型名称 |
 | `guide_price` | 指导价，单位元 |
-| `body_type` | 车型类型：`SUV` / `轿车` / `MPV` |
+| `body_type` | 车型类型：`轿车` / `SUV` / `MPV` / `跑车` / `卡车` |
 | `energy_type` | 动力类型：`燃油` / `纯电` / `插混` / `增程` |
 | `seats` | 座位数 |
 | `launch_year` | 上市年份 |
@@ -216,8 +216,10 @@ role = ADMIN
 | `raw_text` | 自然语言原始输入，可空 |
 | `budget_min` | 预算下限，单位元 |
 | `budget_max` | 预算上限，单位元 |
+| `brands` | 正向品牌筛选，JSON 数组 |
 | `body_types` | 车型类型偏好，JSON 数组 |
 | `energy_types` | 动力类型偏好，JSON 数组 |
+| `seat_options` | 座位数选项，JSON 数组，支持 `2/4/5/6/7/7_PLUS` |
 | `min_seats` | 最低座位数 |
 | `scenes` | 使用场景，JSON 数组 |
 | `factor_weights` | 九维显式偏好权重，JSON 对象，值域 0-10 |
@@ -239,15 +241,16 @@ role = ADMIN
 
 当前用户需求 API 字段固定为：
 
-- `bodyTypes`
-- `energyTypes`
-- `scenes`
-- `factorWeights`
-- `minSeats`
 - `budgetMin`
 - `budgetMax`
-- `excludedBrands`
-- `excludedCarIds`
+- `brands`
+- `bodyTypes`
+- `energyTypes`
+- `seatOptions`
+- `scenes`
+- `factorWeights`
+
+`minSeats`、`excludedBrands`、`excludedCarIds` 作为兼容字段保留；当前产品前端以 `brands` 正向筛选和 `seatOptions` 座位选项为主，不再展示排除品牌或排除车型入口。
 
 如果数据库使用 JSON 类型，应用层应按数组或对象处理；API 不返回 JSON 字符串。
 

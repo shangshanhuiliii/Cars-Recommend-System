@@ -1,9 +1,9 @@
 <template>
-  <section>
+  <section class="result-page">
     <div class="page-header">
       <div>
         <h1 class="page-title">推荐结果</h1>
-        <p class="page-subtitle">推荐详情来自已保存的历史快照，页面不会重新计算标签、分数、理由、不足或匹配状态。</p>
+        <p class="page-subtitle">以下车型根据你的购车需求生成，可进入详情查看更多参数。</p>
       </div>
       <el-button @click="$router.push('/recommend')">重新填写需求</el-button>
     </div>
@@ -33,38 +33,29 @@
           <div class="panel__body">
             <div class="summary-head">
               <div>
-                <p class="eyebrow">用户画像</p>
-                <h2>{{ detail.profileText || '暂无画像文本' }}</h2>
+                <p class="eyebrow">需求摘要</p>
+                <h2>{{ detail.profileText || '已根据你的选择生成推荐' }}</h2>
               </div>
               <el-tag :type="statusType(detail.recommendStatus)" size="large">
                 {{ statusLabel(detail.recommendStatus) }}
               </el-tag>
             </div>
             <div class="record-meta">
-              <span>记录 #{{ detail.recordId }}</span>
-              <span>需求 #{{ detail.demandId }}</span>
               <span>{{ formatDate(detail.createTime) }}</span>
+              <span>{{ detail.items?.length || 0 }} 款车型</span>
             </div>
           </div>
         </div>
 
-        <div class="panel weight-panel">
+        <div class="panel focus-panel">
           <div class="panel__body">
-            <p class="eyebrow">权重摘要</p>
-            <div v-for="row in weightRows" :key="row.key" class="weight-row">
+            <p class="eyebrow">关注重点</p>
+            <div v-for="row in topWeightRows" :key="row.key" class="weight-row">
               <span>{{ row.label }}</span>
               <el-progress :percentage="toPercent(row.value)" :stroke-width="8" :show-text="false" />
               <strong>{{ formatWeight(row.value) }}</strong>
             </div>
           </div>
-        </div>
-      </div>
-
-      <div v-if="detail.recommendStatus !== 'EMPTY' && detail.items?.length" class="panel ranking-note">
-        <div class="panel__body">
-          <p>完全匹配表示满足预算、车型、动力、座位等硬性条件。</p>
-          <p>综合推荐分表示基于价格、空间、安全、能耗、智能、舒适、动力、口碑、热度计算的多维推荐分。</p>
-          <p>不同分组之间优先看条件匹配状态，同组内部按综合推荐分排序。</p>
         </div>
       </div>
 
@@ -108,79 +99,87 @@
           </div>
 
           <article v-for="item in group.items" :key="`${detail.recordId}-${item.rankNo}`" class="recommend-card">
-            <div class="car-visual">
-              <img :src="carImageSrc(item.imageUrl)" :alt="item.modelName" @error="fallbackCarImage" />
+            <div class="card-top">
+              <RouterLink
+                class="car-visual-link"
+                :to="`/car/${item.carId}?recordId=${detail.recordId}`"
+                :aria-label="`${item.brand} ${item.modelName} 详情`"
+              >
+                <img :src="carImageSrc(item.imageUrl)" :alt="item.modelName" @error="fallbackCarImage" />
+              </RouterLink>
+
+              <div class="car-overview">
+                <div class="car-title-row">
+                  <div>
+                    <span class="rank-badge">#{{ item.rankNo }}</span>
+                    <h2>
+                      <RouterLink :to="`/car/${item.carId}?recordId=${detail.recordId}`">
+                        {{ item.brand }} {{ item.modelName }}
+                      </RouterLink>
+                    </h2>
+                    <p>{{ item.series }} · {{ item.bodyType }} · {{ item.energyType }} · {{ item.seats }} 座</p>
+                  </div>
+                  <div class="score-box" :class="scoreClass(item.totalScore)">
+                    <strong>{{ formatScore(item.totalScore) }}</strong>
+                    <span>推荐分</span>
+                  </div>
+                </div>
+
+                <div class="recommend-meta">
+                  <strong class="price-text">{{ formatWan(item.guidePrice) }}</strong>
+                  <div class="tag-line">
+                    <el-tag v-for="tag in displayTags(item.tags)" :key="tag" effect="light">{{ tag }}</el-tag>
+                  </div>
+                </div>
+
+                <div class="card-actions">
+                  <el-button
+                    :type="isInCompare(item.carId) ? 'success' : 'default'"
+                    :loading="compareOperatingId === item.carId"
+                    @click="addToCompare(item.carId)"
+                  >
+                    {{ compareButtonText(item.carId) }}
+                  </el-button>
+                  <el-button
+                    :type="isFavorited(item.carId) ? 'warning' : 'default'"
+                    :loading="favoriteOperatingId === item.carId"
+                    @click="toggleFavorite(item.carId)"
+                  >
+                    {{ isFavorited(item.carId) ? '已收藏' : '收藏' }}
+                  </el-button>
+                </div>
+                <p
+                  v-if="actionMessage(item.carId)"
+                  class="inline-action-message"
+                  :class="`inline-action-message--${actionMessage(item.carId).type}`"
+                >
+                  {{ actionMessage(item.carId).text }}
+                </p>
+              </div>
             </div>
 
-            <div class="recommend-main">
-              <div class="car-title-row">
-                <div>
-                  <span class="rank-badge">#{{ item.rankNo }}</span>
-                  <h2>{{ item.brand }} {{ item.modelName }}</h2>
-                  <p>{{ item.series }} · {{ item.bodyType }} · {{ item.energyType }} · {{ item.seats }} 座</p>
-                </div>
-                <div class="score-box" :class="scoreClass(item.totalScore)">
-                  <strong>{{ formatScore(item.totalScore) }}</strong>
-                  <span>综合推荐分</span>
-                </div>
+            <div class="explain-grid">
+              <div>
+                <h3>推荐理由</h3>
+                <p>{{ item.reasonText }}</p>
               </div>
+              <div>
+                <h3>不足提醒</h3>
+                <p>{{ item.weaknessText }}</p>
+              </div>
+            </div>
 
-              <div class="recommend-meta">
-                <div class="tag-line">
-                  <span class="meta-label">推荐标签</span>
-                  <el-tag v-for="tag in displayTags(item.tags)" :key="tag" effect="light">{{ tag }}</el-tag>
-                </div>
-                <span class="price-text">{{ formatWan(item.guidePrice) }}</span>
+            <div class="score-grid">
+              <div v-for="row in scoreRows(item)" :key="row.key" class="score-row">
+                <span>{{ row.label }}</span>
+                <el-progress
+                  :percentage="scorePercent(row.value)"
+                  :status="scoreStatus(row.value)"
+                  :stroke-width="7"
+                  :show-text="false"
+                />
+                <strong>{{ formatScore(row.value) }}</strong>
               </div>
-
-              <div class="explain-grid">
-                <div>
-                  <p class="explain-label">推荐理由</p>
-                  <p>{{ item.reasonText }}</p>
-                </div>
-                <div>
-                  <p class="explain-label">不足提醒</p>
-                  <p>{{ item.weaknessText }}</p>
-                </div>
-              </div>
-
-              <div class="score-grid">
-                <div v-for="row in scoreRows(item)" :key="row.key" class="score-row">
-                  <span>{{ row.label }}</span>
-                  <el-progress
-                    :percentage="scorePercent(row.value)"
-                    :status="scoreStatus(row.value)"
-                    :stroke-width="8"
-                    :show-text="false"
-                  />
-                  <strong>{{ formatScore(row.value) }}</strong>
-                </div>
-              </div>
-
-              <div class="card-actions">
-                <el-button type="primary" plain @click="openCarDetail(item.carId)">查看车型详情</el-button>
-                <el-button
-                  :type="isInCompare(item.carId) ? 'success' : 'default'"
-                  :loading="compareOperatingId === item.carId"
-                  @click="addToCompare(item.carId)"
-                >
-                  {{ compareButtonText(item.carId) }}
-                </el-button>
-                <el-button
-                  :type="isFavorited(item.carId) ? 'warning' : 'default'"
-                  :loading="favoriteOperatingId === item.carId"
-                  @click="toggleFavorite(item.carId)"
-                >
-                  {{ isFavorited(item.carId) ? '已收藏' : '收藏' }}
-                </el-button>
-              </div>
-              <p
-                v-if="actionMessage(item.carId)"
-                class="inline-action-message"
-                :class="`inline-action-message--${actionMessage(item.carId).type}`"
-              >
-                {{ actionMessage(item.carId).text }}
-              </p>
             </div>
           </article>
         </section>
@@ -191,7 +190,7 @@
           <div class="feedback-head">
             <div>
               <h2>推荐反馈</h2>
-              <p>反馈只进入统计分析，当前版本不会自动调整推荐权重或排序。</p>
+              <p>你的反馈会帮助我们了解推荐体验。</p>
             </div>
             <el-tag v-if="feedbackSaved" type="success" effect="light">反馈已记录</el-tag>
           </div>
@@ -218,7 +217,7 @@
               :rows="3"
               maxlength="500"
               show-word-limit
-              placeholder="可以补充推荐是否符合预算、车型、空间、动力或解释是否清楚"
+              placeholder="可以补充推荐是否符合预算、车型、空间、动力，或推荐理由是否清楚"
             />
             <div class="feedback-actions">
               <el-button
@@ -234,95 +233,6 @@
         </div>
       </div>
     </template>
-
-    <el-drawer v-model="carDrawerVisible" size="560px" destroy-on-close title="车型详情">
-      <div v-if="carDetailLoading" class="drawer-state">
-        <el-skeleton :rows="8" animated />
-      </div>
-      <el-alert
-        v-else-if="carDetailError"
-        type="error"
-        :closable="false"
-        :title="carDetailError"
-        show-icon
-      />
-      <div v-else-if="selectedCarDetail" class="drawer-detail">
-        <div class="drawer-visual">
-          <img :src="carImageSrc(selectedCar.imageUrl)" :alt="selectedCar.modelName" @error="fallbackCarImage" />
-        </div>
-        <h2>{{ selectedCar.brand }} {{ selectedCar.modelName }}</h2>
-        <p class="drawer-subtitle">
-          {{ selectedCar.series }} · {{ selectedCar.bodyType }} · {{ selectedCar.energyType }} · {{ selectedCar.seats }} 座
-        </p>
-        <div class="drawer-metrics">
-          <div>
-            <span>指导价</span>
-            <strong>{{ formatWan(selectedCar.guidePrice) }}</strong>
-          </div>
-          <div>
-            <span>上市年份</span>
-            <strong>{{ selectedCar.launchYear || '未知' }}</strong>
-          </div>
-          <div>
-            <span>口碑评分</span>
-            <strong>{{ selectedCar.userRating || '暂无' }}</strong>
-          </div>
-        </div>
-
-        <div class="drawer-actions">
-          <el-button
-            :type="isInCompare(selectedCar.id) ? 'success' : 'default'"
-            :loading="compareOperatingId === selectedCar.id"
-            @click="addToCompare(selectedCar.id)"
-          >
-            {{ compareButtonText(selectedCar.id) }}
-          </el-button>
-          <el-button
-            :type="isFavorited(selectedCar.id) ? 'warning' : 'default'"
-            :loading="favoriteOperatingId === selectedCar.id"
-            @click="toggleFavorite(selectedCar.id)"
-          >
-            {{ isFavorited(selectedCar.id) ? '已收藏' : '收藏' }}
-          </el-button>
-          <el-button type="primary" plain @click="$router.push(`/car/${selectedCar.id}?recordId=${detail.recordId}`)">
-            打开详情页
-          </el-button>
-        </div>
-        <p
-          v-if="actionMessage(selectedCar.id)"
-          class="inline-action-message drawer-action-message"
-          :class="`inline-action-message--${actionMessage(selectedCar.id).type}`"
-        >
-          {{ actionMessage(selectedCar.id).text }}
-        </p>
-
-        <h3>特征评分</h3>
-        <template v-if="selectedScore">
-          <div v-for="row in detailScoreRows" :key="row.key" class="score-row drawer-score-row">
-            <span>{{ row.label }}</span>
-            <el-progress
-              :percentage="scorePercent(row.value)"
-              :status="scoreStatus(row.value)"
-              :stroke-width="8"
-              :show-text="false"
-            />
-            <strong>{{ formatScore(row.value) }}</strong>
-          </div>
-        </template>
-        <el-empty v-else description="该车型暂无特征评分" />
-
-        <h3>车型参数</h3>
-        <template v-if="selectedParam">
-          <div class="drawer-param-grid">
-            <div v-for="row in detailParamRows" :key="row.label">
-              <span>{{ row.label }}</span>
-              <strong>{{ row.value }}</strong>
-            </div>
-          </div>
-        </template>
-        <el-empty v-else description="该车型暂无参数信息" />
-      </div>
-    </el-drawer>
   </section>
 </template>
 
@@ -330,7 +240,6 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import { fetchCarDetail } from '@/api/cars'
 import { addFavorite, fetchFavoriteStatus, removeFavorite } from '@/api/favorites'
 import { fetchRecommendationDetail, fetchRecommendationFeedback, submitRecommendationFeedback } from '@/api/recommend'
 import { addUserCompare, fetchUserCompare } from '@/api/userCompare'
@@ -347,10 +256,6 @@ const router = useRouter()
 const loading = ref(false)
 const error = ref('')
 const detail = ref(null)
-const carDrawerVisible = ref(false)
-const carDetailLoading = ref(false)
-const carDetailError = ref('')
-const selectedCarDetail = ref(null)
 const favoriteStatus = ref({})
 const favoriteOperatingId = ref(null)
 const compareOperatingId = ref(null)
@@ -370,9 +275,6 @@ const compareError = ref('')
 const actionMessages = ref({})
 
 const recordId = computed(() => route.params.recordId)
-const selectedCar = computed(() => selectedCarDetail.value?.carModel || {})
-const selectedParam = computed(() => selectedCarDetail.value?.carParam || null)
-const selectedScore = computed(() => selectedCarDetail.value?.carFeatureScore || null)
 
 const weightConfig = [
   ['price', '价格'],
@@ -398,25 +300,14 @@ const scoreConfig = [
   ['popularityScore', '热度'],
 ]
 
-const featureScoreConfig = [
-  ['spaceScore', '空间'],
-  ['safetyScore', '安全'],
-  ['energyScore', '能耗'],
-  ['intelligenceScore', '智能'],
-  ['comfortScore', '舒适'],
-  ['powerScore', '动力'],
-  ['reputationScore', '口碑'],
-  ['popularityScore', '热度'],
-]
-
 const feedbackReasonOptions = [
   '推荐有帮助',
   '解释清楚',
-  '推荐太贵',
+  '价格偏高',
   '车型不合适',
   '动力不符合',
   '空间不足',
-  '解释不清楚',
+  '还想看更多选择',
 ]
 
 const weightRows = computed(() =>
@@ -427,6 +318,12 @@ const weightRows = computed(() =>
   })),
 )
 
+const topWeightRows = computed(() =>
+  [...weightRows.value]
+    .sort((left, right) => right.value - left.value)
+    .slice(0, 5),
+)
+
 const strictItems = computed(() => rankOrderedItems((detail.value?.items || []).filter((item) => item.matchLevel === 'STRICT')))
 const recommendationItems = computed(() =>
   rankOrderedItems((detail.value?.items || []).filter((item) => item.matchLevel !== 'STRICT')),
@@ -435,10 +332,10 @@ const recommendationItems = computed(() =>
 const itemGroups = computed(() => {
   const groups = []
   if (strictItems.value.length) {
-    groups.push({ key: 'strict', title: '完全匹配车型', items: strictItems.value })
+    groups.push({ key: 'strict', title: '更符合需求', items: strictItems.value })
   }
   if (recommendationItems.value.length) {
-    groups.push({ key: 'recommendation', title: '推荐', items: recommendationItems.value })
+    groups.push({ key: 'recommendation', title: '可参考车型', items: recommendationItems.value })
   }
   return groups
 })
@@ -446,34 +343,9 @@ const itemGroups = computed(() => {
 const compareEntryText = computed(() => {
   if (compareError.value) return compareError.value
   if (compareNotice.value) return compareNotice.value
-  if (compareIds.value.length === 0) return '在推荐卡片中加入车型后，可主动进入对比页查看。'
-  if (compareIds.value.length === 1) return '已加入 1 款车型，可继续从推荐结果中加入更多车型。'
-  return '可进入对比页查看基础信息、参数和八维评分差异。'
-})
-
-const detailScoreRows = computed(() =>
-  featureScoreConfig.map(([key, label]) => ({
-    key,
-    label,
-    value: Number(selectedScore.value?.[key] || 0),
-  })),
-)
-
-const detailParamRows = computed(() => {
-  const value = selectedParam.value
-  if (!value) return []
-  return [
-    ['车身尺寸', `${value.lengthMm} / ${value.widthMm} / ${value.heightMm} mm`],
-    ['轴距', `${value.wheelbaseMm} mm`],
-    ['燃油油耗', value.fuelConsumption ? `${value.fuelConsumption} L/100km` : '不适用'],
-    ['电耗', value.electricConsumption ? `${value.electricConsumption} kWh/100km` : '不适用'],
-    ['纯电续航', value.electricRangeKm ? `${value.electricRangeKm} km` : '不适用'],
-    ['综合续航', value.totalRangeKm ? `${value.totalRangeKm} km` : '不适用'],
-    ['百公里加速', value.acceleration100 ? `${value.acceleration100} s` : '暂无'],
-    ['气囊数量', `${value.airbagCount || 0} 个`],
-    ['屏幕尺寸', value.screenSize ? `${value.screenSize} 英寸` : '暂无'],
-    ['辅助驾驶', value.assistDriveLevel || '暂无'],
-  ].map(([label, rowValue]) => ({ label, value: rowValue }))
+  if (compareIds.value.length === 0) return '在推荐卡片中加入车型后，可进入对比页查看。'
+  if (compareIds.value.length === 1) return '已加入 1 款车型，可继续加入更多车型。'
+  return '可进入对比页查看基础信息、参数和评分差异。'
 })
 
 onMounted(loadDetail)
@@ -554,21 +426,6 @@ async function loadFeedback() {
     feedbackError.value = requestError?.response?.data?.message || requestError?.message || '反馈状态加载失败。'
   } finally {
     feedbackLoading.value = false
-  }
-}
-
-async function openCarDetail(carId) {
-  carDrawerVisible.value = true
-  carDetailLoading.value = true
-  carDetailError.value = ''
-  selectedCarDetail.value = null
-  try {
-    const response = await fetchCarDetail(carId)
-    selectedCarDetail.value = response.data
-  } catch (requestError) {
-    carDetailError.value = requestError?.response?.data?.message || requestError?.message || '车型详情加载失败。'
-  } finally {
-    carDetailLoading.value = false
   }
 }
 
@@ -677,8 +534,8 @@ function scoreRows(item) {
 }
 
 function statusLabel(value) {
-  if (value === 'SUCCESS') return '全部完全匹配'
-  if (value === 'FALLBACK') return '含补充推荐'
+  if (value === 'SUCCESS') return '全部符合需求'
+  if (value === 'FALLBACK') return '含参考车型'
   if (value === 'EMPTY') return '暂无结果'
   return value || '未知'
 }
@@ -718,7 +575,7 @@ function formatWeight(value) {
 }
 
 function formatScore(value) {
-  return Number(value || 0).toFixed(2)
+  return Number(value || 0).toFixed(1)
 }
 
 function formatWan(value) {
@@ -748,7 +605,7 @@ function formatDate(value) {
 }
 
 .profile-panel h2 {
-  max-width: 720px;
+  max-width: 780px;
   margin: 6px 0 0;
   color: var(--color-primary-dark);
   font-size: 22px;
@@ -785,7 +642,7 @@ function formatDate(value) {
 .weight-row,
 .score-row {
   display: grid;
-  grid-template-columns: 48px minmax(0, 1fr) 56px;
+  grid-template-columns: 48px minmax(0, 1fr) 48px;
   align-items: center;
   gap: 10px;
   margin-top: 10px;
@@ -797,14 +654,7 @@ function formatDate(value) {
   text-align: right;
 }
 
-.empty-panel {
-  margin-top: 20px;
-}
-
-.ranking-note {
-  margin-bottom: 20px;
-}
-
+.empty-panel,
 .compare-entry-panel {
   margin-bottom: 20px;
 }
@@ -840,23 +690,6 @@ function formatDate(value) {
   text-align: right;
 }
 
-.ranking-note .panel__body {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.ranking-note p {
-  margin: 0;
-  padding: 12px;
-  border: 1px solid rgba(8, 145, 178, 0.18);
-  border-radius: var(--radius-sm);
-  background: rgba(8, 145, 178, 0.06);
-  color: var(--color-primary-dark);
-  font-size: 13px;
-  line-height: 1.7;
-}
-
 .result-list,
 .result-group {
   display: grid;
@@ -887,27 +720,38 @@ function formatDate(value) {
 
 .recommend-card {
   display: grid;
-  grid-template-columns: 210px minmax(0, 1fr);
-  gap: 20px;
+  gap: 18px;
   padding: 18px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border: 1px solid rgba(226, 232, 240, 0.96);
+  border-radius: 20px;
   background: #fff;
-  box-shadow: var(--shadow-card);
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.07);
 }
 
-.car-visual {
-  min-height: 180px;
+.card-top {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 20px;
+}
+
+.car-visual-link {
+  display: block;
   overflow: hidden;
-  border-radius: var(--radius-sm);
+  aspect-ratio: 16 / 9;
+  border-radius: 16px;
   background: #eef2f7;
 }
 
-.car-visual img,
-.drawer-visual img {
+.car-visual-link img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.car-overview {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .car-title-row {
@@ -927,7 +771,12 @@ function formatDate(value) {
 .car-title-row h2 {
   margin: 0;
   color: var(--color-primary-dark);
-  font-size: 20px;
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.car-title-row h2 a:hover {
+  color: var(--color-primary);
 }
 
 .car-title-row p {
@@ -937,11 +786,11 @@ function formatDate(value) {
 }
 
 .score-box {
-  width: 118px;
-  min-width: 118px;
+  width: 110px;
+  min-width: 110px;
   padding: 12px;
   text-align: center;
-  border-radius: var(--radius-sm);
+  border-radius: 14px;
   background: #f8fafc;
 }
 
@@ -951,7 +800,7 @@ function formatDate(value) {
 }
 
 .score-box strong {
-  font-size: 28px;
+  font-size: 30px;
   line-height: 1;
 }
 
@@ -978,63 +827,53 @@ function formatDate(value) {
 }
 
 .recommend-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
+  display: grid;
+  gap: 10px;
   margin-top: 14px;
 }
 
 .tag-line {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
   gap: 6px;
 }
 
-.meta-label {
-  color: var(--color-muted);
-  font-size: 12px;
-}
-
 .price-text {
-  margin-left: auto;
   color: var(--color-primary-dark);
-  font-weight: 700;
+  font-size: 18px;
 }
 
 .explain-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
-  margin-top: 16px;
 }
 
 .explain-grid > div {
-  padding: 14px;
+  min-height: 116px;
+  padding: 16px;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: #f9fafb;
+  border-radius: 16px;
+  background: #fbfdff;
+}
+
+.explain-grid h3 {
+  margin: 0 0 8px;
+  color: var(--color-primary-dark);
+  font-size: 15px;
 }
 
 .explain-grid p {
   margin: 0;
   color: var(--color-muted);
   font-size: 13px;
-  line-height: 1.7;
-}
-
-.explain-label {
-  margin-bottom: 6px !important;
-  color: var(--color-primary-dark) !important;
-  font-weight: 700;
+  line-height: 1.8;
 }
 
 .score-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0 16px;
-  margin-top: 12px;
 }
 
 .card-actions {
@@ -1042,7 +881,8 @@ function formatDate(value) {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
-  margin-top: 16px;
+  margin-top: auto;
+  padding-top: 14px;
 }
 
 .feedback-panel {
@@ -1095,98 +935,17 @@ function formatDate(value) {
   justify-content: flex-end;
 }
 
-.drawer-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 16px;
-}
-
-.drawer-action-message {
-  text-align: left;
-}
-
-.drawer-state {
-  padding: 12px 0;
-}
-
-.drawer-detail h2 {
-  margin: 16px 0 8px;
-  color: var(--color-primary-dark);
-  font-size: 22px;
-}
-
-.drawer-detail h3 {
-  margin: 22px 0 12px;
-  color: var(--color-primary-dark);
-  font-size: 16px;
-}
-
-.drawer-subtitle {
-  margin: 0;
-  color: var(--color-muted);
-}
-
-.drawer-visual {
-  height: 220px;
-  overflow: hidden;
-  border-radius: var(--radius-sm);
-  background: #eef2f7;
-}
-
-.drawer-metrics {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 16px;
-}
-
-.drawer-metrics div,
-.drawer-param-grid div {
-  padding: 10px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: #f9fafb;
-}
-
-.drawer-metrics span,
-.drawer-param-grid span {
-  display: block;
-  color: var(--color-muted);
-  font-size: 12px;
-}
-
-.drawer-metrics strong,
-.drawer-param-grid strong {
-  display: block;
-  margin-top: 4px;
-  color: var(--color-primary-dark);
-}
-
-.drawer-param-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.drawer-score-row {
-  grid-template-columns: 64px minmax(0, 1fr) 56px;
-}
-
 @media (max-width: 980px) {
   .result-summary,
   .compare-entry,
-  .recommend-card,
+  .card-top,
   .explain-grid,
-  .score-grid,
-  .ranking-note .panel__body,
-  .drawer-metrics,
-  .drawer-param-grid {
+  .score-grid {
     grid-template-columns: 1fr;
   }
 
-  .price-text {
-    margin-left: 0;
+  .car-title-row {
+    display: grid;
   }
 }
 </style>

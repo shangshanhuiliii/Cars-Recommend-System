@@ -3,7 +3,7 @@
     <div class="page-header">
       <div>
         <h1 class="page-title">推荐历史</h1>
-        <p class="page-subtitle">历史列表展示已保存的推荐记录摘要，进入详情后可查看当次推荐的标签、理由、不足和分数快照。</p>
+        <p class="page-subtitle">历史列表展示已保存的推荐记录摘要，进入详情后可查看当次推荐的标签、理由、不足和分数。</p>
       </div>
       <el-button type="primary" @click="$router.push('/recommend')">新建购车需求</el-button>
     </div>

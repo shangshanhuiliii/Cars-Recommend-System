@@ -72,8 +72,8 @@ class DatabaseSchemaSeedTest {
             assertTrue(count(connection, "SELECT COUNT(*) FROM car_model WHERE seats = 7") > 0);
 
             assertColumnSelectable(connection,
-                    "SELECT body_types, energy_types, min_seats, scenes, factor_weights, excluded_car_ids "
-                            + "FROM user_demand WHERE 1 = 0");
+                    "SELECT brands, body_types, energy_types, seat_options, min_seats, scenes, factor_weights, "
+                            + "excluded_car_ids FROM user_demand WHERE 1 = 0");
             assertColumnSelectable(connection, "SELECT recommend_status FROM recommend_record WHERE 1 = 0");
             assertColumnSelectable(connection, "SELECT tags FROM recommend_item WHERE 1 = 0");
             assertColumnSelectable(connection,
@@ -107,6 +107,10 @@ class DatabaseSchemaSeedTest {
             execute(connection,
                     "INSERT INTO user_demand (user_id, energy_types) VALUES (1, '[\"新能源\"]')");
             assertEquals(1, count(connection, "SELECT COUNT(*) FROM user_demand WHERE energy_types LIKE '%新能源%'"));
+            execute(connection,
+                    "INSERT INTO user_demand (user_id, brands, seat_options) VALUES (1, '[\"BYD\"]', '[\"7_PLUS\"]')");
+            assertEquals(1, count(connection,
+                    "SELECT COUNT(*) FROM user_demand WHERE brands LIKE '%BYD%' AND seat_options LIKE '%7_PLUS%'"));
             execute(connection, "INSERT INTO user_compare_car (user_id, car_id, sort_no) VALUES (1, 1, 0)");
             assertEquals(1, count(connection,
                     "SELECT COUNT(*) FROM user_compare_car WHERE user_id = 1 AND car_id = 1 AND deleted = FALSE"));

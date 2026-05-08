@@ -103,11 +103,7 @@ async function submitLogin() {
 }
 
 function resolveTarget() {
-  const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : ''
-  if (redirect && redirect !== '/login' && redirect !== '/admin/login' && !redirect.startsWith('/admin')) {
-    return redirect
-  }
-  return '/recommend'
+  return '/'
 }
 </script>
 

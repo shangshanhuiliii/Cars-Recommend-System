@@ -7,8 +7,10 @@ import java.util.Map;
 public record AlgorithmVisualizationDemandVO(
         BigDecimal budgetMin,
         BigDecimal budgetMax,
+        List<String> brands,
         List<String> bodyTypes,
         List<String> energyTypes,
+        List<String> seatOptions,
         List<String> scenes,
         Map<String, Integer> factorWeights,
         Integer minSeats,

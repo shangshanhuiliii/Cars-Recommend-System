@@ -96,6 +96,26 @@ class RecommendationCandidateServiceTest {
         assertFalse(MatchLevel.RELAX_BUDGET.equals(recommendationLevels.get(1L)));
     }
 
+    @Test
+    void positiveBrandAndSeatOptionsFilterCandidatesBeforeRelaxedGroups() {
+        UserDemand demand = demand(null, null);
+        demand.setBrands("[\"BrandA\"]");
+        demand.setSeatOptions("[\"4\",\"7_PLUS\"]");
+        demand.setMinSeats(7);
+
+        RecommendationCandidateGroups groups = generate(
+                demand,
+                List.of(
+                        car(1L, "180000", "SUV", "插混", "BrandA", 4),
+                        car(2L, "180000", "SUV", "插混", "BrandB", 4),
+                        car(3L, "180000", "SUV", "插混", "BrandA", 7),
+                        car(4L, "180000", "SUV", "插混", "BrandA", 6),
+                        car(5L, "180000", "SUV", "插混", "BrandA", 8)));
+
+        assertEquals(List.of(1L, 3L, 5L), carIds(groups.strictCandidates()));
+        assertTrue(groups.recommendationCandidates().isEmpty());
+    }
+
     private RecommendationCandidateGroups generate(UserDemand demand, List<CarModel> cars) {
         CarModelMapper carModelMapper = mock(CarModelMapper.class);
         CarFeatureScoreMapper scoreMapper = mock(CarFeatureScoreMapper.class);
@@ -124,15 +144,19 @@ class RecommendationCandidateServiceTest {
     }
 
     private CarModel car(Long id, String guidePrice, String bodyType, String energyType) {
+        return car(id, guidePrice, bodyType, energyType, "Brand" + id, 5);
+    }
+
+    private CarModel car(Long id, String guidePrice, String bodyType, String energyType, String brand, int seats) {
         CarModel car = new CarModel();
         car.setId(id);
-        car.setBrand("Brand" + id);
+        car.setBrand(brand);
         car.setSeries("Series" + id);
         car.setModelName("Model" + id);
         car.setGuidePrice(new BigDecimal(guidePrice));
         car.setBodyType(bodyType);
         car.setEnergyType(energyType);
-        car.setSeats(5);
+        car.setSeats(seats);
         return car;
     }
 

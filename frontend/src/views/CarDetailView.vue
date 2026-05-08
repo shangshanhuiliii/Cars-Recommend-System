@@ -1,9 +1,9 @@
 <template>
-  <section>
+  <section class="car-detail-page">
     <div class="page-header">
       <div>
         <h1 class="page-title">车型详情</h1>
-        <p class="page-subtitle">用户端车型详情读取 `GET /api/car/{id}`，展示基础信息、参数和已保存的特征评分。</p>
+        <p class="page-subtitle">查看车型基础信息、配置参数和多维表现。</p>
       </div>
       <el-button v-if="recordId" @click="$router.push(`/recommend/result/${recordId}`)">返回推荐结果</el-button>
     </div>
@@ -23,81 +23,98 @@
     />
 
     <template v-else-if="detail">
-      <div class="detail-hero">
+      <section class="detail-hero">
         <div class="detail-visual">
           <img :src="carImageSrc(car.imageUrl)" :alt="car.modelName" @error="fallbackCarImage" />
         </div>
-        <div class="panel detail-summary">
-          <div class="panel__body">
-            <p v-if="recordId" class="context-line">来自推荐记录 #{{ recordId }}</p>
-            <h2>{{ car.brand }} {{ car.modelName }}</h2>
-            <p>{{ car.series }} · {{ car.bodyType }} · {{ car.energyType }} · {{ car.seats }} 座</p>
-            <div class="hero-metrics">
-              <div>
-                <span>指导价</span>
-                <strong>{{ formatWan(car.guidePrice) }}</strong>
-              </div>
-              <div>
-                <span>上市年份</span>
-                <strong>{{ car.launchYear || '未知' }}</strong>
-              </div>
-              <div>
-                <span>口碑评分</span>
-                <strong>{{ car.userRating || '暂无' }}</strong>
-              </div>
-            </div>
-            <div class="detail-actions">
-              <el-button
-                :type="isInCompare(car.id) ? 'success' : 'default'"
-                :loading="compareOperating"
-                @click="addToCompare(car.id)"
-              >
-                {{ compareButtonText(car.id) }}
-              </el-button>
-              <el-button type="primary" plain :disabled="!compareIds.length" @click="goToCompare">
-                查看对比（{{ compareIds.length }}/3）
-              </el-button>
-              <el-button
-                :type="favorited ? 'warning' : 'default'"
-                :loading="favoriteOperating"
-                @click="toggleFavorite"
-              >
-                {{ favorited ? '已收藏' : '收藏' }}
-              </el-button>
-              <el-button v-if="!recordId" type="primary" plain @click="$router.push('/recommend')">开始推荐</el-button>
-            </div>
-            <p
-              v-if="inlineMessage"
-              class="inline-action-message"
-              :class="`inline-action-message--${inlineMessageType}`"
+        <aside class="detail-summary">
+          <p v-if="recordId" class="context-line">来自本次推荐</p>
+          <p class="brand-line">{{ car.brand }} · {{ car.series }}</p>
+          <h2>{{ car.modelName }}</h2>
+          <strong class="price-line">{{ formatWan(car.guidePrice) }}</strong>
+          <div class="summary-tags">
+            <span>{{ car.bodyType }}</span>
+            <span>{{ car.energyType }}</span>
+            <span>{{ car.seats }} 座</span>
+          </div>
+          <div class="detail-actions">
+            <el-button
+              :type="isInCompare(car.id) ? 'success' : 'default'"
+              :loading="compareOperating"
+              @click="addToCompare(car.id)"
             >
-              {{ inlineMessage }}
-            </p>
+              {{ compareButtonText(car.id) }}
+            </el-button>
+            <el-button
+              :type="favorited ? 'warning' : 'default'"
+              :loading="favoriteOperating"
+              @click="toggleFavorite"
+            >
+              {{ favorited ? '已收藏' : '收藏' }}
+            </el-button>
+            <el-button type="primary" plain :disabled="!compareIds.length" @click="goToCompare">
+              查看对比（{{ compareIds.length }}/3）
+            </el-button>
           </div>
-        </div>
-      </div>
+          <p
+            v-if="inlineMessage"
+            class="inline-action-message"
+            :class="`inline-action-message--${inlineMessageType}`"
+          >
+            {{ inlineMessage }}
+          </p>
+        </aside>
+      </section>
 
-      <div class="detail-grid">
-        <div class="panel">
-          <div class="panel__body">
-            <h3 class="section-title">车型基础信息</h3>
-            <el-descriptions :column="2" border>
-              <el-descriptions-item label="品牌">{{ car.brand }}</el-descriptions-item>
-              <el-descriptions-item label="车系">{{ car.series }}</el-descriptions-item>
-              <el-descriptions-item label="车型">{{ car.modelName }}</el-descriptions-item>
-              <el-descriptions-item label="指导价">{{ formatYuan(car.guidePrice) }}</el-descriptions-item>
-              <el-descriptions-item label="车型类型">{{ car.bodyType }}</el-descriptions-item>
-              <el-descriptions-item label="动力类型">{{ car.energyType }}</el-descriptions-item>
-              <el-descriptions-item label="座位数">{{ car.seats }}</el-descriptions-item>
-              <el-descriptions-item label="销量">{{ car.salesVolume || 0 }}</el-descriptions-item>
-            </el-descriptions>
+      <section class="info-grid">
+        <article v-for="item in overviewRows" :key="item.label" class="info-card">
+          <span>{{ item.label }}</span>
+          <strong>{{ item.value }}</strong>
+        </article>
+      </section>
+
+      <section class="panel section-panel">
+        <div class="panel__body">
+          <div class="section-title">
+            <h2>车辆参数</h2>
           </div>
+          <template v-if="param">
+            <div class="param-grid">
+              <article v-for="item in paramRows" :key="item.label" class="param-item">
+                <span>{{ item.label }}</span>
+                <strong>{{ item.value }}</strong>
+              </article>
+            </div>
+            <div class="feature-groups">
+              <div>
+                <h3>安全配置</h3>
+                <div class="feature-list">
+                  <span v-for="item in safetyFeatures" :key="item.label" :class="{ muted: !item.enabled }">
+                    {{ item.label }}
+                  </span>
+                </div>
+              </div>
+              <div>
+                <h3>智能配置</h3>
+                <div class="feature-list">
+                  <span v-for="item in intelligenceFeatures" :key="item.label" :class="{ muted: !item.enabled }">
+                    {{ item.label }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </template>
+          <el-empty v-else description="该车型暂无参数信息" />
         </div>
+      </section>
 
-        <div class="panel">
-          <div class="panel__body">
-            <h3 class="section-title">特征评分</h3>
-            <template v-if="score">
+      <section class="panel section-panel">
+        <div class="panel__body">
+          <div class="section-title">
+            <h2>特征评分</h2>
+          </div>
+          <template v-if="score">
+            <div class="score-grid">
               <div v-for="row in scoreRows" :key="row.key" class="score-row">
                 <span>{{ row.label }}</span>
                 <el-progress
@@ -108,44 +125,11 @@
                 />
                 <strong>{{ formatScore(row.value) }}</strong>
               </div>
-              <p class="score-version">评分版本：{{ score.scoreVersion }} · {{ formatDate(score.calculatedTime) }}</p>
-            </template>
-            <el-empty v-else description="该车型暂无特征评分" />
-          </div>
-        </div>
-      </div>
-
-      <div class="panel param-panel">
-        <div class="panel__body">
-          <h3 class="section-title">车型参数</h3>
-          <template v-if="param">
-            <div class="param-grid">
-              <div v-for="item in paramRows" :key="item.label" class="param-item">
-                <span>{{ item.label }}</span>
-                <strong>{{ item.value }}</strong>
-              </div>
-            </div>
-            <div class="feature-list">
-              <span v-for="item in featureRows" :key="item.label" :class="{ muted: !item.enabled }">
-                {{ item.label }} {{ item.enabled ? '已配备' : '未配置' }}
-              </span>
             </div>
           </template>
-          <el-empty v-else description="该车型暂无参数信息" />
+          <el-empty v-else description="该车型暂无评分数据" />
         </div>
-      </div>
-
-      <div class="panel source-panel">
-        <div class="panel__body">
-          <h3 class="section-title">评分来源说明</h3>
-          <div class="source-grid">
-            <p>空间分由轴距、车长、座位数和车型类型计算得到。</p>
-            <p>安全分由气囊、ABS、ESP 和主动安全配置计算得到。</p>
-            <p>能耗分由油耗、电耗、纯电续航和综合续航计算得到。</p>
-            <p>智能分由辅助驾驶、摄像头、OTA、语音和自动泊车配置计算得到。</p>
-          </div>
-        </div>
-      </div>
+      </section>
     </template>
   </section>
 </template>
@@ -189,6 +173,18 @@ const scoreConfig = [
   ['popularityScore', '热度'],
 ]
 
+const overviewRows = computed(() => [
+  { label: '品牌', value: car.value.brand || '暂无' },
+  { label: '车系', value: car.value.series || '暂无' },
+  { label: '指导价', value: formatWan(car.value.guidePrice) },
+  { label: '车型级别', value: car.value.bodyType || '暂无' },
+  { label: '动力类型', value: car.value.energyType || '暂无' },
+  { label: '座位数', value: car.value.seats ? `${car.value.seats} 座` : '暂无' },
+  { label: '上市年份', value: car.value.launchYear || '暂无' },
+  { label: '用户评分', value: car.value.userRating ? `${car.value.userRating} / 5` : '暂无' },
+  { label: '销量', value: Number(car.value.salesVolume || 0).toLocaleString('zh-CN') },
+])
+
 const scoreRows = computed(() =>
   scoreConfig.map(([key, label]) => ({
     key,
@@ -201,7 +197,7 @@ const paramRows = computed(() => {
   const value = param.value
   if (!value) return []
   return [
-    ['车身尺寸', `${value.lengthMm} / ${value.widthMm} / ${value.heightMm} mm`],
+    ['尺寸', `${value.lengthMm} / ${value.widthMm} / ${value.heightMm} mm`],
     ['轴距', `${value.wheelbaseMm} mm`],
     ['燃油油耗', value.fuelConsumption ? `${value.fuelConsumption} L/100km` : '不适用'],
     ['电耗', value.electricConsumption ? `${value.electricConsumption} kWh/100km` : '不适用'],
@@ -214,7 +210,7 @@ const paramRows = computed(() => {
   ].map(([label, itemValue]) => ({ label, value: itemValue }))
 })
 
-const featureRows = computed(() => {
+const safetyFeatures = computed(() => {
   const value = param.value
   if (!value) return []
   return [
@@ -224,6 +220,13 @@ const featureRows = computed(() => {
     ['车道保持', value.hasLaneKeep],
     ['自适应巡航', value.hasAdaptiveCruise],
     ['并线辅助', value.hasBlindSpot],
+  ].map(([label, enabled]) => ({ label, enabled }))
+})
+
+const intelligenceFeatures = computed(() => {
+  const value = param.value
+  if (!value) return []
+  return [
     ['倒车影像', value.hasReverseCamera],
     ['360 全景', value.has360Camera],
     ['OTA', value.hasOta],
@@ -342,38 +345,33 @@ function scorePercent(value) {
 }
 
 function formatScore(value) {
-  return Number(value || 0).toFixed(2)
+  return Number(value || 0).toFixed(1)
 }
 
 function formatWan(value) {
   return `${(Number(value || 0) / 10000).toFixed(1).replace(/\.0$/, '')} 万`
 }
-
-function formatYuan(value) {
-  return `${Number(value || 0).toLocaleString('zh-CN')} 元`
-}
-
-function formatDate(value) {
-  if (!value) return '时间未知'
-  return value.replace('T', ' ').slice(0, 16)
-}
 </script>
 
 <style scoped>
-.detail-hero,
-.detail-grid {
+.car-detail-page {
   display: grid;
-  grid-template-columns: 360px minmax(0, 1fr);
-  gap: 18px;
-  margin-bottom: 18px;
+  gap: 20px;
+}
+
+.detail-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.75fr);
+  gap: 20px;
+  align-items: stretch;
 }
 
 .detail-visual {
-  min-height: 260px;
   overflow: hidden;
-  border-radius: var(--radius-md);
+  aspect-ratio: 16 / 9;
+  border-radius: 24px;
   background: #eef2f7;
-  box-shadow: var(--shadow-card);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.1);
 }
 
 .detail-visual img {
@@ -382,51 +380,57 @@ function formatDate(value) {
   object-fit: cover;
 }
 
-.detail-summary h2 {
-  margin: 6px 0 8px;
-  color: var(--color-primary-dark);
-  font-size: 28px;
+.detail-summary {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 28px;
+  border: 1px solid rgba(226, 232, 240, 0.96);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(37, 99, 235, 0.12), transparent 32%),
+    #fff;
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.07);
 }
 
-.detail-summary p {
+.context-line,
+.brand-line {
   margin: 0;
   color: var(--color-muted);
+  font-size: 13px;
 }
 
 .context-line {
-  color: var(--color-accent) !important;
-  font-size: 13px;
+  color: var(--color-accent);
   font-weight: 700;
 }
 
-.hero-metrics {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 28px;
-}
-
-.hero-metrics div {
-  padding: 16px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: #f9fafb;
-}
-
-.hero-metrics span,
-.hero-metrics strong {
-  display: block;
-}
-
-.hero-metrics span {
-  color: var(--color-muted);
-  font-size: 12px;
-}
-
-.hero-metrics strong {
-  margin-top: 8px;
+.detail-summary h2 {
+  margin: 10px 0 14px;
   color: var(--color-primary-dark);
-  font-size: 20px;
+  font-size: clamp(30px, 4vw, 48px);
+  line-height: 1.1;
+}
+
+.price-line {
+  color: var(--color-primary);
+  font-size: 24px;
+}
+
+.summary-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.summary-tags span {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: var(--color-primary-dark);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .detail-actions {
@@ -434,7 +438,7 @@ function formatDate(value) {
   flex-wrap: wrap;
   gap: 8px;
   justify-content: flex-end;
-  margin-top: 18px;
+  margin-top: 26px;
 }
 
 .inline-action-message {
@@ -449,80 +453,90 @@ function formatDate(value) {
   color: var(--color-danger);
 }
 
-.section-title {
-  margin: 0 0 16px;
-  color: var(--color-primary-dark);
-  font-size: 18px;
-}
-
-.score-row {
+.info-grid {
   display: grid;
-  grid-template-columns: 52px minmax(0, 1fr) 58px;
-  align-items: center;
-  gap: 10px;
-  margin-top: 12px;
-  font-size: 13px;
-}
-
-.score-row strong {
-  text-align: right;
-}
-
-.score-version {
-  margin: 16px 0 0;
-  color: var(--color-muted);
-  font-size: 12px;
-}
-
-.param-panel,
-.source-panel {
-  margin-top: 18px;
-}
-
-.param-grid,
-.source-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 
+.info-card,
 .param-item {
-  min-height: 78px;
-  padding: 14px;
+  padding: 16px;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: #f9fafb;
+  border-radius: 16px;
+  background: #fff;
 }
 
+.info-card span,
+.info-card strong,
 .param-item span,
 .param-item strong {
   display: block;
 }
 
+.info-card span,
 .param-item span {
   color: var(--color-muted);
   font-size: 12px;
 }
 
+.info-card strong,
 .param-item strong {
-  margin-top: 8px;
+  margin-top: 7px;
   color: var(--color-primary-dark);
-  font-size: 15px;
+  font-size: 16px;
+}
+
+.section-panel {
+  margin-top: 0;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.section-title h2 {
+  margin: 0;
+  color: var(--color-primary-dark);
+  font-size: 20px;
+}
+
+.param-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.feature-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.feature-groups h3 {
+  margin: 0 0 10px;
+  color: var(--color-primary-dark);
+  font-size: 16px;
 }
 
 .feature-list {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 16px;
 }
 
 .feature-list span {
   padding: 6px 10px;
-  border-radius: var(--radius-sm);
+  border-radius: 999px;
   background: rgba(22, 163, 74, 0.1);
   color: var(--color-success);
   font-size: 12px;
+  font-weight: 700;
 }
 
 .feature-list span.muted {
@@ -530,25 +544,30 @@ function formatDate(value) {
   color: var(--color-muted);
 }
 
-.source-grid p {
-  margin: 0;
-  padding: 14px;
-  color: var(--color-muted);
-  line-height: 1.7;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: #f9fafb;
+.score-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 18px;
+}
+
+.score-row {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) 52px;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.score-row strong {
+  text-align: right;
 }
 
 @media (max-width: 980px) {
   .detail-hero,
-  .detail-grid,
+  .info-grid,
   .param-grid,
-  .source-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .hero-metrics {
+  .feature-groups,
+  .score-grid {
     grid-template-columns: 1fr;
   }
 }

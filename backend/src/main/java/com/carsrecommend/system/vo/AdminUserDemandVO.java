@@ -2,6 +2,7 @@ package com.carsrecommend.system.vo;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public class AdminUserDemandVO {
 
@@ -10,6 +11,11 @@ public class AdminUserDemandVO {
     private String rawText;
     private BigDecimal budgetMin;
     private BigDecimal budgetMax;
+    private List<String> brands;
+    private List<String> bodyTypes;
+    private List<String> energyTypes;
+    private List<String> seatOptions;
+    private List<String> scenes;
     private String profileText;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
@@ -52,6 +58,46 @@ public class AdminUserDemandVO {
 
     public void setBudgetMax(BigDecimal budgetMax) {
         this.budgetMax = budgetMax;
+    }
+
+    public List<String> getBrands() {
+        return brands;
+    }
+
+    public void setBrands(List<String> brands) {
+        this.brands = brands;
+    }
+
+    public List<String> getBodyTypes() {
+        return bodyTypes;
+    }
+
+    public void setBodyTypes(List<String> bodyTypes) {
+        this.bodyTypes = bodyTypes;
+    }
+
+    public List<String> getEnergyTypes() {
+        return energyTypes;
+    }
+
+    public void setEnergyTypes(List<String> energyTypes) {
+        this.energyTypes = energyTypes;
+    }
+
+    public List<String> getSeatOptions() {
+        return seatOptions;
+    }
+
+    public void setSeatOptions(List<String> seatOptions) {
+        this.seatOptions = seatOptions;
+    }
+
+    public List<String> getScenes() {
+        return scenes;
+    }
+
+    public void setScenes(List<String> scenes) {
+        this.scenes = scenes;
     }
 
     public String getProfileText() {

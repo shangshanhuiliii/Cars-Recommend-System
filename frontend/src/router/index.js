@@ -146,7 +146,7 @@ router.beforeEach((to) => {
     return '/admin/cars'
   }
   if ((to.name === 'login' || to.name === 'admin-login' || to.name === 'register') && authStore.isAuthenticated) {
-    return authStore.principalType === 'ADMIN' ? '/admin/cars' : '/recommend'
+    return authStore.principalType === 'ADMIN' ? '/admin/cars' : '/'
   }
   if (to.meta.public || to.name === 'unauthorized') {
     return true

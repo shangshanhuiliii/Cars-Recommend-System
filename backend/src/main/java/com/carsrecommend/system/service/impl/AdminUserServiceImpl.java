@@ -197,6 +197,11 @@ public class AdminUserServiceImpl implements AdminUserService {
         vo.setRawText(demand.getRawText());
         vo.setBudgetMin(demand.getBudgetMin());
         vo.setBudgetMax(demand.getBudgetMax());
+        vo.setBrands(readStringList(demand.getBrands()));
+        vo.setBodyTypes(readStringList(demand.getBodyTypes()));
+        vo.setEnergyTypes(readStringList(demand.getEnergyTypes()));
+        vo.setSeatOptions(readStringList(demand.getSeatOptions()));
+        vo.setScenes(readStringList(demand.getScenes()));
         vo.setProfileText(demand.getProfileText());
         vo.setCreateTime(demand.getCreateTime());
         vo.setUpdateTime(demand.getUpdateTime());

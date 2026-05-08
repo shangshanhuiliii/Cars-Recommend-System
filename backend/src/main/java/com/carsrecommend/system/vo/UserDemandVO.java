@@ -13,8 +13,10 @@ public class UserDemandVO {
     private String rawText;
     private BigDecimal budgetMin;
     private BigDecimal budgetMax;
+    private List<String> brands;
     private List<String> bodyTypes;
     private List<String> energyTypes;
+    private List<String> seatOptions;
     private Integer minSeats;
     private List<String> scenes;
     private Map<String, Integer> factorWeights = new LinkedHashMap<>();
@@ -65,6 +67,14 @@ public class UserDemandVO {
         this.budgetMax = budgetMax;
     }
 
+    public List<String> getBrands() {
+        return brands;
+    }
+
+    public void setBrands(List<String> brands) {
+        this.brands = brands;
+    }
+
     public List<String> getBodyTypes() {
         return bodyTypes;
     }
@@ -79,6 +89,14 @@ public class UserDemandVO {
 
     public void setEnergyTypes(List<String> energyTypes) {
         this.energyTypes = energyTypes;
+    }
+
+    public List<String> getSeatOptions() {
+        return seatOptions;
+    }
+
+    public void setSeatOptions(List<String> seatOptions) {
+        this.seatOptions = seatOptions;
     }
 
     public Integer getMinSeats() {

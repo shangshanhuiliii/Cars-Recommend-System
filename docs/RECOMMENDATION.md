@@ -21,20 +21,21 @@ pareto-topsis-v1
 | `car_model` | 车型基础信息、指导价、车型类型、动力类型、座位数、审核状态 |
 | `car_param` | 车型参数和配置，用于评分来源追溯 |
 | `car_feature_score` | 空间、安全、能耗、智能、舒适、动力、口碑、热度八维静态评分 |
-| `user_demand` | 用户预算、车型偏好、动力偏好、最低座位数、场景、显式权重和排除条件 |
+| `user_demand` | 用户预算、品牌筛选、车型偏好、动力偏好、座位选项、场景和显式权重 |
 | `recommend_record` / `recommend_item` | 推荐结果、权重和解释快照 |
 
 当前用户需求字段：
 
-- `bodyTypes`
-- `energyTypes`
-- `scenes`
-- `factorWeights`
-- `minSeats`
 - `budgetMin`
 - `budgetMax`
-- `excludedBrands`
-- `excludedCarIds`
+- `brands`
+- `bodyTypes`
+- `energyTypes`
+- `seatOptions`
+- `scenes`
+- `factorWeights`
+
+`minSeats`、`excludedBrands`、`excludedCarIds` 是兼容字段，当前产品前端不再展示排除品牌或排除车型入口；候选过滤优先使用 `seatOptions`，仅在其为空时兼容 `minSeats`。
 
 动力规则：
 
@@ -102,9 +103,10 @@ POST /api/admin/cars/scores/recalculate
 
 - 审核通过且未删除。
 - 存在 `car_feature_score`。
-- 不在 `excludedBrands`。
-- 不在 `excludedCarIds`。
-- `seats >= minSeats`。
+- `brands` 非空时，车型品牌必须在 `brands` 内。
+- 兼容字段 `excludedBrands`、`excludedCarIds` 命中时排除。
+- `seatOptions` 非空时按选项并集匹配；包含 `7_PLUS` 时允许 `seats >= 7`。
+- `seatOptions` 为空且 `minSeats` 非空时，兼容旧逻辑 `seats >= minSeats`。
 - 严格匹配时满足用户预算区间：`budgetMin <= guidePrice <= budgetMax`。
 - 只填写 `budgetMax` 时，严格匹配要求 `guidePrice <= budgetMax`。
 - 只填写 `budgetMin` 时，严格匹配要求 `guidePrice >= budgetMin`。
@@ -125,7 +127,7 @@ POST /api/admin/cars/scores/recalculate
 - 非 `STRICT` 结果作为推荐补充，不能排到 `STRICT` 组之前。
 - 同一车型只进入推荐集一次。
 - `matchLevel` 保留车型首次进入推荐集时的状态。
-- `minSeats`、`excludedBrands`、`excludedCarIds` 不参与放宽。
+- `brands`、`seatOptions`、`minSeats`、`excludedBrands`、`excludedCarIds` 不参与放宽。
 - `RELAX_BUDGET` 只补充预算区间外但接近用户预算的车型；低于预算下限或高于预算上限的车型不能标记为 `STRICT`。
 - 预算放宽阶段仍要求命中严格车型类型和严格动力类型。
 - 若存在 `budgetMin`，预算放宽下界为 `budgetMin * 0.9`。

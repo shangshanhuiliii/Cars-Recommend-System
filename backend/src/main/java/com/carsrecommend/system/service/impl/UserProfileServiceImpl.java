@@ -36,6 +36,7 @@ public class UserProfileServiceImpl implements UserProfileService {
 
     private static final String DEFAULT_SCENE = "综合需求";
     private static final BigDecimal ONE = new BigDecimal("1.0000");
+    private static final Set<String> SEAT_OPTION_CODES = Set.of("2", "4", "5", "6", "7", "7_PLUS");
 
     private static final List<WeightDimension> WEIGHT_ORDER = List.of(
             WeightDimension.PRICE,
@@ -48,13 +49,19 @@ public class UserProfileServiceImpl implements UserProfileService {
             WeightDimension.REPUTATION,
             WeightDimension.POPULARITY);
 
-    private static final Map<String, EnumMap<WeightDimension, BigDecimal>> SCENE_TEMPLATES = Map.of(
-            "城市通勤", template("0.25", "0.08", "0.12", "0.25", "0.15", "0.07", "0.04", "0.03", "0.01"),
-            "家庭出行", template("0.10", "0.25", "0.25", "0.10", "0.08", "0.14", "0.03", "0.04", "0.01"),
-            "长途自驾", template("0.08", "0.14", "0.20", "0.20", "0.08", "0.20", "0.06", "0.03", "0.01"),
-            "新手代步", template("0.25", "0.06", "0.25", "0.14", "0.20", "0.04", "0.03", "0.02", "0.01"),
-            "商务接待", template("0.05", "0.15", "0.12", "0.05", "0.15", "0.25", "0.05", "0.15", "0.03"),
-            DEFAULT_SCENE, template("0.15", "0.13", "0.15", "0.13", "0.12", "0.12", "0.08", "0.07", "0.05"));
+    private static final Map<String, EnumMap<WeightDimension, BigDecimal>> SCENE_TEMPLATES = Map.ofEntries(
+            Map.entry(DEFAULT_SCENE, template("0.15", "0.13", "0.15", "0.13", "0.12", "0.12", "0.08", "0.07", "0.05")),
+            Map.entry("城市通勤", template("0.22", "0.08", "0.12", "0.25", "0.14", "0.07", "0.05", "0.04", "0.03")),
+            Map.entry("家庭出行", template("0.10", "0.24", "0.24", "0.10", "0.08", "0.14", "0.03", "0.05", "0.02")),
+            Map.entry("长途自驾", template("0.08", "0.14", "0.20", "0.18", "0.08", "0.20", "0.06", "0.04", "0.02")),
+            Map.entry("新手代步", template("0.24", "0.06", "0.24", "0.14", "0.20", "0.04", "0.03", "0.03", "0.02")),
+            Map.entry("商务接待", template("0.05", "0.15", "0.12", "0.05", "0.14", "0.24", "0.06", "0.16", "0.03")),
+            Map.entry("接送孩子", template("0.10", "0.18", "0.28", "0.12", "0.10", "0.12", "0.03", "0.05", "0.02")),
+            Map.entry("露营旅行", template("0.08", "0.22", "0.16", "0.15", "0.07", "0.13", "0.10", "0.06", "0.03")),
+            Map.entry("年轻运动", template("0.10", "0.06", "0.12", "0.10", "0.14", "0.08", "0.25", "0.07", "0.08")),
+            Map.entry("豪华舒适", template("0.04", "0.16", "0.14", "0.06", "0.13", "0.28", "0.07", "0.10", "0.02")),
+            Map.entry("低成本通勤", template("0.32", "0.06", "0.10", "0.28", "0.08", "0.04", "0.03", "0.05", "0.04")),
+            Map.entry("科技智能", template("0.08", "0.08", "0.14", "0.12", "0.30", "0.08", "0.07", "0.06", "0.07")));
 
     private final UserDemandMapper userDemandMapper;
     private final ObjectMapper objectMapper;
@@ -67,8 +74,10 @@ public class UserProfileServiceImpl implements UserProfileService {
     @Override
     public UserDemandVO saveDemand(UserDemandSaveRequest request) {
         Long userId = resolveUserId(request.getUserId());
+        List<String> brands = normalizeTextList(request.getBrands());
         List<String> bodyTypes = normalizeBodyTypes(request.getBodyTypes());
         List<String> energyTypes = normalizeDemandEnergyTypes(request.getEnergyTypes());
+        List<String> seatOptions = normalizeSeatOptions(request.getSeatOptions());
         List<String> scenes = normalizeScenes(request.getScenes());
         Map<String, Integer> factorWeights = normalizeFactorWeights(request.getFactorWeights());
         List<String> excludedBrands = normalizeTextList(request.getExcludedBrands());
@@ -81,8 +90,10 @@ public class UserProfileServiceImpl implements UserProfileService {
         demand.setRawText(trimToNull(request.getRawText()));
         demand.setBudgetMin(request.getBudgetMin());
         demand.setBudgetMax(request.getBudgetMax());
+        demand.setBrands(toJson(brands));
         demand.setBodyTypes(toJson(bodyTypes));
         demand.setEnergyTypes(toJson(energyTypes));
+        demand.setSeatOptions(toJson(seatOptions));
         demand.setMinSeats(request.getMinSeats());
         demand.setScenes(toJson(scenes));
         demand.setFactorWeights(toJson(factorWeights));
@@ -91,8 +102,10 @@ public class UserProfileServiceImpl implements UserProfileService {
         demand.setProfileText(buildProfileText(
                 request.getBudgetMin(),
                 request.getBudgetMax(),
+                brands,
                 bodyTypes,
                 energyTypes,
+                seatOptions,
                 scenes,
                 factorWeights,
                 excludedBrands,
@@ -147,6 +160,16 @@ public class UserProfileServiceImpl implements UserProfileService {
         List<String> values = normalizeTextList(energyTypes);
         for (String value : values) {
             EnergyType.fromCode(value);
+        }
+        return values;
+    }
+
+    private List<String> normalizeSeatOptions(List<String> seatOptions) {
+        List<String> values = normalizeTextList(seatOptions);
+        for (String value : values) {
+            if (!SEAT_OPTION_CODES.contains(value)) {
+                throw new BusinessException(ErrorCode.BAD_REQUEST, "unsupported seatOption: " + value);
+            }
         }
         return values;
     }
@@ -279,16 +302,20 @@ public class UserProfileServiceImpl implements UserProfileService {
     private String buildProfileText(
             BigDecimal budgetMin,
             BigDecimal budgetMax,
+            List<String> brands,
             List<String> bodyTypes,
             List<String> energyTypes,
+            List<String> seatOptions,
             List<String> scenes,
             Map<String, Integer> factorWeights,
             List<String> excludedBrands,
             List<Long> excludedCarIds) {
         List<String> parts = new ArrayList<>();
         parts.add(buildBudgetText(budgetMin, budgetMax));
+        parts.add(brands.isEmpty() ? "品牌不限" : "优先在" + joinChinese(brands) + "中推荐");
         parts.add(bodyTypes.isEmpty() ? "可接受车型类型不限" : "可接受" + joinChinese(bodyTypes));
         parts.add(energyTypes.isEmpty() ? "可接受动力类型不限" : "可接受" + joinChinese(energyTypes) + "动力");
+        parts.add(seatOptions.isEmpty() ? "座位数不限" : "座位偏好为" + joinChinese(seatOptionLabels(seatOptions)));
         parts.add("使用场景为" + joinChinese(scenes));
 
         List<String> highFactors = highFactorLabels(factorWeights);
@@ -300,6 +327,20 @@ public class UserProfileServiceImpl implements UserProfileService {
             parts.add("已排除" + excludedCarIds.size() + "款车型");
         }
         return String.join("，", parts) + "。";
+    }
+
+    private List<String> seatOptionLabels(List<String> seatOptions) {
+        return seatOptions.stream()
+                .map(value -> switch (value) {
+                    case "2" -> "2座";
+                    case "4" -> "4座";
+                    case "5" -> "5座";
+                    case "6" -> "6座";
+                    case "7" -> "7座";
+                    case "7_PLUS" -> "7座以上";
+                    default -> value;
+                })
+                .toList();
     }
 
     private List<String> highFactorLabels(Map<String, Integer> factorWeights) {
@@ -353,8 +394,10 @@ public class UserProfileServiceImpl implements UserProfileService {
         vo.setRawText(demand.getRawText());
         vo.setBudgetMin(demand.getBudgetMin());
         vo.setBudgetMax(demand.getBudgetMax());
+        vo.setBrands(readStringList(demand.getBrands()));
         vo.setBodyTypes(readStringList(demand.getBodyTypes()));
         vo.setEnergyTypes(readStringList(demand.getEnergyTypes()));
+        vo.setSeatOptions(readStringList(demand.getSeatOptions()));
         vo.setMinSeats(demand.getMinSeats());
         vo.setScenes(readStringList(demand.getScenes()));
         vo.setFactorWeights(readIntegerMap(demand.getFactorWeights()));

@@ -160,8 +160,10 @@ public class AlgorithmVisualizationServiceImpl implements AlgorithmVisualization
         return new AlgorithmVisualizationDemandVO(
                 demand.getBudgetMin(),
                 demand.getBudgetMax(),
+                safeList(demand.getBrands()),
                 safeList(demand.getBodyTypes()),
                 safeList(demand.getEnergyTypes()),
+                safeList(demand.getSeatOptions()),
                 safeList(demand.getScenes()),
                 demand.getFactorWeights() == null ? Map.of() : demand.getFactorWeights(),
                 demand.getMinSeats(),
@@ -183,6 +185,11 @@ public class AlgorithmVisualizationServiceImpl implements AlgorithmVisualization
                 demand.getBudgetMin() == null ? "未设置" : formatWan(demand.getBudgetMin()) + "万元",
                 "budgetMin 作为 STRICT 阶段预算区间下边界，低于该值的车型不能进入 STRICT。"));
         constraints.add(new AlgorithmVisualizationConstraintVO(
+                "品牌",
+                "hard",
+                joinOrAny(demand.getBrands(), "不限"),
+                "brands 为空时不限制品牌；非空时只在指定品牌内生成候选。"));
+        constraints.add(new AlgorithmVisualizationConstraintVO(
                 "车型类型",
                 "hard",
                 joinOrAny(demand.getBodyTypes(), "不限"),
@@ -193,10 +200,15 @@ public class AlgorithmVisualizationServiceImpl implements AlgorithmVisualization
                 joinOrAny(demand.getEnergyTypes(), "不限"),
                 "energyTypes 多选命中任一动力即可，新能源会展开为纯电、插混和增程。"));
         constraints.add(new AlgorithmVisualizationConstraintVO(
+                "座位数",
+                "hard",
+                joinOrAny(seatOptionLabels(demand.getSeatOptions()), "不限"),
+                "seatOptions 为空时不限制座位数；非空时按选项并集过滤。"));
+        constraints.add(new AlgorithmVisualizationConstraintVO(
                 "最低座位数",
                 "hard",
                 demand.getMinSeats() == null ? "未设置" : demand.getMinSeats() + "座以上",
-                "minSeats 在 STRICT 和所有补充阶段都不放宽。"));
+                "minSeats 作为旧字段兼容；当 seatOptions 为空时才用于座位硬约束。"));
         constraints.add(new AlgorithmVisualizationConstraintVO(
                 "排除品牌",
                 "hard",
@@ -265,7 +277,7 @@ public class AlgorithmVisualizationServiceImpl implements AlgorithmVisualization
                 new AlgorithmVisualizationPipelineStepVO(
                         1,
                         "读取用户需求",
-                        "根据推荐记录中的 demandId 读取 user_demand，恢复用户预算、车型、动力、场景和排除项。",
+                        "根据推荐记录中的 demandId 读取 user_demand，恢复用户预算、品牌、车型、动力、座位、场景和兼容排除项。",
                         "recommend_record.demand_id、user_demand",
                         "结构化用户需求 demand 与画像文本 profileText",
                         "demandId=" + record.getDemandId() + "，预算=" + budget + "万元，场景=" + joinOrAny(demand.getScenes(), "未设置"),
@@ -273,11 +285,13 @@ public class AlgorithmVisualizationServiceImpl implements AlgorithmVisualization
                 new AlgorithmVisualizationPipelineStepVO(
                         2,
                         "解析硬性约束",
-                        "把预算区间、车型类型、动力类型、最低座位、排除品牌和排除车型拆成候选过滤条件。",
-                        "budgetMin、budgetMax、bodyTypes、energyTypes、minSeats、excludedBrands、excludedCarIds",
+                        "把预算区间、品牌、车型类型、动力类型、座位选项和兼容排除字段拆成候选过滤条件。",
+                        "budgetMin、budgetMax、brands、bodyTypes、energyTypes、seatOptions、minSeats、excludedBrands、excludedCarIds",
                         "STRICT 阶段硬约束和后续降级阶段保留约束",
-                        "车型=" + joinOrAny(demand.getBodyTypes(), "不限") + "，动力=" + joinOrAny(demand.getEnergyTypes(), "不限")
-                                + "，最低座位=" + (demand.getMinSeats() == null ? "未设置" : demand.getMinSeats() + "座"),
+                        "品牌=" + joinOrAny(demand.getBrands(), "不限")
+                                + "，车型=" + joinOrAny(demand.getBodyTypes(), "不限")
+                                + "，动力=" + joinOrAny(demand.getEnergyTypes(), "不限")
+                                + "，座位=" + joinOrAny(seatOptionLabels(demand.getSeatOptions()), "不限"),
                         "RecommendationCandidateService"),
                 new AlgorithmVisualizationPipelineStepVO(
                         3,
@@ -1122,6 +1136,23 @@ public class AlgorithmVisualizationServiceImpl implements AlgorithmVisualization
 
     private String joinOrAny(List<?> values, String fallback) {
         return values == null || values.isEmpty() ? fallback : String.join(" / ", values.stream().map(String::valueOf).toList());
+    }
+
+    private List<String> seatOptionLabels(List<String> seatOptions) {
+        if (seatOptions == null || seatOptions.isEmpty()) {
+            return List.of();
+        }
+        return seatOptions.stream()
+                .map(value -> switch (value) {
+                    case "2" -> "2座";
+                    case "4" -> "4座";
+                    case "5" -> "5座";
+                    case "6" -> "6座";
+                    case "7" -> "7座";
+                    case "7_PLUS" -> "7座以上";
+                    default -> value;
+                })
+                .toList();
     }
 
     private String formatWan(BigDecimal value) {

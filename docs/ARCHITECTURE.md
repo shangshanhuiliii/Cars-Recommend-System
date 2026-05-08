@@ -2,7 +2,7 @@
 
 ## 系统定位
 
-Cars Recommend System 是面向普通购车用户的汽车购买决策辅助平台。系统通过用户预算、车型偏好、动力偏好、使用场景、最低座位数和九维显式权重生成用户画像，再结合车型参数和车型特征评分，计算并保存可解释的推荐结果。
+Cars Recommend System 是面向普通购车用户的汽车购买决策辅助平台。系统通过用户预算、品牌筛选、车型偏好、动力偏好、座位选项、使用场景和九维显式权重生成用户画像，再结合车型参数和车型特征评分，计算并保存可解释的推荐结果。
 
 系统不涉及下单、支付、贷款、保险、经销商结算、营销活动或真实成交价预测。
 
@@ -70,10 +70,10 @@ util         评分、解析、权重归一化等工具
 | 路由 | 页面 | 边界 |
 | --- | --- | --- |
 | `/` | 首页 | 面向普通用户的产品首页，提供轮播引导、购车推荐、历史、收藏和对比入口。 |
-| `/register` | 注册页 | 公开页面，只创建普通 `USER` 账号，成功后保存 token 并进入用户端。 |
-| `/recommend` | 购车需求页 | 结构化需求表单，自然语言解析只辅助填表。 |
-| `/recommend/result/:recordId` | 推荐结果页 | 读取推荐详情快照，按 `rankNo` 展示。 |
-| `/car/:id` | 车型详情页 | 展示车型基础信息、参数和评分来源。 |
+| `/register` | 注册页 | 公开页面，只创建普通 `USER` 账号，成功后保存 token 并进入首页 `/`。 |
+| `/recommend` | 购车需求页 | 产品化结构化需求表单，不展示自然语言解析入口。 |
+| `/recommend/result/:recordId` | 推荐结果页 | 读取推荐详情，车名可点击进入 `/car/{id}?recordId={recordId}`，按 `rankNo` 展示。 |
+| `/car/:id` | 车型详情页 | 独立车型详情页，展示横屏大图、基础信息、参数和特征评分。 |
 | `/history` | 推荐历史页 | 展示当前用户推荐历史列表。 |
 | `/login` | 普通用户登录页 | 只登录 USER，保留注册入口和管理员登录入口。 |
 | `/admin/login` | 管理员登录页 | 只登录 ADMIN，登录后默认进入 `/admin/cars`。 |
@@ -93,8 +93,8 @@ util         评分、解析、权重归一化等工具
 推荐生成数据流：
 
 ```text
-USER 登录 -> 前端保存 token
--> 用户填写 /recommend
+USER 登录 -> 前端保存 token -> 默认进入首页 /
+-> 用户从首页进入 /recommend 并填写结构化需求
 -> Authorization: Bearer <token>
 -> POST /api/user/demand（userId 来自 JWT）
 -> POST /api/recommend/generate（demandId 必须属于当前用户）
@@ -144,6 +144,7 @@ POST /api/auth/user/register
 -> PasswordHasher 生成 PBKDF2 hash
 -> 写入 app_user，status = ACTIVE
 -> 签发 USER token 并自动登录
+-> 前端进入首页 /
 
 ADMIN 登录 -> /admin/cars
 -> GET /api/admin/users 或 /api/admin/users/{userId}
@@ -164,7 +165,7 @@ ADMIN 登录 -> /admin/cars
 - 车型图片上传、压缩、本地静态访问、资源审核和软删除。
 - 用户端车型详情、品牌选项和车型选项。
 - 结构化购车需求保存、最近需求查询和按 ID 查询。
-- 自然语言解析辅助填表。
+- 自然语言解析后端接口保留；当前产品前端不展示入口，主推荐流程只使用结构化表单。
 - `pareto-topsis-v1` 推荐生成、补充推荐、解释生成和快照保存。
 - 推荐历史列表和历史详情。
 - 只读算法可视化接口和 `/algorithm-demo` 页面。

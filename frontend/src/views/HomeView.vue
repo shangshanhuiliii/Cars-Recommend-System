@@ -87,14 +87,14 @@ const heroSlides = [
   {
     eyebrow: '推荐记录回看',
     title: '按预算、场景和偏好生成推荐',
-    description: '每次推荐都会保留当时的需求和结果，方便你之后继续比较、复盘和查看车型详情。',
+    description: '每次推荐都会保存当时的需求和结果，方便你之后继续比较和进入车型页。',
     cta: '查看历史',
     actionHint: '继续查看已保存的结果',
     to: '/history',
     className: 'hero-slide--green',
     visualTitle: '推荐记录',
-    visualValue: '快照回看',
-    specs: ['历史快照', '结果回看', '详情入口'],
+    visualValue: '记录回看',
+    specs: ['历史记录', '结果回看', '详情入口'],
   },
   {
     eyebrow: '收藏与对比',
