@@ -47,7 +47,11 @@
               </div>
             </div>
             <div class="detail-actions">
-              <el-button :type="isInCompare(car.id) ? 'success' : 'default'" @click="addToCompare(car.id)">
+              <el-button
+                :type="isInCompare(car.id) ? 'success' : 'default'"
+                :loading="compareOperating"
+                @click="addToCompare(car.id)"
+              >
                 {{ compareButtonText(car.id) }}
               </el-button>
               <el-button type="primary" plain :disabled="!compareIds.length" @click="goToCompare">
@@ -152,8 +156,9 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { fetchCarDetail } from '@/api/cars'
 import { addFavorite, fetchFavoriteStatus, removeFavorite } from '@/api/favorites'
+import { addUserCompare, fetchUserCompare } from '@/api/userCompare'
 import { carImageSrc, fallbackCarImage } from '@/utils/carImage'
-import { addCompareId, compareQuery, readCompareIds, saveCompareReturn } from '@/utils/compareSelection'
+import { saveCompareReturn } from '@/utils/compareSelection'
 
 const route = useRoute()
 const router = useRouter()
@@ -162,7 +167,8 @@ const error = ref('')
 const detail = ref(null)
 const favorited = ref(false)
 const favoriteOperating = ref(false)
-const compareIds = ref(readCompareIds())
+const compareIds = ref([])
+const compareOperating = ref(false)
 const inlineMessage = ref('')
 const inlineMessageType = ref('info')
 
@@ -233,11 +239,11 @@ async function loadCar() {
   if (!carId.value) return
   loading.value = true
   error.value = ''
-  compareIds.value = readCompareIds()
   setInlineMessage('')
   try {
     const response = await fetchCarDetail(carId.value)
     detail.value = response.data
+    loadCompareList()
     loadFavoriteStatus()
   } catch (requestError) {
     detail.value = null
@@ -248,6 +254,16 @@ async function loadCar() {
     }
   } finally {
     loading.value = false
+  }
+}
+
+async function loadCompareList() {
+  try {
+    const response = await fetchUserCompare()
+    compareIds.value = response.data?.carIds || []
+  } catch {
+    compareIds.value = []
+    setInlineMessage('对比列表加载失败，不影响车型详情展示。', 'error')
   }
 }
 
@@ -279,20 +295,24 @@ async function toggleFavorite() {
   }
 }
 
-function addToCompare(id) {
-  const result = addCompareId(id)
-  compareIds.value = result.ids
-  if (!result.ok) {
-    setInlineMessage(result.reason, 'error')
-    return
+async function addToCompare(id) {
+  compareOperating.value = true
+  setInlineMessage('')
+  try {
+    const response = await addUserCompare(id)
+    compareIds.value = response.data?.carIds || []
+    setInlineMessage('该车型已加入对比。')
+  } catch (requestError) {
+    setInlineMessage(requestError?.response?.data?.message || requestError?.message || '加入对比失败，请稍后重试。', 'error')
+  } finally {
+    compareOperating.value = false
   }
-  setInlineMessage(result.reason)
 }
 
 function goToCompare() {
   const returnPath = recordId.value ? `/recommend/result/${recordId.value}` : route.fullPath
   saveCompareReturn(returnPath, 0)
-  router.push({ path: '/compare', query: compareQuery(compareIds.value) })
+  router.push('/compare')
 }
 
 function isInCompare(id) {

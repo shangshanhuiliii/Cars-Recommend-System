@@ -1,18 +1,15 @@
 <template>
-  <section class="login-page">
-    <div class="login-hero">
-      <p class="eyebrow">用户登录</p>
-      <h1>继续你的可解释购车推荐</h1>
-      <p>
-        登录后可以保存购车需求、推荐历史、收藏车型、用户反馈和车型对比列表。
-        每次推荐都保留评分、理由和不足提醒，便于后续回看。
-      </p>
+  <section class="admin-login-page">
+    <div class="admin-copy">
+      <p class="eyebrow">管理端登录</p>
+      <h1>进入车型管理和运营概览</h1>
+      <p>管理端用于维护车型数据、追溯推荐记录、查看收藏排行和反馈记录。</p>
     </div>
 
     <el-card class="login-card" shadow="never">
       <template #header>
         <div class="login-card__header">
-          <strong>普通用户登录</strong>
+          <strong>管理员登录</strong>
         </div>
       </template>
 
@@ -25,7 +22,7 @@
         @keyup.enter="submitLogin"
       >
         <el-form-item label="用户名" prop="username">
-          <el-input v-model.trim="form.username" autocomplete="username" placeholder="请输入用户名" />
+          <el-input v-model.trim="form.username" autocomplete="username" placeholder="请输入管理员用户名" />
         </el-form-item>
         <el-form-item label="密码" prop="password">
           <el-input
@@ -41,22 +38,15 @@
         <p v-if="route.query.reason === 'forbidden'" class="inline-warning">当前账号无权访问目标页面，请切换账号。</p>
 
         <el-button class="login-submit" type="primary" :loading="loading" @click="submitLogin">
-          登录
+          登录管理端
         </el-button>
-
-        <p class="login-switch">
-          没有账号？
-          <RouterLink :to="{ path: '/register', query: registerQuery }">立即注册</RouterLink>
-        </p>
       </el-form>
     </el-card>
-
-    <RouterLink class="admin-login-entry" :to="{ path: '/admin/login', query: adminLoginQuery }">管理员登录</RouterLink>
   </section>
 </template>
 
 <script setup>
-import { computed, reactive, ref } from 'vue'
+import { reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/stores/auth'
@@ -72,11 +62,9 @@ const form = reactive({
   username: '',
   password: '',
 })
-const registerQuery = computed(() => (route.query.redirect ? { redirect: route.query.redirect } : {}))
-const adminLoginQuery = computed(() => (route.query.redirect?.startsWith?.('/admin') ? { redirect: route.query.redirect } : {}))
 
 const rules = {
-  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  username: [{ required: true, message: '请输入管理员用户名', trigger: 'blur' }],
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
 }
 
@@ -90,7 +78,7 @@ async function submitLogin() {
   }
   loading.value = true
   try {
-    await authStore.login('USER', {
+    await authStore.login('ADMIN', {
       username: form.username,
       password: form.password,
     })
@@ -104,31 +92,27 @@ async function submitLogin() {
 
 function resolveTarget() {
   const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : ''
-  if (redirect && redirect !== '/login' && redirect !== '/admin/login' && !redirect.startsWith('/admin')) {
+  if (redirect && redirect !== '/login' && redirect !== '/admin/login' && redirect.startsWith('/admin')) {
     return redirect
   }
-  return '/recommend'
+  return '/admin/cars'
 }
 </script>
 
 <style scoped>
-.login-page {
-  position: relative;
+.admin-login-page {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) 420px;
-  align-items: stretch;
+  grid-template-columns: minmax(0, 1.05fr) 420px;
   gap: 28px;
 }
 
-.login-hero {
-  position: relative;
-  overflow: hidden;
-  min-height: 460px;
+.admin-copy {
+  min-height: 420px;
   padding: 44px;
   border-radius: 24px;
   background:
-    linear-gradient(135deg, rgba(15, 23, 42, 0.82), rgba(14, 116, 144, 0.62)),
-    url("https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1400&q=80") center/cover;
+    linear-gradient(135deg, rgba(15, 23, 42, 0.86), rgba(8, 145, 178, 0.54)),
+    url("https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1400&q=80") center/cover;
   color: #fff;
   box-shadow: var(--shadow-card);
 }
@@ -139,14 +123,14 @@ function resolveTarget() {
   letter-spacing: 0.18em;
 }
 
-.login-hero h1 {
+.admin-copy h1 {
   max-width: 620px;
   margin: 0;
-  font-size: 46px;
-  line-height: 1.12;
+  font-size: 42px;
+  line-height: 1.14;
 }
 
-.login-hero p:not(.eyebrow) {
+.admin-copy p:not(.eyebrow) {
   max-width: 620px;
   margin: 22px 0 0;
   color: rgba(255, 255, 255, 0.82);
@@ -191,38 +175,18 @@ function resolveTarget() {
   width: 100%;
 }
 
-.login-switch {
-  margin: 16px 0 0;
-  color: var(--color-muted);
-  font-size: 13px;
-  text-align: center;
-}
-
-.login-switch a,
-.admin-login-entry {
-  color: var(--color-primary);
-  font-weight: 700;
-}
-
-.admin-login-entry {
-  position: absolute;
-  right: 0;
-  bottom: -34px;
-  font-size: 13px;
-}
-
 @media (max-width: 900px) {
-  .login-page {
+  .admin-login-page {
     grid-template-columns: 1fr;
   }
 
-  .login-hero {
+  .admin-copy {
     min-height: auto;
     padding: 32px;
   }
 
-  .login-hero h1 {
-    font-size: 34px;
+  .admin-copy h1 {
+    font-size: 32px;
   }
 }
 </style>

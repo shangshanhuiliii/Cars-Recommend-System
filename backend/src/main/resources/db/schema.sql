@@ -249,6 +249,22 @@ CREATE TABLE IF NOT EXISTS user_favorite (
 CREATE INDEX idx_user_favorite_user_id ON user_favorite (user_id);
 CREATE INDEX idx_user_favorite_car_id ON user_favorite (car_id);
 
+CREATE TABLE IF NOT EXISTS user_compare_car (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    car_id BIGINT NOT NULL,
+    sort_no INT NOT NULL DEFAULT 0,
+    deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_user_compare_car_user_id FOREIGN KEY (user_id) REFERENCES app_user (id),
+    CONSTRAINT fk_user_compare_car_car_id FOREIGN KEY (car_id) REFERENCES car_model (id),
+    CONSTRAINT uk_user_compare_car UNIQUE (user_id, car_id)
+);
+
+CREATE INDEX idx_user_compare_user ON user_compare_car (user_id, deleted, sort_no, update_time);
+CREATE INDEX idx_user_compare_car_id ON user_compare_car (car_id);
+
 CREATE TABLE IF NOT EXISTS recommend_feedback (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT NOT NULL,

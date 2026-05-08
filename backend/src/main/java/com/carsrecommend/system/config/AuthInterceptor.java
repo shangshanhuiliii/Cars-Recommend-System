@@ -36,6 +36,8 @@ public class AuthInterceptor implements HandlerInterceptor {
     private static final List<String> USER_PATTERNS = List.of(
             "/api/user/demand",
             "/api/user/demand/**",
+            "/api/user/compare",
+            "/api/user/compare/**",
             "/api/user/favorites",
             "/api/user/favorites/**",
             "/api/recommend/generate",

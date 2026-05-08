@@ -33,10 +33,10 @@ http.interceptors.response.use(
       const { useAuthStore } = await import('@/stores/auth')
       useAuthStore().clear()
       const currentPath = `${window.location.pathname}${window.location.search}${window.location.hash}`
-      if (!currentPath.startsWith('/login')) {
+      if (!currentPath.startsWith('/login') && !currentPath.startsWith('/admin/login')) {
         const { default: router } = await import('@/router')
         await router.push({
-          path: '/login',
+          path: currentPath.startsWith('/admin') ? '/admin/login' : '/login',
           query: { redirect: currentPath },
         })
       }

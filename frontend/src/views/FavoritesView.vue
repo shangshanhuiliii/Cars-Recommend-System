@@ -50,7 +50,11 @@
 
                 <div class="favorite-actions">
                   <el-button type="primary" plain @click="$router.push(`/car/${car.carId}`)">查看详情</el-button>
-                  <el-button :type="isInCompare(car.carId) ? 'success' : 'default'" @click="addToCompare(car.carId)">
+                  <el-button
+                    :type="isInCompare(car.carId) ? 'success' : 'default'"
+                    :loading="compareOperatingId === car.carId"
+                    @click="addToCompare(car.carId)"
+                  >
                     {{ compareButtonText(car.carId) }}
                   </el-button>
                   <el-button
@@ -95,8 +99,9 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { fetchFavorites, removeFavorite } from '@/api/favorites'
+import { addUserCompare, fetchUserCompare } from '@/api/userCompare'
 import { carImageSrc, fallbackCarImage } from '@/utils/carImage'
-import { addCompareId, compareQuery, readCompareIds, saveCompareReturn } from '@/utils/compareSelection'
+import { saveCompareReturn } from '@/utils/compareSelection'
 
 const route = useRoute()
 const router = useRouter()
@@ -105,7 +110,8 @@ const error = ref('')
 const records = ref([])
 const total = ref(0)
 const operatingId = ref(null)
-const compareIds = ref(readCompareIds())
+const compareIds = ref([])
+const compareOperatingId = ref(null)
 const actionMessages = ref({})
 const query = reactive({
   page: 1,
@@ -124,8 +130,8 @@ onMounted(loadFavorites)
 async function loadFavorites() {
   loading.value = true
   error.value = ''
-  compareIds.value = readCompareIds()
   try {
+    await loadCompareList()
     const response = await fetchFavorites({ page: query.page, size: query.size })
     records.value = response.data.records || []
     total.value = response.data.total || 0
@@ -135,6 +141,15 @@ async function loadFavorites() {
     error.value = requestError?.response?.data?.message || requestError?.message || '收藏列表加载失败。'
   } finally {
     loading.value = false
+  }
+}
+
+async function loadCompareList() {
+  try {
+    const response = await fetchUserCompare()
+    compareIds.value = response.data?.carIds || []
+  } catch {
+    compareIds.value = []
   }
 }
 
@@ -156,19 +171,23 @@ async function cancelFavorite(carId) {
   }
 }
 
-function addToCompare(carId) {
-  const result = addCompareId(carId)
-  compareIds.value = result.ids
-  if (!result.ok) {
-    setActionMessage(carId, result.reason, 'error')
-    return
-  }
+async function addToCompare(carId) {
+  compareOperatingId.value = carId
   clearActionMessage(carId)
+  try {
+    const response = await addUserCompare(carId)
+    compareIds.value = response.data?.carIds || []
+    setActionMessage(carId, '该车型已加入对比。')
+  } catch (requestError) {
+    setActionMessage(carId, requestError?.response?.data?.message || requestError?.message || '加入对比失败，请稍后重试。', 'error')
+  } finally {
+    compareOperatingId.value = null
+  }
 }
 
 function goToCompare() {
   saveCompareReturn(route.fullPath, window.scrollY)
-  router.push({ path: '/compare', query: compareQuery(compareIds.value) })
+  router.push('/compare')
 }
 
 function isInCompare(carId) {

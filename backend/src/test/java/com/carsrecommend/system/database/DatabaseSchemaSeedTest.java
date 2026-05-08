@@ -90,6 +90,9 @@ class DatabaseSchemaSeedTest {
             assertColumnSelectable(connection,
                     "SELECT user_id, car_id, deleted, create_time, update_time FROM user_favorite WHERE 1 = 0");
             assertColumnSelectable(connection,
+                    "SELECT user_id, car_id, sort_no, deleted, create_time, update_time "
+                            + "FROM user_compare_car WHERE 1 = 0");
+            assertColumnSelectable(connection,
                     "SELECT user_id, record_id, satisfaction_score, satisfaction_level, reason_tags, comment "
                             + "FROM recommend_feedback WHERE 1 = 0");
 
@@ -98,11 +101,17 @@ class DatabaseSchemaSeedTest {
             assertEquals(0, count(connection, "SELECT COUNT(*) FROM recommend_item"));
             assertEquals(0, count(connection, "SELECT COUNT(*) FROM car_image_asset"));
             assertEquals(0, count(connection, "SELECT COUNT(*) FROM user_favorite"));
+            assertEquals(0, count(connection, "SELECT COUNT(*) FROM user_compare_car"));
             assertEquals(0, count(connection, "SELECT COUNT(*) FROM recommend_feedback"));
 
             execute(connection,
                     "INSERT INTO user_demand (user_id, energy_types) VALUES (1, '[\"新能源\"]')");
             assertEquals(1, count(connection, "SELECT COUNT(*) FROM user_demand WHERE energy_types LIKE '%新能源%'"));
+            execute(connection, "INSERT INTO user_compare_car (user_id, car_id, sort_no) VALUES (1, 1, 0)");
+            assertEquals(1, count(connection,
+                    "SELECT COUNT(*) FROM user_compare_car WHERE user_id = 1 AND car_id = 1 AND deleted = FALSE"));
+            assertThrows(SQLException.class,
+                    () -> execute(connection, "INSERT INTO user_compare_car (user_id, car_id, sort_no) VALUES (1, 1, 1)"));
             assertThrows(SQLException.class,
                     () -> execute(connection, "SELECT body_type FROM user_demand WHERE 1 = 0"));
             assertThrows(SQLException.class,

@@ -2,6 +2,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 
 import AdminCarsView from '@/views/AdminCarsView.vue'
 import AdminDashboardView from '@/views/AdminDashboardView.vue'
+import AdminFavoritesView from '@/views/AdminFavoritesView.vue'
+import AdminFeedbacksView from '@/views/AdminFeedbacksView.vue'
 import AdminHealthView from '@/views/AdminHealthView.vue'
 import AdminRecommendRecordsView from '@/views/AdminRecommendRecordsView.vue'
 import AdminUsersView from '@/views/AdminUsersView.vue'
@@ -11,6 +13,7 @@ import CarCompareView from '@/views/CarCompareView.vue'
 import FavoritesView from '@/views/FavoritesView.vue'
 import HistoryView from '@/views/HistoryView.vue'
 import HomeView from '@/views/HomeView.vue'
+import AdminLoginView from '@/views/AdminLoginView.vue'
 import LoginView from '@/views/LoginView.vue'
 import RecommendDemandView from '@/views/RecommendDemandView.vue'
 import RecommendResultView from '@/views/RecommendResultView.vue'
@@ -31,6 +34,12 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       component: LoginView,
+      meta: { public: true },
+    },
+    {
+      path: '/admin/login',
+      name: 'admin-login',
+      component: AdminLoginView,
       meta: { public: true },
     },
     {
@@ -105,6 +114,18 @@ const router = createRouter({
       meta: { requiredRole: 'ADMIN', requiredPermission: 'admin:users' },
     },
     {
+      path: '/admin/favorites',
+      name: 'admin-favorites',
+      component: AdminFavoritesView,
+      meta: { requiredRole: 'ADMIN', requiredPermission: 'admin:favorites' },
+    },
+    {
+      path: '/admin/feedbacks',
+      name: 'admin-feedbacks',
+      component: AdminFeedbacksView,
+      meta: { requiredRole: 'ADMIN', requiredPermission: 'admin:feedbacks' },
+    },
+    {
       path: '/admin/dashboard',
       name: 'admin-dashboard',
       component: AdminDashboardView,
@@ -121,15 +142,18 @@ const router = createRouter({
 
 router.beforeEach((to) => {
   const authStore = useAuthStore()
-  if ((to.name === 'login' || to.name === 'register') && authStore.isAuthenticated) {
-    return authStore.principalType === 'ADMIN' ? '/admin/dashboard' : '/recommend'
+  if (to.name === 'home' && authStore.isAuthenticated && authStore.principalType === 'ADMIN') {
+    return '/admin/cars'
+  }
+  if ((to.name === 'login' || to.name === 'admin-login' || to.name === 'register') && authStore.isAuthenticated) {
+    return authStore.principalType === 'ADMIN' ? '/admin/cars' : '/recommend'
   }
   if (to.meta.public || to.name === 'unauthorized') {
     return true
   }
   if (!authStore.isAuthenticated) {
     return {
-      path: '/login',
+      path: to.path.startsWith('/admin') || to.meta.requiredRole === 'ADMIN' ? '/admin/login' : '/login',
       query: { redirect: to.fullPath },
     }
   }

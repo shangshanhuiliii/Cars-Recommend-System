@@ -5,10 +5,19 @@ import java.util.List;
 
 public class AdminStatOverviewVO {
 
+    private Long userCount;
+    private Long activeUserCount;
+    private Long disabledUserCount;
+    private Long carCount;
+    private Long recommendRecordCount;
+    private Long todayRecommendRecordCount;
+    private Long recentRecommendRecordCount;
+    private Long favoriteCount;
     private List<StatItemVO> budgetDistribution;
     private List<StatItemVO> sceneDistribution;
     private List<StatItemVO> focusFactorDistribution;
     private List<StatItemVO> popularCars;
+    private List<StatItemVO> favoriteTopCars;
     private List<StatItemVO> recommendStatusDistribution;
     private List<StatItemVO> energyTypeDistribution;
     private List<StatItemVO> bodyTypeDistribution;
@@ -16,6 +25,70 @@ public class AdminStatOverviewVO {
     private List<StatItemVO> feedbackReasonDistribution;
     private Long feedbackCount;
     private BigDecimal averageSatisfaction;
+
+    public Long getUserCount() {
+        return userCount;
+    }
+
+    public void setUserCount(Long userCount) {
+        this.userCount = userCount;
+    }
+
+    public Long getActiveUserCount() {
+        return activeUserCount;
+    }
+
+    public void setActiveUserCount(Long activeUserCount) {
+        this.activeUserCount = activeUserCount;
+    }
+
+    public Long getDisabledUserCount() {
+        return disabledUserCount;
+    }
+
+    public void setDisabledUserCount(Long disabledUserCount) {
+        this.disabledUserCount = disabledUserCount;
+    }
+
+    public Long getCarCount() {
+        return carCount;
+    }
+
+    public void setCarCount(Long carCount) {
+        this.carCount = carCount;
+    }
+
+    public Long getRecommendRecordCount() {
+        return recommendRecordCount;
+    }
+
+    public void setRecommendRecordCount(Long recommendRecordCount) {
+        this.recommendRecordCount = recommendRecordCount;
+    }
+
+    public Long getTodayRecommendRecordCount() {
+        return todayRecommendRecordCount;
+    }
+
+    public void setTodayRecommendRecordCount(Long todayRecommendRecordCount) {
+        this.todayRecommendRecordCount = todayRecommendRecordCount;
+    }
+
+    public Long getRecentRecommendRecordCount() {
+        return recentRecommendRecordCount;
+    }
+
+    public void setRecentRecommendRecordCount(Long recentRecommendRecordCount) {
+        this.recentRecommendRecordCount = recentRecommendRecordCount;
+    }
+
+    public Long getFavoriteCount() {
+        return favoriteCount;
+    }
+
+    public void setFavoriteCount(Long favoriteCount) {
+        this.favoriteCount = favoriteCount;
+    }
 
     public List<StatItemVO> getBudgetDistribution() {
         return budgetDistribution;
@@ -47,6 +120,14 @@ public class AdminStatOverviewVO {
 
     public void setPopularCars(List<StatItemVO> popularCars) {
         this.popularCars = popularCars;
+    }
+
+    public List<StatItemVO> getFavoriteTopCars() {
+        return favoriteTopCars;
+    }
+
+    public void setFavoriteTopCars(List<StatItemVO> favoriteTopCars) {
+        this.favoriteTopCars = favoriteTopCars;
     }
 
     public List<StatItemVO> getRecommendStatusDistribution() {

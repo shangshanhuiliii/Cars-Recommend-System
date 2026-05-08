@@ -4,8 +4,10 @@ import { readFileSync } from 'node:fs'
 import { displayTags, matchLabel, rankOrderedItems } from '../src/utils/recommendPresentation.js'
 
 const recommendApi = readFileSync(new URL('../src/api/recommend.js', import.meta.url), 'utf8')
+const userCompareApi = readFileSync(new URL('../src/api/userCompare.js', import.meta.url), 'utf8')
 const demandView = readFileSync(new URL('../src/views/RecommendDemandView.vue', import.meta.url), 'utf8')
 const resultView = readFileSync(new URL('../src/views/RecommendResultView.vue', import.meta.url), 'utf8')
+const compareSelection = readFileSync(new URL('../src/utils/compareSelection.js', import.meta.url), 'utf8')
 const parseStart = demandView.indexOf('async function parseNaturalLanguage')
 const applyStart = demandView.indexOf('function applyParsedDemand')
 const parseBlock = demandView.slice(parseStart, applyStart)
@@ -38,6 +40,10 @@ assert.match(resultView, /不同分组之间优先看条件匹配状态，同组
 
 assert.match(recommendApi, /\/user\/demand\/parse-text/)
 assert.doesNotMatch(recommendApi, /['"`]\/demand\/parse-text['"`]/)
+assert.match(userCompareApi, /\/user\/compare/)
+assert.match(resultView, /addUserCompare/)
+assert.doesNotMatch(resultView, /localStorage|cars-recommend-compare-ids|addCompareId|writeCompareIds|readCompareIds/)
+assert.doesNotMatch(compareSelection, /localStorage|cars-recommend-compare-ids|addCompareId|writeCompareIds|readCompareIds/)
 assert.match(demandView, /自然语言辅助填写/)
 assert.match(demandView, /解析需求并填入表单/)
 assert.match(demandView, /解析结果已填入表单，请确认后再生成推荐/)

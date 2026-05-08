@@ -40,6 +40,12 @@ class AdminStatControllerTest {
     void overviewReturnsNameValueStatisticsFromRealTables() throws Exception {
         mockMvc.perform(get("/api/admin/stat/overview"))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.userCount").value(1))
+                .andExpect(jsonPath("$.data.activeUserCount").value(1))
+                .andExpect(jsonPath("$.data.disabledUserCount").value(0))
+                .andExpect(jsonPath("$.data.carCount").value(120))
+                .andExpect(jsonPath("$.data.recommendRecordCount").value(0))
+                .andExpect(jsonPath("$.data.favoriteCount").value(0))
                 .andExpect(jsonPath("$.data.budgetDistribution.length()").value(0))
                 .andExpect(jsonPath("$.data.sceneDistribution.length()").value(0))
                 .andExpect(jsonPath("$.data.popularCars.length()").value(0));
@@ -55,11 +61,17 @@ class AdminStatControllerTest {
         insertRecommendItem(201, 2, 1);
         insertRecommendItem(201, 8, 2);
         insertRecommendItem(202, 2, 1);
+        jdbcTemplate.update("INSERT INTO user_favorite (user_id, car_id) VALUES (1, 2)");
+        jdbcTemplate.update("INSERT INTO user_favorite (user_id, car_id) VALUES (1, 8)");
 
         mockMvc.perform(get("/api/admin/stat/overview")
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.recommendRecordCount").value(2))
+                .andExpect(jsonPath("$.data.todayRecommendRecordCount").value(2))
+                .andExpect(jsonPath("$.data.recentRecommendRecordCount").value(2))
+                .andExpect(jsonPath("$.data.favoriteCount").value(2))
                 .andExpect(jsonPath("$.data.budgetDistribution[?(@.name=='10-15万')].value", contains(1)))
                 .andExpect(jsonPath("$.data.budgetDistribution[?(@.name=='25万以上')].value", contains(1)))
                 .andExpect(jsonPath("$.data.sceneDistribution[?(@.name=='家庭出行')].value", contains(1)))
@@ -68,8 +80,9 @@ class AdminStatControllerTest {
                 .andExpect(jsonPath("$.data.focusFactorDistribution[?(@.name=='空间')].value", contains(1)))
                 .andExpect(jsonPath("$.data.popularCars[0].name").value("比亚迪 宋PLUS DM-i 110KM 旗舰型"))
                 .andExpect(jsonPath("$.data.popularCars[0].value").value(2))
-                .andExpect(jsonPath("$.data.recommendStatusDistribution[?(@.name=='FALLBACK')].value", contains(1)))
-                .andExpect(jsonPath("$.data.recommendStatusDistribution[?(@.name=='SUCCESS')].value", contains(1)))
+                .andExpect(jsonPath("$.data.favoriteTopCars.length()").value(2))
+                .andExpect(jsonPath("$.data.recommendStatusDistribution[?(@.name=='含补充推荐')].value", contains(1)))
+                .andExpect(jsonPath("$.data.recommendStatusDistribution[?(@.name=='完全匹配')].value", contains(1)))
                 .andExpect(jsonPath("$.data.energyTypeDistribution[?(@.name=='插混')].value", contains(1)))
                 .andExpect(jsonPath("$.data.energyTypeDistribution[?(@.name=='纯电')].value", contains(1)))
                 .andExpect(jsonPath("$.data.bodyTypeDistribution[?(@.name=='SUV')].value", contains(1)))

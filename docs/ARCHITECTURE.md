@@ -40,18 +40,19 @@ util         评分、解析、权重归一化等工具
 
 - 车型管理：维护 `car_model`、`car_param`，并提供车型详情、品牌选项和车型选项。
 - 图片资源管理：管理端上传、压缩、审核和软删除车型图片资源，审核通过后更新 `car_model.image_url`。
-- 登录认证：基于 `app_user` 和 `admin` 登录，支持普通用户注册，签发 HS256 JWT，`AuthInterceptor` 统一校验 token、角色和接口权限，并对未归类 `/api/**` 采用默认拒绝的 fail-closed 策略。
-- 管理端用户管理：管理员查看普通用户状态、最近需求、推荐历史、收藏和反馈，并维护 `app_user.status`。
+- 登录认证：基于 `app_user` 和 `admin` 分开登录，`/login` 只处理普通用户，`/admin/login` 只处理管理员；支持普通用户注册，签发 HS256 JWT，`AuthInterceptor` 统一校验 token、角色和接口权限，并对未归类 `/api/**` 采用默认拒绝的 fail-closed 策略。
+- 管理端用户管理：管理员查看普通用户状态、统计数字、最近需求和推荐历史入口，并维护 `app_user.status`；收藏车型和反馈记录拆分到独立只读页面。
 - 车型评分：根据车型参数生成 `car_feature_score`。
 - 用户需求：保存结构化需求，生成画像文本和主观权重。
 - 自然语言解析：解析文本并返回表单草稿，不保存需求、不生成推荐。
 - 推荐生成：加载需求和候选车型，计算价格分、权重、TOPSIS 分、解释文本，并保存快照。
 - 推荐历史：读取 `recommend_record` 与 `recommend_item` 快照。
 - 算法可视化：只读展示推荐快照中的算法过程。
-- 对比：只读比较 1-3 款车型，不触发评分重算。
+- 对比：`user_compare_car` 保存当前 USER 的 1-3 款车型对比列表，查询时只读比较车型快照，不触发评分重算。
 - 收藏：维护用户关注车型，不影响推荐排序。
 - 反馈：维护推荐反馈，进入管理端统计。
-- 管理端统计：从真实数据库聚合需求、推荐、车型和反馈数据。
+- 管理端收藏和反馈：管理员只读查看收藏车型排行、收藏用户和反馈记录，不代用户操作。
+- 管理端运营概览：从真实数据库聚合用户、车型、推荐、收藏和反馈数据。
 
 ## 前端结构
 
@@ -60,7 +61,7 @@ util         评分、解析、权重归一化等工具
 - `frontend/src/views`：页面视图。
 - `frontend/src/api`：接口封装。
 - `frontend/src/router`：路由。
-- `frontend/src/utils`：推荐展示、对比选择等工具函数。
+- `frontend/src/utils`：推荐展示、对比返回位置、图片兜底等工具函数。
 - `frontend/src/styles`：全局样式。
 - `frontend/scripts`：前端验证脚本。
 
@@ -74,13 +75,17 @@ util         评分、解析、权重归一化等工具
 | `/recommend/result/:recordId` | 推荐结果页 | 读取推荐详情快照，按 `rankNo` 展示。 |
 | `/car/:id` | 车型详情页 | 展示车型基础信息、参数和评分来源。 |
 | `/history` | 推荐历史页 | 展示当前用户推荐历史列表。 |
-| `/compare` | 车型对比页 | 只读比较 1-3 款车型，不影响推荐排序。 |
+| `/login` | 普通用户登录页 | 只登录 USER，保留注册入口和管理员登录入口。 |
+| `/admin/login` | 管理员登录页 | 只登录 ADMIN，登录后默认进入 `/admin/cars`。 |
+| `/compare` | 车型对比页 | 读取当前 USER 后端持久化对比列表，只读比较 1-3 款车型，不影响推荐排序。 |
 | `/favorites` | 我的收藏页 | 展示收藏车型，收藏不参与推荐排序。 |
 | `/algorithm-demo` | 算法可视化页面 | 管理端导航中的只读工具页，展示推荐快照中的权重、矩阵、Pareto 和 TOPSIS 过程。 |
 | `/admin/cars` | 管理端车型管理 | 维护车型、参数和评分。 |
-| `/admin/users` | 管理端用户管理 | 查看普通用户状态、最近需求、推荐历史、收藏和反馈，支持启用 / 禁用。 |
+| `/admin/users` | 管理端用户管理 | 查看普通用户状态、统计数字、最近需求和推荐入口，支持启用 / 禁用。 |
+| `/admin/favorites` | 管理端收藏车型 | 只读查看车型收藏排行和收藏用户。 |
+| `/admin/feedbacks` | 管理端反馈记录 | 只读查看用户反馈记录。 |
 | `/admin/recommend-records` | 管理端推荐记录 | 查看需求、权重、分数、理由和匹配状态。 |
-| `/admin/dashboard` | 管理端统计仪表盘 | 展示需求、推荐、车型和反馈统计。 |
+| `/admin/dashboard` | 管理端运营概览 | 展示用户、车型、推荐、收藏和反馈统计。 |
 | `/admin/health` | 管理端系统健康检查 | 调用健康检查接口查看后端服务和数据库状态。 |
 
 ## 数据流
@@ -140,9 +145,10 @@ POST /api/auth/user/register
 -> 写入 app_user，status = ACTIVE
 -> 签发 USER token 并自动登录
 
-ADMIN 登录 -> /admin/users
+ADMIN 登录 -> /admin/cars
 -> GET /api/admin/users 或 /api/admin/users/{userId}
--> 按用户读取 user_demand / recommend_record / user_favorite / recommend_feedback
+-> 按用户读取 user_demand / recommend_record 摘要
+-> 从用户详情跳转 /admin/favorites?userId={id} 或 /admin/feedbacks?userId={id}
 -> PUT /api/admin/users/{userId}/status 更新 ACTIVE / DISABLED
 ```
 
@@ -151,7 +157,7 @@ ADMIN 登录 -> /admin/users
 - 后端健康检查和管理端系统健康检查页面。
 - 本地数据库初始化脚本。
 - 用户注册、用户登录、管理员登录、JWT 鉴权、当前身份识别、USER / ADMIN 接口权限和菜单权限。
-- 管理端用户管理、用户详情、用户推荐历史、收藏、反馈查看和启用 / 禁用。
+- 管理端用户管理、用户详情、用户推荐历史入口、收藏车型只读页、反馈记录只读页和启用 / 禁用。
 - 本地 seed 默认账号 `demo_user` 和 `demo_admin`；固定 ID 只作为 seed 主键，不再作为接口默认身份来源。
 - 120 条车型基础数据和 120 条车型参数种子数据。
 - 车型管理、车型参数维护、车型评分查询和评分重算。
@@ -162,8 +168,8 @@ ADMIN 登录 -> /admin/users
 - `pareto-topsis-v1` 推荐生成、补充推荐、解释生成和快照保存。
 - 推荐历史列表和历史详情。
 - 只读算法可视化接口和 `/algorithm-demo` 页面。
-- 车型对比、收藏、反馈。
-- 管理端车型、推荐记录、统计仪表盘和系统健康检查。
+- 用户级后端持久化车型对比、收藏、反馈。
+- 管理端车型、收藏车型、反馈记录、推荐记录、运营概览和系统健康检查。
 
 ## 功能边界
 

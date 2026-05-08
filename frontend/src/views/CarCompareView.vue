@@ -43,7 +43,8 @@
               :value="option.id"
             />
           </el-select>
-          <el-button type="primary" @click="addSelectedCar">加入对比</el-button>
+          <el-button type="primary" :loading="operating" @click="addSelectedCar">加入对比</el-button>
+          <el-button plain :disabled="!selectedIds.length" :loading="operating" @click="clearSelectedCars">清空</el-button>
         </div>
         <p
           v-if="operationMessage"
@@ -195,12 +196,13 @@
 </template>
 
 <script setup>
-import { computed, defineComponent, h, onMounted, ref, watch } from 'vue'
+import { computed, defineComponent, h, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import { fetchCarCompare, fetchCarOptions } from '@/api/cars'
+import { fetchCarOptions } from '@/api/cars'
+import { addUserCompare, clearUserCompare, fetchUserCompare, removeUserCompare } from '@/api/userCompare'
 import { carImageSrc, fallbackCarImage } from '@/utils/carImage'
-import { addCompareId, compareQuery, readCompareIds, readCompareReturn, removeCompareId, writeCompareIds } from '@/utils/compareSelection'
+import { readCompareReturn } from '@/utils/compareSelection'
 
 const CompareTable = defineComponent({
   props: {
@@ -244,6 +246,7 @@ const optionLoading = ref(false)
 const carOptions = ref([])
 const operationMessage = ref('')
 const operationMessageType = ref('info')
+const operating = ref(false)
 
 const dimensions = computed(() => comparison.value?.dimensions || [])
 const colors = ['#2563EB', '#0891B2', '#16A34A']
@@ -322,37 +325,18 @@ const insights = computed(() => {
     .slice(0, 4)
 })
 
-onMounted(() => {
-  syncIdsFromRoute()
-  loadCompare()
-})
-
-watch(
-  () => route.query.carIds,
-  () => {
-    syncIdsFromRoute()
-    loadCompare()
-  },
-)
-
-function syncIdsFromRoute() {
-  const queryIds = parseIds(route.query.carIds)
-  selectedIds.value = queryIds.length ? writeCompareIds(queryIds) : readCompareIds()
-}
+onMounted(loadCompare)
 
 async function loadCompare() {
-  if (!selectedIds.value.length) {
-    comparison.value = null
-    error.value = ''
-    return
-  }
   loading.value = true
   error.value = ''
   try {
-    const response = await fetchCarCompare(selectedIds.value)
+    const response = await fetchUserCompare()
     comparison.value = response.data
+    selectedIds.value = response.data?.carIds || []
   } catch (requestError) {
     comparison.value = null
+    selectedIds.value = []
     error.value = requestError?.response?.data?.message || requestError?.message || '车型对比加载失败。'
   } finally {
     loading.value = false
@@ -372,25 +356,51 @@ async function searchCars(keyword) {
   }
 }
 
-function addSelectedCar() {
+async function addSelectedCar() {
   if (!pendingCarId.value) {
     setOperationMessage('请先选择车型。', 'error')
     return
   }
-  const result = addCompareId(pendingCarId.value)
-  if (!result.ok) {
-    setOperationMessage(result.reason, 'error')
-    return
+  operating.value = true
+  try {
+    const response = await addUserCompare(pendingCarId.value)
+    comparison.value = response.data
+    selectedIds.value = response.data?.carIds || []
+    pendingCarId.value = null
+    setOperationMessage('该车型已加入对比。')
+  } catch (requestError) {
+    setOperationMessage(requestError?.response?.data?.message || requestError?.message || '加入对比失败。', 'error')
+  } finally {
+    operating.value = false
   }
-  pendingCarId.value = null
-  router.replace({ path: '/compare', query: compareQuery(result.ids) })
-  setOperationMessage(result.reason)
 }
 
-function removeCar(carId) {
-  const ids = removeCompareId(carId)
-  router.replace({ path: '/compare', query: compareQuery(ids) })
-  setOperationMessage(ids.length ? '已从对比中移出。' : '已清空对比车型。')
+async function removeCar(carId) {
+  operating.value = true
+  try {
+    const response = await removeUserCompare(carId)
+    comparison.value = response.data
+    selectedIds.value = response.data?.carIds || []
+    setOperationMessage(selectedIds.value.length ? '已从对比中移出。' : '已清空对比车型。')
+  } catch (requestError) {
+    setOperationMessage(requestError?.response?.data?.message || requestError?.message || '移出对比失败。', 'error')
+  } finally {
+    operating.value = false
+  }
+}
+
+async function clearSelectedCars() {
+  operating.value = true
+  try {
+    const response = await clearUserCompare()
+    comparison.value = response.data
+    selectedIds.value = []
+    setOperationMessage('已清空对比车型。')
+  } catch (requestError) {
+    setOperationMessage(requestError?.response?.data?.message || requestError?.message || '清空对比失败。', 'error')
+  } finally {
+    operating.value = false
+  }
 }
 
 function returnToSource() {
@@ -402,15 +412,6 @@ function returnToSource() {
 function setOperationMessage(text, type = 'info') {
   operationMessage.value = text
   operationMessageType.value = type
-}
-
-function parseIds(value) {
-  if (!value) return []
-  return String(value)
-    .split(',')
-    .map((item) => Number(item.trim()))
-    .filter((id) => Number.isFinite(id) && id > 0)
-    .slice(0, 3)
 }
 
 function rowOf(label, formatter, ranker, mode) {
@@ -523,7 +524,7 @@ function formatMetric(value, unit) {
 
 .add-control {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 96px;
+  grid-template-columns: minmax(0, 1fr) 96px 72px;
   gap: 10px;
 }
 

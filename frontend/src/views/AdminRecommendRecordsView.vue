@@ -218,6 +218,7 @@ const query = reactive({
   page: 1,
   size: 10,
   userId: route.query.userId || '',
+  recordId: route.query.recordId || '',
 })
 
 const weightConfig = [
@@ -288,6 +289,16 @@ watch(
   },
 )
 
+watch(
+  () => route.query.recordId,
+  (value) => {
+    query.recordId = value || ''
+    if (value) {
+      selectRecord(Number(value))
+    }
+  },
+)
+
 async function loadRecords() {
   loadingList.value = true
   listError.value = ''
@@ -299,10 +310,13 @@ async function loadRecords() {
     })
     records.value = response.data.records || []
     total.value = response.data.total || 0
-    if (records.value.length && !selectedRecordId.value) {
+    const routeRecordId = Number(query.recordId || 0)
+    if (routeRecordId > 0) {
+      await selectRecord(routeRecordId)
+    } else if (records.value.length && !selectedRecordId.value) {
       await selectRecord(records.value[0].recordId)
     }
-    if (!records.value.length) {
+    if (!records.value.length && !routeRecordId) {
       selectedRecordId.value = null
       detail.value = null
     }
@@ -335,7 +349,7 @@ async function selectRecord(recordId) {
     detail.value = response.data
   } catch (error) {
     detail.value = null
-    detailError.value = error?.response?.data?.message || error?.message || '推荐详情加载失败。'
+    detailError.value = error?.response?.data?.message || error?.message || '推荐记录加载失败。'
   } finally {
     loadingDetail.value = false
   }
@@ -351,7 +365,7 @@ function scoreRows(item) {
 
 function statusLabel(value) {
   if (value === 'SUCCESS') return '完全匹配'
-  if (value === 'FALLBACK') return '降级推荐'
+  if (value === 'FALLBACK') return '含补充推荐'
   if (value === 'EMPTY') return '暂无结果'
   return value || '未知'
 }

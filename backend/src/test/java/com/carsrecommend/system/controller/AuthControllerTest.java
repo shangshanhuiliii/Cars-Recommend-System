@@ -82,8 +82,13 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.data.principal.principalType").value("ADMIN"))
                 .andExpect(jsonPath("$.data.principal.role").value("ADMIN"))
                 .andExpect(jsonPath("$.data.principal.permissions[0]").value("admin:cars"))
-                .andExpect(jsonPath("$.data.principal.menus[1].code").value("admin-cars"))
-                .andExpect(jsonPath("$.data.principal.menus[2].code").value("admin-users"));
+                .andExpect(jsonPath("$.data.principal.permissions[?(@=='admin:favorites')]").exists())
+                .andExpect(jsonPath("$.data.principal.permissions[?(@=='admin:feedbacks')]").exists())
+                .andExpect(jsonPath("$.data.principal.menus[0].code").value("admin-cars"))
+                .andExpect(jsonPath("$.data.principal.menus[1].code").value("admin-users"))
+                .andExpect(jsonPath("$.data.principal.menus[2].code").value("admin-favorites"))
+                .andExpect(jsonPath("$.data.principal.menus[3].code").value("admin-feedbacks"))
+                .andExpect(jsonPath("$.data.principal.menus[?(@.code=='home')]").doesNotExist());
     }
 
     @Test

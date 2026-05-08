@@ -4,7 +4,7 @@
       <div>
         <h1 class="page-title">用户管理</h1>
         <p class="page-subtitle">
-          查看普通用户账号、账号状态以及其需求、推荐历史、收藏和反馈。管理端只读追溯用户数据，不触发推荐生成。
+          查看普通用户账号、账号状态和关键数据入口。管理端只读追溯用户数据，不触发推荐生成。
         </p>
       </div>
       <el-button type="primary" plain :loading="loadingList" @click="reloadUsers">刷新用户</el-button>
@@ -51,6 +51,7 @@
             :data="users"
             class="admin-user-table"
             row-key="id"
+            highlight-current-row
             @row-click="selectUser"
           >
             <el-table-column prop="id" label="ID" width="80" />
@@ -73,7 +74,6 @@
             </el-table-column>
             <el-table-column label="操作" width="150" fixed="right">
               <template #default="{ row }">
-                <el-button link type="primary" @click.stop="selectUser(row)">详情</el-button>
                 <el-button
                   link
                   :type="row.status === 'ACTIVE' ? 'warning' : 'success'"
@@ -164,7 +164,7 @@
                   type="button"
                   @click="$router.push(`/admin/recommend-records?userId=${detail.user.id}`)"
                 >
-                  <span>#{{ record.recordId }} · {{ record.recommendStatus }}</span>
+                  <span>#{{ record.recordId }} · {{ statusLabel(record.recommendStatus) }}</span>
                   <small>{{ formatDate(record.createTime) }}</small>
                 </button>
               </div>
@@ -172,25 +172,12 @@
             </section>
 
             <section class="detail-section">
-              <h3>收藏车型</h3>
-              <div v-if="detail.favorites?.length" class="compact-list">
-                <button v-for="favorite in detail.favorites" :key="favorite.favoriteId" type="button">
-                  <span>{{ favorite.brand }} {{ favorite.series }} {{ favorite.modelName }}</span>
-                  <small>{{ formatDate(favorite.favoriteTime) }}</small>
-                </button>
+              <h3>数据追溯入口</h3>
+              <div class="detail-links">
+                <RouterLink :to="`/admin/recommend-records?userId=${detail.user.id}`">查看该用户推荐记录</RouterLink>
+                <RouterLink :to="`/admin/favorites?userId=${detail.user.id}`">查看该用户收藏</RouterLink>
+                <RouterLink :to="`/admin/feedbacks?userId=${detail.user.id}`">查看该用户反馈</RouterLink>
               </div>
-              <el-empty v-else description="暂无收藏" />
-            </section>
-
-            <section class="detail-section">
-              <h3>反馈记录</h3>
-              <div v-if="detail.feedbacks?.length" class="compact-list">
-                <button v-for="feedback in detail.feedbacks" :key="feedback.id" type="button">
-                  <span>记录 #{{ feedback.recordId }} · {{ feedback.satisfactionScore }} 分</span>
-                  <small>{{ feedback.comment || feedback.satisfactionLevel }}</small>
-                </button>
-              </div>
-              <el-empty v-else description="暂无反馈" />
             </section>
           </template>
         </div>
@@ -266,7 +253,7 @@ async function selectUser(row) {
     const response = await fetchAdminUserDetail(row.id)
     detail.value = response.data
   } catch (error) {
-    detailError.value = error?.response?.data?.message || error?.message || '加载用户详情失败。'
+    detailError.value = error?.response?.data?.message || error?.message || '用户信息加载失败。'
   } finally {
     loadingDetail.value = false
   }
@@ -296,6 +283,13 @@ function formatDate(value) {
     return '-'
   }
   return new Date(value).toLocaleString()
+}
+
+function statusLabel(value) {
+  if (value === 'SUCCESS') return '完全匹配'
+  if (value === 'FALLBACK') return '含补充推荐'
+  if (value === 'EMPTY') return '暂无结果'
+  return value || '未知'
 }
 </script>
 
@@ -423,6 +417,26 @@ function formatDate(value) {
 
 .compact-list button:hover {
   border-color: var(--color-primary);
+}
+
+.detail-links {
+  display: grid;
+  gap: 8px;
+}
+
+.detail-links a {
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  color: var(--color-primary);
+  font-size: 13px;
+  font-weight: 700;
+  background: #fff;
+}
+
+.detail-links a:hover {
+  border-color: var(--color-primary);
+  background: rgba(37, 99, 235, 0.06);
 }
 
 @media (max-width: 980px) {

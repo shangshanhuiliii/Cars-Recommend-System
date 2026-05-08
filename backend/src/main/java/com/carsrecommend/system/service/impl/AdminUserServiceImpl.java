@@ -96,11 +96,8 @@ public class AdminUserServiceImpl implements AdminUserService {
         vo.setRecentRecommendRecords(recommendationRecordService
                 .adminHistory(userId, DEFAULT_PAGE, DETAIL_PREVIEW_SIZE)
                 .getRecords());
-        vo.setFavorites(userFavoriteMapper.findPageByUserId(userId, DETAIL_PREVIEW_SIZE, 0));
-        vo.setFeedbacks(recommendFeedbackMapper.findPageByUserId(userId, DETAIL_PREVIEW_SIZE, 0)
-                .stream()
-                .map(this::toFeedbackVO)
-                .toList());
+        vo.setFavorites(List.of());
+        vo.setFeedbacks(List.of());
         return vo;
     }
 

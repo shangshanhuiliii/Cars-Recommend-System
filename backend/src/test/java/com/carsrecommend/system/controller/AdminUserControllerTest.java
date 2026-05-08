@@ -113,8 +113,8 @@ class AdminUserControllerTest {
                 .andExpect(jsonPath("$.data.summary.demandCount").value(1))
                 .andExpect(jsonPath("$.data.latestDemand.id").isNumber())
                 .andExpect(jsonPath("$.data.recentRecommendRecords[0].recordId").isNumber())
-                .andExpect(jsonPath("$.data.favorites[0].carId").value(1))
-                .andExpect(jsonPath("$.data.feedbacks[0].satisfactionScore").value(5));
+                .andExpect(jsonPath("$.data.favorites.length()").value(0))
+                .andExpect(jsonPath("$.data.feedbacks.length()").value(0));
     }
 
     @Test

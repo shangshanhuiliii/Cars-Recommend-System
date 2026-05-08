@@ -65,7 +65,7 @@ POST http://localhost:8080/api/admin/cars/scores/recalculate
 powershell -ExecutionPolicy Bypass -File .\scripts\init-dev-db.ps1 -RecalculateScores
 ```
 
-`-Recreate` 会删除本地需求、推荐记录、收藏、反馈、评分和图片资源等业务数据。不要对真实库或他人共享库执行，除非已经明确确认。
+`-Recreate` 会删除本地需求、推荐记录、车型对比、收藏、反馈、评分和图片资源等业务数据。不要对真实库或他人共享库执行，除非已经明确确认。
 
 ## 后端启动
 
@@ -118,6 +118,7 @@ npm run build
 node scripts/verifyRecommendPresentation.mjs
 node scripts/verifyAlgorithmDemo.mjs
 node scripts/verifyStage11Features.mjs
+node scripts/verifyAdminExperience.mjs
 ```
 
 文档变更检查：
@@ -155,7 +156,10 @@ git diff --check
 - 自然语言解析只辅助填表，不直接保存需求或生成推荐。
 - 算法可视化接口只读，不写数据库。
 - 用户端接口身份来自 JWT 当前 `USER`，管理端接口身份来自 JWT 当前 `ADMIN`；不要在前端或请求参数中依赖默认 `userId` / `admin.id`。
-- 普通用户注册只能创建 `USER`，管理员用户管理只能维护 `app_user.status` 和查看用户数据，不得隐式生成推荐或改变推荐排序。
+- 用户级车型对比必须写入 `/api/user/compare` 和 `user_compare_car`，不得使用固定 localStorage key 保存车型 ID，不得通过 `userId` 参数操作他人对比。
+- 普通用户注册只能创建 `USER`，`/login` 只处理普通用户登录，`/admin/login` 只处理管理员登录。
+- 管理员默认进入 `/admin/cars`，不显示首页入口；管理员用户管理只能维护 `app_user.status` 和查看用户数据，不得隐式生成推荐或改变推荐排序。
+- 管理端收藏车型和反馈记录第一版只读，不允许取消收藏、删除反馈或代用户操作。
 - 收藏不影响推荐排序。
 - 反馈只进入统计，不做在线学习。
 - 不引入与当前需求无关的复杂依赖。

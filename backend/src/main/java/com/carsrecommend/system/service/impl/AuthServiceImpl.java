@@ -42,26 +42,29 @@ public class AuthServiceImpl implements AuthService {
             "admin:cars",
             "admin:car-images",
             "admin:users",
+            "admin:favorites",
+            "admin:feedbacks",
             "admin:recommend-records",
             "admin:dashboard",
             "admin:health",
             "admin:algorithm-demo");
 
     private static final List<AuthMenuVO> USER_MENUS = List.of(
-            new AuthMenuVO("home", "Home", "/"),
-            new AuthMenuVO("recommend", "Recommendation", "/recommend"),
-            new AuthMenuVO("history", "History", "/history"),
-            new AuthMenuVO("favorites", "Favorites", "/favorites"),
-            new AuthMenuVO("compare", "Compare", "/compare"));
+            new AuthMenuVO("home", "首页", "/"),
+            new AuthMenuVO("recommend", "购车推荐", "/recommend"),
+            new AuthMenuVO("history", "推荐历史", "/history"),
+            new AuthMenuVO("favorites", "我的收藏", "/favorites"),
+            new AuthMenuVO("compare", "车型对比", "/compare"));
 
     private static final List<AuthMenuVO> ADMIN_MENUS = List.of(
-            new AuthMenuVO("home", "Home", "/"),
-            new AuthMenuVO("admin-cars", "Cars", "/admin/cars"),
-            new AuthMenuVO("admin-users", "Users", "/admin/users"),
-            new AuthMenuVO("admin-recommend-records", "Recommendation Records", "/admin/recommend-records"),
-            new AuthMenuVO("admin-dashboard", "Dashboard", "/admin/dashboard"),
-            new AuthMenuVO("admin-health", "Health", "/admin/health"),
-            new AuthMenuVO("algorithm-demo", "Algorithm Demo", "/algorithm-demo"));
+            new AuthMenuVO("admin-cars", "车型管理", "/admin/cars"),
+            new AuthMenuVO("admin-users", "用户管理", "/admin/users"),
+            new AuthMenuVO("admin-favorites", "收藏车型", "/admin/favorites"),
+            new AuthMenuVO("admin-feedbacks", "反馈记录", "/admin/feedbacks"),
+            new AuthMenuVO("admin-recommend-records", "推荐记录", "/admin/recommend-records"),
+            new AuthMenuVO("admin-dashboard", "运营概览", "/admin/dashboard"),
+            new AuthMenuVO("admin-health", "健康检查", "/admin/health"),
+            new AuthMenuVO("algorithm-demo", "算法可视化", "/algorithm-demo"));
 
     private final AppUserMapper appUserMapper;
     private final AdminMapper adminMapper;

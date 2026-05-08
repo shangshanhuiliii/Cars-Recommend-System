@@ -2,20 +2,13 @@
   <section>
     <div class="page-header">
       <div>
-        <h1 class="page-title">统计仪表盘</h1>
-        <p class="page-subtitle">聚焦推荐系统运行情况：需求分布、降级状态和热门推荐车型，数据全部来自当前数据库。</p>
+        <h1 class="page-title">运营概览</h1>
+        <p class="page-subtitle">汇总用户、车型、推荐、收藏和反馈数据，帮助管理员观察推荐业务运行情况。</p>
       </div>
-      <el-button type="primary" plain :loading="loading" @click="loadOverview">刷新统计</el-button>
+      <el-button type="primary" plain :loading="loading" @click="loadOverview">刷新概览</el-button>
     </div>
 
-    <el-alert
-      v-if="error"
-      class="state-alert"
-      type="error"
-      :closable="false"
-      :title="error"
-      show-icon
-    />
+    <el-alert v-if="error" class="state-alert" type="error" :closable="false" :title="error" show-icon />
 
     <div v-if="loading" class="panel">
       <div class="panel__body">
@@ -25,128 +18,120 @@
 
     <template v-else>
       <div class="metric-grid">
-        <div class="metric-card">
-          <span>需求样本</span>
-          <strong>{{ totalOf(overview.budgetDistribution) }}</strong>
-          <p>来自 user_demand</p>
-        </div>
-        <div class="metric-card">
-          <span>推荐记录</span>
-          <strong>{{ totalOf(overview.recommendStatusDistribution) }}</strong>
-          <p>来自 recommend_record</p>
-        </div>
-        <div class="metric-card">
-          <span>推荐明细引用</span>
-          <strong>{{ totalOf(overview.popularCars) }}</strong>
-          <p>来自 recommend_item</p>
-        </div>
-        <div class="metric-card">
-          <span>反馈总数</span>
-          <strong>{{ overview.feedbackCount || 0 }}</strong>
-          <p>来自 recommend_feedback</p>
-        </div>
-        <div class="metric-card">
-          <span>平均满意度</span>
-          <strong>{{ formatAverage(overview.averageSatisfaction) }}</strong>
-          <p>1-5 分满意度</p>
+        <div v-for="metric in metrics" :key="metric.label" class="metric-card">
+          <span>{{ metric.label }}</span>
+          <strong>{{ metric.value }}</strong>
+          <p>{{ metric.source }}</p>
         </div>
       </div>
 
+      <div class="section-band">
+        <div>
+          <p class="eyebrow">推荐业务</p>
+          <h2>推荐量、状态分布和热门推荐车型</h2>
+        </div>
+      </div>
       <div class="chart-grid">
-        <article v-for="chart in chartCards" :key="chart.key" class="panel chart-card">
-          <div class="panel__body">
-            <div class="chart-head">
-              <div>
-                <h2>{{ chart.title }}</h2>
-                <p>{{ chart.source }}</p>
-              </div>
-              <span>{{ chart.items.length }} 项</span>
-            </div>
+        <ChartCard
+          title="推荐状态分布"
+          source="recommend_record.recommend_status"
+          :items="overview.recommendStatusDistribution"
+        />
+        <ChartCard
+          title="热门推荐车型 TOP 10"
+          source="recommend_item + car_model"
+          :items="overview.popularCars"
+        />
+      </div>
 
-            <div v-if="chart.items.length" class="bar-list">
-              <div v-for="item in chart.items" :key="item.name" class="bar-row">
-                <div class="bar-row__label">
-                  <span>{{ item.name }}</span>
-                  <strong>{{ item.value }}</strong>
-                </div>
-                <div class="bar-track">
-                  <i :style="{ width: barWidth(item.value, chart.items) }"></i>
-                </div>
-              </div>
-            </div>
+      <div class="section-band">
+        <div>
+          <p class="eyebrow">用户偏好</p>
+          <h2>预算、车型、动力、场景和显式关注因素</h2>
+        </div>
+      </div>
+      <div class="chart-grid">
+        <ChartCard title="预算区间分布" source="user_demand.budget_min / budget_max" :items="overview.budgetDistribution" />
+        <ChartCard title="车型偏好分布" source="user_demand.body_types" :items="overview.bodyTypeDistribution" />
+        <ChartCard title="动力偏好分布" source="user_demand.energy_types" :items="overview.energyTypeDistribution" />
+        <ChartCard title="使用场景分布" source="user_demand.scenes" :items="overview.sceneDistribution" />
+        <ChartCard title="显式关注因素" source="user_demand.factor_weights" :items="overview.focusFactorDistribution" />
+      </div>
 
-            <div v-else class="empty-chart">暂无数据</div>
-          </div>
-        </article>
+      <div class="section-band">
+        <div>
+          <p class="eyebrow">收藏与反馈</p>
+          <h2>收藏排行、满意度和反馈原因</h2>
+        </div>
+      </div>
+      <div class="chart-grid">
+        <ChartCard title="收藏最多车型 TOP 10" source="user_favorite + car_model" :items="overview.favoriteTopCars" />
+        <ChartCard title="满意度分布" source="recommend_feedback.satisfaction_score" :items="overview.satisfactionDistribution" />
+        <ChartCard title="反馈原因标签" source="recommend_feedback.reason_tags" :items="overview.feedbackReasonDistribution" />
       </div>
     </template>
   </section>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, defineComponent, h, onMounted, ref } from 'vue'
 
 import { fetchAdminStatOverview } from '@/api/adminStats'
+
+const ChartCard = defineComponent({
+  props: {
+    title: { type: String, required: true },
+    source: { type: String, required: true },
+    items: { type: Array, default: () => [] },
+  },
+  setup(props) {
+    const maxValue = computed(() => Math.max(...props.items.map((item) => Number(item.value || 0)), 0))
+    function barWidth(value) {
+      if (!maxValue.value) return '0%'
+      return `${(Number(value || 0) / maxValue.value) * 100}%`
+    }
+    return () =>
+      h('article', { class: 'panel chart-card' }, [
+        h('div', { class: 'panel__body' }, [
+          h('div', { class: 'chart-head' }, [
+            h('div', [h('h2', props.title), h('p', props.source)]),
+            h('span', `${props.items.length} 项`),
+          ]),
+          props.items.length
+            ? h(
+                'div',
+                { class: 'bar-list' },
+                props.items.map((item) =>
+                  h('div', { class: 'bar-row', key: item.name }, [
+                    h('div', { class: 'bar-row__label' }, [
+                      h('span', item.name),
+                      h('strong', String(item.value ?? 0)),
+                    ]),
+                    h('div', { class: 'bar-track' }, [h('i', { style: { width: barWidth(item.value) } })]),
+                  ]),
+                ),
+              )
+            : h('div', { class: 'empty-chart' }, '暂无数据'),
+        ]),
+      ])
+  },
+})
 
 const loading = ref(false)
 const error = ref('')
 const overview = ref(emptyOverview())
 
-const chartCards = computed(() => [
-  {
-    key: 'budget',
-    title: '预算区间分布',
-    source: 'user_demand.budget_min / budget_max',
-    items: overview.value.budgetDistribution,
-  },
-  {
-    key: 'scene',
-    title: '使用场景分布',
-    source: 'user_demand.scenes',
-    items: overview.value.sceneDistribution,
-  },
-  {
-    key: 'popularCars',
-    title: '热门推荐车型',
-    source: 'recommend_item + car_model',
-    items: overview.value.popularCars,
-  },
-  {
-    key: 'focus',
-    title: '显式偏好权重分布',
-    source: 'user_demand.factor_weights',
-    items: overview.value.focusFactorDistribution,
-  },
-  {
-    key: 'status',
-    title: '推荐状态分布',
-    source: 'recommend_record.recommend_status',
-    items: overview.value.recommendStatusDistribution,
-  },
-  {
-    key: 'energy',
-    title: '动力偏好分布',
-    source: 'user_demand.energy_types',
-    items: overview.value.energyTypeDistribution,
-  },
-  {
-    key: 'body',
-    title: '车型偏好分布',
-    source: 'user_demand.body_types',
-    items: overview.value.bodyTypeDistribution,
-  },
-  {
-    key: 'satisfaction',
-    title: '满意度分布',
-    source: 'recommend_feedback.satisfaction_score',
-    items: overview.value.satisfactionDistribution,
-  },
-  {
-    key: 'feedbackReason',
-    title: '原因标签分布',
-    source: 'recommend_feedback.reason_tags',
-    items: overview.value.feedbackReasonDistribution,
-  },
+const metrics = computed(() => [
+  { label: '用户总数', value: overview.value.userCount || 0, source: 'app_user' },
+  { label: '启用用户', value: overview.value.activeUserCount || 0, source: 'ACTIVE' },
+  { label: '禁用用户', value: overview.value.disabledUserCount || 0, source: 'DISABLED' },
+  { label: '车型总数', value: overview.value.carCount || 0, source: 'car_model' },
+  { label: '推荐记录', value: overview.value.recommendRecordCount || 0, source: 'recommend_record' },
+  { label: '今日推荐', value: overview.value.todayRecommendRecordCount || 0, source: '自然日' },
+  { label: '近 7 天推荐', value: overview.value.recentRecommendRecordCount || 0, source: '滚动窗口' },
+  { label: '收藏总数', value: overview.value.favoriteCount || 0, source: 'user_favorite' },
+  { label: '反馈总数', value: overview.value.feedbackCount || 0, source: 'recommend_feedback' },
+  { label: '平均满意度', value: formatAverage(overview.value.averageSatisfaction), source: '1-5 分' },
 ])
 
 onMounted(loadOverview)
@@ -162,7 +147,7 @@ async function loadOverview() {
     }
   } catch (requestError) {
     overview.value = emptyOverview()
-    error.value = requestError?.response?.data?.message || requestError?.message || '统计数据加载失败。'
+    error.value = requestError?.response?.data?.message || requestError?.message || '运营概览加载失败。'
   } finally {
     loading.value = false
   }
@@ -170,10 +155,19 @@ async function loadOverview() {
 
 function emptyOverview() {
   return {
+    userCount: 0,
+    activeUserCount: 0,
+    disabledUserCount: 0,
+    carCount: 0,
+    recommendRecordCount: 0,
+    todayRecommendRecordCount: 0,
+    recentRecommendRecordCount: 0,
+    favoriteCount: 0,
     budgetDistribution: [],
     sceneDistribution: [],
     focusFactorDistribution: [],
     popularCars: [],
+    favoriteTopCars: [],
     recommendStatusDistribution: [],
     energyTypeDistribution: [],
     bodyTypeDistribution: [],
@@ -182,16 +176,6 @@ function emptyOverview() {
     feedbackCount: 0,
     averageSatisfaction: null,
   }
-}
-
-function totalOf(items = []) {
-  return items.reduce((sum, item) => sum + Number(item.value || 0), 0)
-}
-
-function barWidth(value, items) {
-  const maxValue = Math.max(...items.map((item) => Number(item.value || 0)), 0)
-  if (!maxValue) return '0%'
-  return `${(Number(value || 0) / maxValue) * 100}%`
 }
 
 function formatAverage(value) {
@@ -208,13 +192,13 @@ function formatAverage(value) {
 .metric-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 16px;
-  margin-bottom: 18px;
+  gap: 14px;
+  margin-bottom: 20px;
 }
 
 .metric-card {
-  min-height: 128px;
-  padding: 20px;
+  min-height: 112px;
+  padding: 18px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: #fff;
@@ -229,13 +213,30 @@ function formatAverage(value) {
 
 .metric-card strong {
   display: block;
-  margin: 10px 0 8px;
+  margin: 9px 0 6px;
   color: var(--color-primary-dark);
-  font-size: 34px;
+  font-size: 30px;
 }
 
 .metric-card p {
   margin: 0;
+}
+
+.section-band {
+  margin: 24px 0 14px;
+}
+
+.section-band h2 {
+  margin: 4px 0 0;
+  color: var(--color-primary-dark);
+  font-size: 18px;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 12px;
+  letter-spacing: 0.16em;
 }
 
 .chart-grid {
@@ -245,7 +246,7 @@ function formatAverage(value) {
 }
 
 .chart-card {
-  min-height: 320px;
+  min-height: 300px;
 }
 
 .chart-head {
@@ -309,7 +310,7 @@ function formatAverage(value) {
 
 .empty-chart {
   display: grid;
-  min-height: 210px;
+  min-height: 200px;
   place-items: center;
   color: var(--color-muted);
   border: 1px dashed var(--color-border);
@@ -317,9 +318,18 @@ function formatAverage(value) {
   margin-top: 18px;
 }
 
-@media (max-width: 980px) {
-  .metric-grid,
+@media (max-width: 1080px) {
+  .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .chart-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .metric-grid {
     grid-template-columns: 1fr;
   }
 }

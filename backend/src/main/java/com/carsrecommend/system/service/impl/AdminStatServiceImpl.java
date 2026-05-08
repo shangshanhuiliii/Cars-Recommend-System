@@ -8,6 +8,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -48,10 +51,23 @@ public class AdminStatServiceImpl implements AdminStatService {
     @Transactional(readOnly = true)
     public AdminStatOverviewVO overview() {
         AdminStatOverviewVO vo = new AdminStatOverviewVO();
+        vo.setUserCount(count("SELECT COUNT(*) FROM app_user WHERE deleted = FALSE"));
+        vo.setActiveUserCount(count("SELECT COUNT(*) FROM app_user WHERE status = 'ACTIVE' AND deleted = FALSE"));
+        vo.setDisabledUserCount(count("SELECT COUNT(*) FROM app_user WHERE status = 'DISABLED' AND deleted = FALSE"));
+        vo.setCarCount(count("SELECT COUNT(*) FROM car_model WHERE deleted = FALSE"));
+        vo.setRecommendRecordCount(count("SELECT COUNT(*) FROM recommend_record WHERE deleted = FALSE"));
+        vo.setTodayRecommendRecordCount(countSince(
+                "SELECT COUNT(*) FROM recommend_record WHERE deleted = FALSE AND create_time >= ?",
+                LocalDate.now().atStartOfDay()));
+        vo.setRecentRecommendRecordCount(countSince(
+                "SELECT COUNT(*) FROM recommend_record WHERE deleted = FALSE AND create_time >= ?",
+                LocalDateTime.now().minusDays(7)));
+        vo.setFavoriteCount(count("SELECT COUNT(*) FROM user_favorite WHERE deleted = FALSE"));
         vo.setBudgetDistribution(budgetDistribution());
         vo.setSceneDistribution(groupDemandArrayColumn("scenes"));
         vo.setFocusFactorDistribution(factorWeightDistribution());
         vo.setPopularCars(popularCars());
+        vo.setFavoriteTopCars(favoriteTopCars());
         vo.setRecommendStatusDistribution(groupRecommendStatus());
         vo.setEnergyTypeDistribution(groupDemandArrayColumn("energy_types"));
         vo.setBodyTypeDistribution(groupDemandArrayColumn("body_types"));
@@ -60,6 +76,16 @@ public class AdminStatServiceImpl implements AdminStatService {
         vo.setFeedbackCount(feedbackCount());
         vo.setAverageSatisfaction(averageSatisfaction());
         return vo;
+    }
+
+    private Long count(String sql) {
+        Long count = jdbcTemplate.queryForObject(sql, Long.class);
+        return count == null ? 0L : count;
+    }
+
+    private Long countSince(String sql, LocalDateTime since) {
+        Long count = jdbcTemplate.queryForObject(sql, Long.class, Timestamp.valueOf(since));
+        return count == null ? 0L : count;
     }
 
     private List<StatItemVO> budgetDistribution() {
@@ -131,7 +157,9 @@ public class AdminStatServiceImpl implements AdminStatService {
                         GROUP BY recommend_status
                         ORDER BY item_count DESC, name ASC
                         """,
-                (resultSet, rowNum) -> new StatItemVO(resultSet.getString("name"), resultSet.getLong("item_count")));
+                (resultSet, rowNum) -> new StatItemVO(
+                        recommendStatusLabel(resultSet.getString("name")),
+                        resultSet.getLong("item_count")));
     }
 
     private List<StatItemVO> popularCars() {
@@ -146,6 +174,33 @@ public class AdminStatServiceImpl implements AdminStatService {
                         LIMIT 10
                         """,
                 (resultSet, rowNum) -> new StatItemVO(resultSet.getString("name"), resultSet.getLong("item_count")));
+    }
+
+    private List<StatItemVO> favoriteTopCars() {
+        return jdbcTemplate.query(
+                """
+                        SELECT CONCAT(cm.brand, ' ', cm.model_name) AS name, COUNT(*) AS item_count
+                        FROM user_favorite uf
+                        JOIN car_model cm ON cm.id = uf.car_id
+                        WHERE uf.deleted = FALSE AND cm.deleted = FALSE
+                        GROUP BY cm.id, cm.brand, cm.model_name
+                        ORDER BY item_count DESC, MAX(uf.update_time) DESC, cm.id ASC
+                        LIMIT 10
+                        """,
+                (resultSet, rowNum) -> new StatItemVO(resultSet.getString("name"), resultSet.getLong("item_count")));
+    }
+
+    private String recommendStatusLabel(String status) {
+        if ("SUCCESS".equals(status)) {
+            return "完全匹配";
+        }
+        if ("FALLBACK".equals(status)) {
+            return "含补充推荐";
+        }
+        if ("EMPTY".equals(status)) {
+            return "暂无结果";
+        }
+        return status;
     }
 
     private List<StatItemVO> factorWeightDistribution() {

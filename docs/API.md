@@ -65,8 +65,8 @@ Authorization: Bearer <token>
 
 | 角色 | 身份来源 | 说明 |
 | --- | --- | --- |
-| `USER` | `app_user` 登录 token | 用户端需求、推荐、历史、收藏、反馈和对比菜单。 |
-| `ADMIN` | `admin` 登录 token，且 `admin.role = ADMIN` | 管理端车型、图片、用户管理、推荐记录、统计、健康检查和算法可视化。 |
+| `USER` | `app_user` 登录 token | 用户端需求、推荐、历史、收藏、反馈和用户级车型对比。 |
+| `ADMIN` | `admin` 登录 token，且 `admin.role = ADMIN` | 管理端车型、图片、用户管理、收藏车型、反馈记录、推荐记录、运营概览、健康检查和算法可视化。 |
 
 公开接口：
 
@@ -669,6 +669,27 @@ GET /api/admin/recommend-records/{recordId}/algorithm-visualization
 
 ## 车型对比接口
 
+用户端当前使用用户级持久化对比列表：
+
+```text
+GET    /api/user/compare
+POST   /api/user/compare/{carId}
+DELETE /api/user/compare/{carId}
+DELETE /api/user/compare
+```
+
+规则：
+
+- 需要 `USER` 权限，`userId` 始终来自 JWT 当前用户，不接受 `userId` 参数。
+- 管理员不能访问用户级车型对比接口。
+- 每个用户最多保存 3 辆对比车型。
+- 重复加入同一车型保持幂等，并确保该记录为未删除状态。
+- 移除和清空对比项按当前用户软删除，不能影响其他用户。
+- 查询返回当前用户保存的车型详情，按 `sort_no ASC, update_time ASC, create_time ASC` 等稳定顺序展示。
+- 对比只读取 `car_model`、`car_param` 和 `car_feature_score` 当前快照，不触发评分重算，不生成推荐记录，不影响推荐排序。
+
+旧静态对比查询继续保留：
+
 ```text
 GET /api/car/compare?carIds=1,2,3
 ```
@@ -682,6 +703,7 @@ GET /api/car/compare?carIds=1,2,3
 - 不触发评分重算。
 - 不生成推荐记录。
 - 对比维度使用八维车型静态评分；价格只作为基础信息展示。
+- 该接口不保存用户选择，用户端“加入对比”和 `/compare` 页面应使用 `/api/user/compare`。
 
 ## 收藏接口
 
@@ -747,14 +769,12 @@ GET /api/admin/users?page=1&size=10&keyword=&status=
 GET /api/admin/users/{userId}
 ```
 
-返回用户基础信息、`summary` 计数、`latestDemand`、`recentRecommendRecords`、`favorites` 和 `feedbacks`。
+返回用户基础信息、`summary` 计数、`latestDemand` 和 `recentRecommendRecords`。收藏车型和反馈记录已拆分到独立只读管理页面，用户详情只保留统计数字和跳转入口。
 
-按用户查看推荐历史、收藏和反馈：
+按用户查看推荐历史：
 
 ```text
 GET /api/admin/users/{userId}/recommend-records?page=1&size=10
-GET /api/admin/users/{userId}/favorites?page=1&size=10
-GET /api/admin/users/{userId}/feedbacks?page=1&size=10
 ```
 
 启用 / 禁用普通用户：
@@ -773,6 +793,37 @@ PUT /api/admin/users/{userId}/status
 
 `status` 只能为 `ACTIVE` 或 `DISABLED`。禁用后用户不能重新登录；当前轻量 JWT 不维护服务端黑名单，已签发 token 在过期前仍可能有效。
 
+## 管理端收藏车型接口
+
+以下接口均需要 `ADMIN` token，只读查看收藏统计，不提供取消收藏、删除收藏或代用户操作能力。
+
+```text
+GET /api/admin/favorites/cars?page=1&size=10&keyword=&userId=
+GET /api/admin/favorites/cars/{carId}/users?page=1&size=10
+```
+
+`GET /api/admin/favorites/cars` 按车型聚合收藏数，并按 `favoriteCount DESC` 排序。`keyword` 可按品牌、车系、车型名筛选；`userId` 用于从用户管理跳转后筛选该用户收藏过的车型，但返回的 `favoriteCount` 仍是全站收藏总数。
+
+返回字段包括 `carId`、`brand`、`series`、`modelName`、`guidePrice`、`bodyType`、`energyType`、`imageUrl`、`favoriteCount`、`latestFavoriteTime`。
+
+`GET /api/admin/favorites/cars/{carId}/users` 返回收藏该车型的用户，包括 `userId`、`username`、`nickname`、`phone`、`status`、`favoriteTime`。
+
+## 管理端反馈记录接口
+
+该接口需要 `ADMIN` token，只读查看反馈记录，不提供删除、修改或反馈学习能力。
+
+```text
+GET /api/admin/feedbacks?page=1&size=10&keyword=&userId=&satisfactionScore=
+```
+
+筛选规则：
+
+- `keyword`：用户名、昵称、评论内容模糊搜索。
+- `userId`：筛选指定用户反馈记录。
+- `satisfactionScore`：按 1-5 满意度评分筛选。
+
+返回字段包括 `feedbackId`、`userId`、`username`、`nickname`、`recordId`、`satisfactionScore`、`satisfactionLevel`、`reasonTags`、`comment`、`createTime`、`updateTime`。反馈只进入统计，不修改推荐记录、推荐明细、权重或排序。
+
 ## 管理端推荐记录接口
 
 ```text
@@ -783,23 +834,32 @@ GET /api/admin/recommend-records/{recordId}/algorithm-visualization
 
 这些接口需要 `ADMIN` 权限。管理员可以查看全量推荐记录，也可以通过 `userId` 过滤某个用户的推荐记录。普通用户不能通过用户端推荐历史接口查看他人记录。
 
-## 管理端统计接口
+## 管理端运营概览接口
 
 ```text
 GET /api/admin/stat/overview
 ```
 
-该接口需要 `ADMIN` 权限。统计数据必须来自当前数据库，不使用随机数或前端假数据。当前总览包含：
+该接口需要 `ADMIN` 权限。统计数据必须来自当前数据库，不使用随机数或前端假数据。当前总览用于管理端“运营概览”页面，不包装为实时 BI 系统。当前总览包含：
 
 | 字段 | 说明 |
 | --- | --- |
+| `userCount` | 用户总数。 |
+| `activeUserCount` | ACTIVE 用户数。 |
+| `disabledUserCount` | DISABLED 用户数。 |
+| `carCount` | 车型总数。 |
+| `recommendRecordCount` | 推荐记录总数。 |
+| `todayRecommendRecordCount` | 今日推荐记录数。 |
+| `recentRecommendRecordCount` | 最近 7 天推荐记录数。 |
+| `favoriteCount` | 收藏总数。 |
 | `budgetDistribution` | 预算区间分布。 |
 | `sceneDistribution` | 使用场景分布。 |
 | `focusFactorDistribution` | 关注因素 / 权重分布，对应用户显式偏好权重统计。 |
 | `popularCars` | 热门推荐车型。 |
-| `recommendStatusDistribution` | 推荐状态分布。 |
+| `recommendStatusDistribution` | 推荐状态分布，展示名中文化为完全匹配、含补充推荐、暂无结果。 |
 | `energyTypeDistribution` | 动力类型偏好分布。 |
 | `bodyTypeDistribution` | 车型类型偏好分布。 |
+| `favoriteTopCars` | 收藏最多车型。 |
 | `satisfactionDistribution` | 满意度分布。 |
 | `feedbackReasonDistribution` | 反馈原因标签分布。 |
 | `feedbackCount` | 反馈数量。 |

@@ -25,6 +25,7 @@
 | `user_demand` | 用户购车需求、画像文本和主观权重。 |
 | `recommend_record` | 一次推荐任务的总体快照。 |
 | `recommend_item` | 推荐结果明细、分数、排序和解释快照。 |
+| `user_compare_car` | 用户级车型对比列表，保存当前登录 USER 的对比选择。 |
 | `user_favorite` | 用户收藏车型。 |
 | `recommend_feedback` | 用户对推荐记录的反馈。 |
 
@@ -307,7 +308,28 @@ role = ADMIN
 
 历史详情必须读取上述快照，不重新计算 `totalScore`、`rankNo`、`tags`、`reason_text`、`weakness_text` 或 `match_level`。
 
-## 收藏和反馈表
+## 用户对比、收藏和反馈表
+
+### `user_compare_car`
+
+| 字段 | 说明 |
+| --- | --- |
+| `id` | 主键 |
+| `user_id` | 用户 ID，来自 JWT 当前 USER |
+| `car_id` | 对比车型 ID |
+| `sort_no` | 展示顺序，当前默认按加入顺序使用 |
+| `deleted` | 软删除；移除对比不物理删除 |
+| `create_time` | 创建时间 |
+| `update_time` | 更新时间 |
+
+约束：
+
+- `user_id + car_id` 唯一。
+- 每个用户当前最多 3 条未删除对比车型。
+- 重复加入同一车型保持幂等并恢复 `deleted = FALSE`。
+- 用户 A / 用户 B 的对比列表通过 `user_id` 隔离，不接受接口参数覆盖当前用户。
+- 管理员不使用该表对应的用户级对比接口。
+- 对比不参与推荐排序，不写入推荐权重。
 
 ### `user_favorite`
 
@@ -358,6 +380,8 @@ car_model 1 - 1 car_feature_score
 car_model 1 - n car_image_asset
 car_model 1 - n recommend_item
 recommend_record 1 - n recommend_feedback
+app_user 1 - n user_compare_car
+car_model 1 - n user_compare_car
 app_user 1 - n user_favorite
 car_model 1 - n user_favorite
 ```
@@ -456,6 +480,8 @@ car_feature_score = 120
 - `recommend_record(demand_id)`
 - `recommend_item(record_id)`
 - `recommend_item(car_id)`
+- `user_compare_car(user_id, car_id)` 唯一约束
+- `user_compare_car(user_id, deleted, sort_no, update_time)` 查询索引
 - `user_favorite(user_id, car_id)` 唯一约束
 - `recommend_feedback(user_id, record_id)` 唯一约束
 

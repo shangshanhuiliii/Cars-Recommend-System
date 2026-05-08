@@ -57,6 +57,8 @@ app:
 
 普通用户注册只创建 `USER` 账号，密码以 PBKDF2 hash 写入 `app_user.password`，账号状态默认为 `ACTIVE`。管理员将用户状态改为 `DISABLED` 后，该用户不能再次登录；当前轻量 JWT 不维护服务端黑名单，已签发 token 在过期前仍可能可用，如需立即失效需后续增加 tokenVersion 或 token blacklist。
 
+前端登录入口拆分为 `/login` 和 `/admin/login`：普通用户登录页不展示默认测试账号，保留注册入口；管理员登录页不展示注册入口，登录后默认进入 `/admin/cars`。管理员界面不展示首页入口，访问首页会重定向到车型管理。
+
 不要提交：
 
 - `backend/src/main/resources/application-local.yml`
@@ -132,7 +134,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\init-dev-db.ps1 `
 
 脚本不会打印数据库密码。若缺少密码，会用安全输入提示。
 
-`-Recreate` 会删除目标库中的需求、推荐记录、收藏、反馈、评分和图片资源等数据。只对自己的本地开发库使用；真实库、共享库或生产库必须先明确确认。
+`-Recreate` 会删除目标库中的需求、推荐记录、对比、收藏、反馈、评分和图片资源等数据。只对自己的本地开发库使用；真实库、共享库或生产库必须先明确确认。
 
 ## 种子数据
 
@@ -148,6 +150,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\init-dev-db.ps1 `
 - 车型评分。
 - 推荐记录。
 - 推荐明细。
+- 用户车型对比。
 - 收藏。
 - 反馈。
 
@@ -203,6 +206,9 @@ Vite proxy 会将 `/api` 转发到 `http://localhost:8080`。
 - `/history`
 - `/compare`
 - `/favorites`
+- `/admin/login`
+- `/admin/favorites`
+- `/admin/feedbacks`
 - `/algorithm-demo`
 - `/admin/cars`
 - `/admin/recommend-records`
@@ -222,11 +228,14 @@ Vite proxy 会将 `/api` 转发到 `http://localhost:8080`。
 - 推荐历史：`GET /api/recommend/history`
 - 算法可视化：`GET /api/admin/recommend-records/{recordId}/algorithm-visualization`
 - 车型详情：`GET /api/car/{id}`
-- 车型对比：`GET /api/car/compare`
+- 用户级车型对比：`GET /api/user/compare`、`POST /api/user/compare/{carId}`、`DELETE /api/user/compare/{carId}`、`DELETE /api/user/compare`
+- 静态车型对比查询：`GET /api/car/compare`
 - 收藏：`POST /api/user/favorites/{carId}`、`DELETE /api/user/favorites/{carId}`、`GET /api/user/favorites`
 - 反馈：`POST /api/recommend/{recordId}/feedback`、`GET /api/recommend/{recordId}/feedback`
 - 管理端推荐记录：`GET /api/admin/recommend-records`、`GET /api/admin/recommend-records/{recordId}`
-- 管理端统计：`GET /api/admin/stat/overview`
+- 管理端收藏车型：`GET /api/admin/favorites/cars`、`GET /api/admin/favorites/cars/{carId}/users`
+- 管理端反馈记录：`GET /api/admin/feedbacks`
+- 管理端运营概览：`GET /api/admin/stat/overview`
 
 ## 常见问题
 
