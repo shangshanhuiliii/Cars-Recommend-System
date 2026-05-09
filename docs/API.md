@@ -87,8 +87,8 @@ Authorization: Bearer <token>
 
 | 类型 | 用户名 | 密码 |
 | --- | --- | --- |
-| 普通用户 | `demo_user` | `demo123456` |
-| 管理员 | `demo_admin` | `admin123456` |
+| 普通用户 | `user` | `user123456` |
+| 管理员 | `admin` | `admin123456` |
 
 ## 认证接口
 
@@ -123,8 +123,8 @@ POST /api/auth/admin/login
 
 ```json
 {
-  "username": "demo_user",
-  "password": "demo123456"
+  "username": "user",
+  "password": "user123456"
 }
 ```
 
@@ -137,8 +137,8 @@ POST /api/auth/admin/login
   "expiresAt": "2026-05-08 12:00:00",
   "principal": {
     "id": 1,
-    "username": "demo_user",
-    "displayName": "演示用户",
+    "username": "user",
+    "displayName": "本地用户",
     "principalType": "USER",
     "role": "USER",
     "permissions": ["user:demand", "user:recommend"],

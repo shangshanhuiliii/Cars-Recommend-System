@@ -50,8 +50,8 @@ Copy-Item backend/src/main/resources/application-local.example.yml backend/src/m
 
 | 类型 | 用户名 | 密码 |
 | --- | --- | --- |
-| 普通用户 | `demo_user` | `demo123456` |
-| 管理员 | `demo_admin` | `admin123456` |
+| 普通用户 | `user` | `user123456` |
+| 管理员 | `admin` | `admin123456` |
 
 JWT 配置位于 `app.auth`，`jwt-secret` 至少 32 bytes；生产环境必须使用独立密钥，不要提交真实密钥。管理员禁用用户后，该用户不能再次登录；当前轻量 JWT 不维护服务端黑名单，已签发 token 在过期前仍可能有效。
 

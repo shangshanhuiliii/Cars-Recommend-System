@@ -9,7 +9,7 @@ const carDetailView = read('../src/views/CarDetailView.vue')
 const router = read('../src/router/index.js')
 const authApi = read('../src/api/auth.js')
 
-assert.doesNotMatch(authDialog, /demo_user|demo_admin|测试账号|管理员切换|el-radio-button|loginType/)
+assert.doesNotMatch(authDialog, /测试账号|管理员切换|el-radio-button|loginType/)
 assert.match(authDialog, /authStore\.loginUnified/)
 assert.match(authDialog, /authStore\.register/)
 assert.match(authApi, /loginUnified/)

@@ -51,9 +51,9 @@
 本地 seed 默认用户账号：
 
 ```text
-username = demo_user
-password = demo123456
-email = demo_user@example.com
+username = user
+password = user123456
+email = user@example.com
 ```
 
 `app_user.id = 1` 只表示本地 seed 账号主键，不再作为接口默认身份来源。用户端接口身份必须来自 JWT。
@@ -79,7 +79,7 @@ email = demo_user@example.com
 本地 seed 默认管理员账号：
 
 ```text
-username = demo_admin
+username = admin
 password = admin123456
 role = ADMIN
 ```
@@ -432,8 +432,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\init-dev-db.ps1 -Recreate
 
 `seed-data.sql` 当前提供：
 
-- 本地默认普通用户 `demo_user / demo123456`，邮箱为 `demo_user@example.com`，密码以 PBKDF2 hash 保存。
-- 本地默认管理员 `demo_admin / admin123456`，`role = ADMIN`，密码以 PBKDF2 hash 保存。
+- 本地默认普通用户 `user / user123456`，邮箱为 `user@example.com`，密码以 PBKDF2 hash 保存。
+- 本地默认管理员 `admin / admin123456`，`role = ADMIN`，密码以 PBKDF2 hash 保存。
 - 120 条车型基础数据。
 - 120 条车型参数数据。
 

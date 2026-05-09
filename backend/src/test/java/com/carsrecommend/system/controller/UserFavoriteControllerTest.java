@@ -37,7 +37,7 @@ class UserFavoriteControllerTest {
     private JdbcTemplate jdbcTemplate;
 
     @Test
-    void favoriteCancelListAndStatusAreIdempotentForDemoUser() throws Exception {
+    void favoriteCancelListAndStatusAreIdempotentForSeedUser() throws Exception {
         mockMvc.perform(post("/api/admin/cars/{id}/score/recalculate", 2))
                 .andExpect(status().isOk());
 

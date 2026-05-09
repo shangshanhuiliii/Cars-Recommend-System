@@ -24,7 +24,7 @@ import org.springframework.util.StringUtils;
 @ConditionalOnProperty(prefix = "spring.datasource", name = "url")
 public class RecommendationFeedbackServiceImpl implements RecommendationFeedbackService {
 
-    private static final long DEFAULT_DEMO_USER_ID = 1L;
+    private static final long DEFAULT_SEED_USER_ID = 1L;
 
     private final UserDemandMapper userDemandMapper;
     private final RecommendRecordMapper recommendRecordMapper;
@@ -74,7 +74,7 @@ public class RecommendationFeedbackServiceImpl implements RecommendationFeedback
 
     private Long resolveUserId(Long userId) {
         Long currentUserId = AuthContext.currentUserIdOrNull();
-        Long resolvedUserId = currentUserId != null ? currentUserId : (userId == null ? DEFAULT_DEMO_USER_ID : userId);
+        Long resolvedUserId = currentUserId != null ? currentUserId : (userId == null ? DEFAULT_SEED_USER_ID : userId);
         if (!userDemandMapper.existsActiveUser(resolvedUserId)) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "app user not found");
         }

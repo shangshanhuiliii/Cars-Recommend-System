@@ -26,12 +26,12 @@ class DatabaseSchemaSeedTest {
                 "")) {
             loadScripts(connection);
 
-            assertEquals(1, count(connection, "SELECT COUNT(*) FROM app_user WHERE id = 1 AND username = 'demo_user'"));
+            assertEquals(1, count(connection, "SELECT COUNT(*) FROM app_user WHERE id = 1 AND username = 'user'"));
             assertEquals(1, count(connection,
-                    "SELECT COUNT(*) FROM app_user WHERE id = 1 AND username = 'demo_user' AND status = 'ACTIVE'"));
+                    "SELECT COUNT(*) FROM app_user WHERE id = 1 AND username = 'user' AND status = 'ACTIVE'"));
             assertEquals(1, count(connection,
-                    "SELECT COUNT(*) FROM app_user WHERE id = 1 AND email = 'demo_user@example.com'"));
-            assertEquals(1, count(connection, "SELECT COUNT(*) FROM admin WHERE id = 1 AND username = 'demo_admin'"));
+                    "SELECT COUNT(*) FROM app_user WHERE id = 1 AND email = 'user@example.com'"));
+            assertEquals(1, count(connection, "SELECT COUNT(*) FROM admin WHERE id = 1 AND username = 'admin'"));
             assertEquals(1, count(connection,
                     "SELECT COUNT(*) FROM app_user WHERE id = 1 AND password LIKE 'pbkdf2$310000$%'"));
             assertEquals(1, count(connection,

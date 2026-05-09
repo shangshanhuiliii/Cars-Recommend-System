@@ -56,7 +56,7 @@ class AuthControllerTest {
 
     @Test
     void userLoginReturnsTokenPrincipalMenusAndPermissions() throws Exception {
-        JsonNode data = login("/api/auth/user/login", "demo_user", "demo123456")
+        JsonNode data = login("/api/auth/user/login", "user", "user123456")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.token").isString())
                 .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
@@ -76,7 +76,7 @@ class AuthControllerTest {
 
     @Test
     void adminLoginReturnsTokenPrincipalMenusAndPermissions() throws Exception {
-        login("/api/auth/admin/login", "demo_admin", "admin123456")
+        login("/api/auth/admin/login", "admin", "admin123456")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.token").isString())
                 .andExpect(jsonPath("$.data.principal.principalType").value("ADMIN"))
@@ -93,7 +93,7 @@ class AuthControllerTest {
 
     @Test
     void unifiedLoginReturnsUserPrincipal() throws Exception {
-        login("/api/auth/login", "demo_user", "demo123456")
+        login("/api/auth/login", "user", "user123456")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.token").isString())
                 .andExpect(jsonPath("$.data.principal.principalType").value("USER"))
@@ -103,7 +103,7 @@ class AuthControllerTest {
 
     @Test
     void unifiedLoginReturnsAdminPrincipal() throws Exception {
-        login("/api/auth/login", "demo_admin", "admin123456")
+        login("/api/auth/login", "admin", "admin123456")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.token").isString())
                 .andExpect(jsonPath("$.data.principal.principalType").value("ADMIN"))
@@ -139,14 +139,14 @@ class AuthControllerTest {
 
     @Test
     void duplicateUsernameRegisterReturnsBadRequest() throws Exception {
-        register("demo_user", "User123456", "User123456")
+        register("user", "User123456", "User123456")
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(400));
     }
 
     @Test
     void registerCannotUseExistingAdminUsername() throws Exception {
-        register("demo_admin", "User123456", "User123456")
+        register("admin", "User123456", "User123456")
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(400));
     }
@@ -200,11 +200,11 @@ class AuthControllerTest {
 
     @Test
     void wrongPasswordReturnsUnauthorized() throws Exception {
-        login("/api/auth/user/login", "demo_user", "wrong-password")
+        login("/api/auth/user/login", "user", "wrong-password")
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(401));
 
-        login("/api/auth/login", "demo_user", "wrong-password")
+        login("/api/auth/login", "user", "wrong-password")
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(401));
     }
@@ -215,11 +215,11 @@ class AuthControllerTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(401));
 
-        String userToken = login("/api/auth/user/login", "demo_user", "demo123456")
+        String userToken = login("/api/auth/user/login", "user", "user123456")
                 .andReturnData()
                 .path("token")
                 .asText();
-        String adminToken = login("/api/auth/admin/login", "demo_admin", "admin123456")
+        String adminToken = login("/api/auth/admin/login", "admin", "admin123456")
                 .andReturnData()
                 .path("token")
                 .asText();
@@ -242,11 +242,11 @@ class AuthControllerTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(401));
 
-        String userToken = login("/api/auth/user/login", "demo_user", "demo123456")
+        String userToken = login("/api/auth/user/login", "user", "user123456")
                 .andReturnData()
                 .path("token")
                 .asText();
-        String adminToken = login("/api/auth/admin/login", "demo_admin", "admin123456")
+        String adminToken = login("/api/auth/admin/login", "admin", "admin123456")
                 .andReturnData()
                 .path("token")
                 .asText();
@@ -334,9 +334,9 @@ class AuthControllerTest {
         payload.put("sub", "1");
         payload.put("id", 1);
         payload.put("principalType", "USER");
-        payload.put("username", "demo_user");
+        payload.put("username", "user");
         payload.put("role", "USER");
-        payload.put("displayName", "demo_user");
+        payload.put("displayName", "user");
         payload.put("iat", now - 7200);
         payload.put("exp", now - 60);
         String headerPart = base64Url(objectMapper.writeValueAsBytes(header));

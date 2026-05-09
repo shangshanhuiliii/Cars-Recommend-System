@@ -32,7 +32,7 @@ import org.springframework.util.StringUtils;
 @ConditionalOnProperty(prefix = "spring.datasource", name = "url")
 public class UserProfileServiceImpl implements UserProfileService {
 
-    public static final long DEFAULT_DEMO_USER_ID = 1L;
+    public static final long DEFAULT_SEED_USER_ID = 1L;
 
     private static final String DEFAULT_SCENE = "综合需求";
     private static final BigDecimal ONE = new BigDecimal("1.0000");
@@ -141,7 +141,7 @@ public class UserProfileServiceImpl implements UserProfileService {
 
     private Long resolveUserId(Long userId) {
         Long currentUserId = AuthContext.currentUserIdOrNull();
-        Long resolvedUserId = currentUserId != null ? currentUserId : (userId == null ? DEFAULT_DEMO_USER_ID : userId);
+        Long resolvedUserId = currentUserId != null ? currentUserId : (userId == null ? DEFAULT_SEED_USER_ID : userId);
         if (!userDemandMapper.existsActiveUser(resolvedUserId)) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "app user not found");
         }

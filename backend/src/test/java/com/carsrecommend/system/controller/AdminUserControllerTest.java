@@ -55,7 +55,7 @@ class AdminUserControllerTest {
         jdbcTemplate.update("DELETE FROM recommend_item");
         jdbcTemplate.update("DELETE FROM recommend_record");
         jdbcTemplate.update("DELETE FROM user_demand");
-        jdbcTemplate.update("UPDATE app_user SET status = 'ACTIVE' WHERE username = 'demo_user'");
+        jdbcTemplate.update("UPDATE app_user SET status = 'ACTIVE' WHERE username = 'user'");
 
         jdbcTemplate.update(
                 "INSERT INTO user_demand (user_id, raw_text, profile_text) VALUES (1, 'test demand', 'admin user test demand')");
@@ -85,7 +85,7 @@ class AdminUserControllerTest {
                         .param("page", "1")
                         .param("size", "10"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.records[0].username").value("demo_user"))
+                .andExpect(jsonPath("$.data.records[0].username").value("user"))
                 .andExpect(jsonPath("$.data.records[0].status").value("ACTIVE"))
                 .andExpect(jsonPath("$.data.total").value(1));
     }
@@ -109,7 +109,7 @@ class AdminUserControllerTest {
         mockMvc.perform(get("/api/admin/users/{userId}", 1)
                         .header(HttpHeaders.AUTHORIZATION, bearer(adminToken())))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.user.username").value("demo_user"))
+                .andExpect(jsonPath("$.data.user.username").value("user"))
                 .andExpect(jsonPath("$.data.summary.demandCount").value(1))
                 .andExpect(jsonPath("$.data.latestDemand.id").isNumber())
                 .andExpect(jsonPath("$.data.recentRecommendRecords[0].recordId").isNumber())
@@ -160,7 +160,7 @@ class AdminUserControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("DISABLED"));
 
-        login("/api/auth/user/login", "demo_user", "demo123456")
+        login("/api/auth/user/login", "user", "user123456")
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(401));
 
@@ -171,16 +171,16 @@ class AdminUserControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("ACTIVE"));
 
-        login("/api/auth/user/login", "demo_user", "demo123456")
+        login("/api/auth/user/login", "user", "user123456")
                 .andExpect(status().isOk());
     }
 
     private String adminToken() throws Exception {
-        return login("/api/auth/admin/login", "demo_admin", "admin123456").andReturnData().path("token").asText();
+        return login("/api/auth/admin/login", "admin", "admin123456").andReturnData().path("token").asText();
     }
 
     private String userToken() throws Exception {
-        return login("/api/auth/user/login", "demo_user", "demo123456").andReturnData().path("token").asText();
+        return login("/api/auth/user/login", "user", "user123456").andReturnData().path("token").asText();
     }
 
     private ResultActionsWithData login(String url, String username, String password) throws Exception {

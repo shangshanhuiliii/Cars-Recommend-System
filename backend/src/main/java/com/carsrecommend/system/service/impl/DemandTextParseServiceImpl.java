@@ -20,7 +20,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class DemandTextParseServiceImpl implements DemandTextParseService {
 
-    private static final long DEFAULT_DEMO_USER_ID = 1L;
+    private static final long DEFAULT_SEED_USER_ID = 1L;
     private static final String NUMBER = "([0-9]+(?:\\.[0-9]+)?|[零〇一二两三四五六七八九十百]+)";
     private static final Pattern BUDGET_RANGE = Pattern.compile(
             NUMBER + "\\s*(?:万|万元|w)?\\s*(?:-|—|－|~|～|到|至)\\s*" + NUMBER + "\\s*(?:万|万元|w)",
@@ -132,7 +132,7 @@ public class DemandTextParseServiceImpl implements DemandTextParseService {
 
     private Long resolveUserId(Long userId) {
         Long currentUserId = AuthContext.currentUserIdOrNull();
-        return currentUserId != null ? currentUserId : (userId == null ? DEFAULT_DEMO_USER_ID : userId);
+        return currentUserId != null ? currentUserId : (userId == null ? DEFAULT_SEED_USER_ID : userId);
     }
 
     private BudgetRange parseBudget(String text) {

@@ -33,7 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 @ConditionalOnProperty(prefix = "spring.datasource", name = "url")
 public class RecommendationServiceImpl implements RecommendationService {
 
-    private static final long DEFAULT_DEMO_USER_ID = 1L;
+    private static final long DEFAULT_SEED_USER_ID = 1L;
     private static final String STRICT_SUCCESS_MESSAGE = "已为您找到完全匹配车型";
     private static final String PARTIAL_FALLBACK_MESSAGE =
             "完全匹配车型数量不足，系统已补充部分推荐车型，并在每条结果中标明匹配状态。";
@@ -136,7 +136,7 @@ public class RecommendationServiceImpl implements RecommendationService {
 
     private Long resolveUserId(Long userId) {
         Long currentUserId = AuthContext.currentUserIdOrNull();
-        Long resolvedUserId = currentUserId != null ? currentUserId : (userId == null ? DEFAULT_DEMO_USER_ID : userId);
+        Long resolvedUserId = currentUserId != null ? currentUserId : (userId == null ? DEFAULT_SEED_USER_ID : userId);
         if (!userDemandMapper.existsActiveUser(resolvedUserId)) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "app user not found");
         }

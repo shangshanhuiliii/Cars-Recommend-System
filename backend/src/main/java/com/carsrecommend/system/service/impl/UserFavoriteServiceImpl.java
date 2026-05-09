@@ -19,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 @ConditionalOnProperty(prefix = "spring.datasource", name = "url")
 public class UserFavoriteServiceImpl implements UserFavoriteService {
 
-    private static final long DEFAULT_DEMO_USER_ID = 1L;
+    private static final long DEFAULT_SEED_USER_ID = 1L;
     private static final int DEFAULT_PAGE = 1;
     private static final int DEFAULT_SIZE = 10;
     private static final int MAX_SIZE = 100;
@@ -87,7 +87,7 @@ public class UserFavoriteServiceImpl implements UserFavoriteService {
 
     private Long resolveUserId(Long userId) {
         Long currentUserId = AuthContext.currentUserIdOrNull();
-        Long resolvedUserId = currentUserId != null ? currentUserId : (userId == null ? DEFAULT_DEMO_USER_ID : userId);
+        Long resolvedUserId = currentUserId != null ? currentUserId : (userId == null ? DEFAULT_SEED_USER_ID : userId);
         if (!userDemandMapper.existsActiveUser(resolvedUserId)) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "app user not found");
         }

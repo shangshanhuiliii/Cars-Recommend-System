@@ -11,7 +11,7 @@ const adminFeedbacksView = read('../src/views/AdminFeedbacksView.vue')
 const adminFavoritesApi = read('../src/api/adminFavorites.js')
 const adminFeedbacksApi = read('../src/api/adminFeedbacks.js')
 
-assert.doesNotMatch(authDialog, /demo_user|demo_admin|测试账号|本地用户|本地管理员|el-radio-button|loginType/)
+assert.doesNotMatch(authDialog, /测试账号|本地用户|本地管理员|el-radio-button|loginType/)
 assert.match(authDialog, /authStore\.loginUnified/)
 assert.match(authDialog, /authStore\.register/)
 assert.match(authApi, /\/auth\/login/)

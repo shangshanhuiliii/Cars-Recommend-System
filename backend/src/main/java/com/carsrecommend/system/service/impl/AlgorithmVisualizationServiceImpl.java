@@ -50,7 +50,7 @@ import org.springframework.util.StringUtils;
 @ConditionalOnProperty(prefix = "spring.datasource", name = "url")
 public class AlgorithmVisualizationServiceImpl implements AlgorithmVisualizationService {
 
-    private static final long DEFAULT_DEMO_USER_ID = 1L;
+    private static final long DEFAULT_SEED_USER_ID = 1L;
     private static final int DISTANCE_SCALE = 8;
     private static final double ZERO_TOLERANCE = 0.00000001d;
     private static final String NEW_ALGORITHM_VERSION = "pareto-topsis-v1";
@@ -149,7 +149,7 @@ public class AlgorithmVisualizationServiceImpl implements AlgorithmVisualization
 
     private Long resolveUserId(Long userId) {
         Long currentUserId = AuthContext.currentUserIdOrNull();
-        Long resolvedUserId = currentUserId != null ? currentUserId : (userId == null ? DEFAULT_DEMO_USER_ID : userId);
+        Long resolvedUserId = currentUserId != null ? currentUserId : (userId == null ? DEFAULT_SEED_USER_ID : userId);
         if (!userDemandMapper.existsActiveUser(resolvedUserId)) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "app user not found");
         }

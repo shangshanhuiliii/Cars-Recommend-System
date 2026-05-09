@@ -251,7 +251,7 @@ class CarControllerTest {
     }
 
     private String adminToken() throws Exception {
-        return login("/api/auth/admin/login", "demo_admin", "admin123456").andReturnData().path("token").asText();
+        return login("/api/auth/admin/login", "admin", "admin123456").andReturnData().path("token").asText();
     }
 
     private ResultActionsWithData login(String url, String username, String password) throws Exception {

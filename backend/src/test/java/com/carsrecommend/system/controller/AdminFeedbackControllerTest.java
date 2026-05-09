@@ -39,8 +39,8 @@ import org.springframework.test.web.servlet.MvcResult;
 )
 class AdminFeedbackControllerTest {
 
-    private static final String DEMO_USER_PASSWORD_HASH =
-            "pbkdf2$310000$ZGVtb191c2VyX3NhbHQxNg==$9w9/M2pOGlYqpRoEtjTJr5MwQ6UMyGM2/OSH577wGCY=";
+    private static final String SEEDED_USER_PASSWORD_HASH =
+            "pbkdf2$310000$dXNlcl9zZWVkX3NhbHQxNg==$HphBGLxs06Ib4Keur26PtY7s7q0Zwwy/PjpXiCiA9Bg=";
 
     @Autowired
     private MockMvc mockMvc;
@@ -65,7 +65,7 @@ class AdminFeedbackControllerTest {
                         INSERT INTO app_user (id, username, password, nickname, email, phone, status)
                         VALUES (2, 'feedback_admin_user', ?, 'Feedback User', 'feedback_admin_user@example.com', '', 'ACTIVE')
                         """,
-                DEMO_USER_PASSWORD_HASH);
+                SEEDED_USER_PASSWORD_HASH);
         jdbcTemplate.update("INSERT INTO user_demand (id, user_id, raw_text, profile_text) VALUES (301, 1, '', 'profile one')");
         jdbcTemplate.update("INSERT INTO user_demand (id, user_id, raw_text, profile_text) VALUES (302, 2, '', 'profile two')");
         jdbcTemplate.update("""
@@ -140,11 +140,11 @@ class AdminFeedbackControllerTest {
     }
 
     private String adminToken() throws Exception {
-        return login("/api/auth/admin/login", "demo_admin", "admin123456").andReturnData().path("token").asText();
+        return login("/api/auth/admin/login", "admin", "admin123456").andReturnData().path("token").asText();
     }
 
     private String userToken() throws Exception {
-        return login("/api/auth/user/login", "demo_user", "demo123456").andReturnData().path("token").asText();
+        return login("/api/auth/user/login", "user", "user123456").andReturnData().path("token").asText();
     }
 
     private ResultActionsWithData login(String url, String username, String password) throws Exception {

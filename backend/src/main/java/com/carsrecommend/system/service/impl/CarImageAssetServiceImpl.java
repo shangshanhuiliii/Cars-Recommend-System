@@ -49,7 +49,7 @@ import org.springframework.web.multipart.MultipartFile;
 @ConditionalOnProperty(prefix = "spring.datasource", name = "url")
 public class CarImageAssetServiceImpl implements CarImageAssetService {
 
-    private static final long DEFAULT_DEMO_ADMIN_ID = 1L;
+    private static final long DEFAULT_SEED_ADMIN_ID = 1L;
     private static final String JPEG_CONTENT_TYPE = "image/jpeg";
     private static final String PNG_CONTENT_TYPE = "image/png";
 
@@ -162,7 +162,7 @@ public class CarImageAssetServiceImpl implements CarImageAssetService {
 
     private Long currentAdminId() {
         Long currentAdminId = AuthContext.currentAdminIdOrNull();
-        return currentAdminId == null ? DEFAULT_DEMO_ADMIN_ID : currentAdminId;
+        return currentAdminId == null ? DEFAULT_SEED_ADMIN_ID : currentAdminId;
     }
 
     private CarImageAsset findExisting(Long id) {
