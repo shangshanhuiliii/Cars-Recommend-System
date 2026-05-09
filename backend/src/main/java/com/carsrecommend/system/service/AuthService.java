@@ -8,6 +8,8 @@ import com.carsrecommend.system.vo.AuthTokenVO;
 
 public interface AuthService {
 
+    AuthTokenVO login(LoginRequest request);
+
     AuthTokenVO loginUser(LoginRequest request);
 
     AuthTokenVO loginAdmin(LoginRequest request);

@@ -180,17 +180,70 @@ a {
   font-size: 13px;
 }
 
-.identity-box__role {
+.login-link {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid rgba(10, 132, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.66);
+  box-shadow: var(--shadow-soft);
+  color: var(--color-primary);
+  cursor: pointer;
+  font-weight: 800;
+  backdrop-filter: blur(14px);
+}
+
+.account-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid rgba(17, 24, 39, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.68);
+  box-shadow: var(--shadow-soft);
+  color: var(--color-primary-dark);
+  cursor: pointer;
+  backdrop-filter: blur(16px);
+}
+
+.account-pill__role {
   padding: 4px 9px;
   border-radius: 999px;
   background: rgba(10, 132, 255, 0.1);
   color: #0b65c2;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 850;
 }
 
-.login-link {
-  color: var(--color-primary);
-  font-weight: 700;
+.account-pill strong {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-pill__chevron {
+  color: var(--color-muted);
+  font-size: 16px;
+  transform: translateY(-1px);
+}
+
+.account-menu__identity {
+  display: grid;
+  gap: 4px;
+  min-width: 168px;
+  padding: 10px 14px;
+}
+
+.account-menu__identity strong {
+  color: var(--color-primary-dark);
+}
+
+.account-menu__identity span {
+  color: var(--color-muted);
+  font-size: 12px;
 }
 
 .main-shell {

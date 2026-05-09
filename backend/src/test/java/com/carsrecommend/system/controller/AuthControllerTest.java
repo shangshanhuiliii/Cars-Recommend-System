@@ -92,6 +92,27 @@ class AuthControllerTest {
     }
 
     @Test
+    void unifiedLoginReturnsUserPrincipal() throws Exception {
+        login("/api/auth/login", "demo_user", "demo123456")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.token").isString())
+                .andExpect(jsonPath("$.data.principal.principalType").value("USER"))
+                .andExpect(jsonPath("$.data.principal.role").value("USER"))
+                .andExpect(jsonPath("$.data.principal.menus[0].code").value("home"));
+    }
+
+    @Test
+    void unifiedLoginReturnsAdminPrincipal() throws Exception {
+        login("/api/auth/login", "demo_admin", "admin123456")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.token").isString())
+                .andExpect(jsonPath("$.data.principal.principalType").value("ADMIN"))
+                .andExpect(jsonPath("$.data.principal.role").value("ADMIN"))
+                .andExpect(jsonPath("$.data.principal.menus[0].code").value("admin-cars"))
+                .andExpect(jsonPath("$.data.principal.menus[?(@.code=='home')]").doesNotExist());
+    }
+
+    @Test
     void registerUserReturnsTokenAndUserPrincipal() throws Exception {
         register("register_success_user", "User123456", "User123456")
                 .andExpect(status().isOk())
@@ -114,6 +135,13 @@ class AuthControllerTest {
     @Test
     void duplicateUsernameRegisterReturnsBadRequest() throws Exception {
         register("demo_user", "User123456", "User123456")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400));
+    }
+
+    @Test
+    void registerCannotUseExistingAdminUsername() throws Exception {
+        register("demo_admin", "User123456", "User123456")
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(400));
     }
@@ -142,11 +170,19 @@ class AuthControllerTest {
         login("/api/auth/user/login", "disabled_login_user", "User123456")
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(401));
+
+        login("/api/auth/login", "disabled_login_user", "User123456")
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(401));
     }
 
     @Test
     void wrongPasswordReturnsUnauthorized() throws Exception {
         login("/api/auth/user/login", "demo_user", "wrong-password")
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(401));
+
+        login("/api/auth/login", "demo_user", "wrong-password")
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(401));
     }

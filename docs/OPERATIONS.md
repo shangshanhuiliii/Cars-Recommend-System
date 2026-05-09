@@ -57,7 +57,7 @@ app:
 
 普通用户注册只创建 `USER` 账号，密码以 PBKDF2 hash 写入 `app_user.password`，账号状态默认为 `ACTIVE`。管理员将用户状态改为 `DISABLED` 后，该用户不能再次登录；当前轻量 JWT 不维护服务端黑名单，已签发 token 在过期前仍可能可用，如需立即失效需后续增加 tokenVersion 或 token blacklist。
 
-前端登录入口拆分为 `/login` 和 `/admin/login`：普通用户登录页不展示默认测试账号，保留注册入口，登录成功默认进入首页 `/`；普通用户注册成功也进入首页 `/`。管理员登录页不展示注册入口，登录后默认进入 `/admin/cars`。管理员界面不展示首页入口，访问首页会重定向到车型管理。
+前端登录入口统一为首页右上角登录 / 注册弹窗：后端通过 `POST /api/auth/login` 根据账号密码识别普通用户或管理员。普通用户登录或注册成功默认进入首页 `/`；管理员登录成功默认进入 `/admin/cars`。旧 `/login` 和 `/admin/login` URL 保留兼容，访问时重定向到首页并打开登录弹窗；管理员界面不展示首页入口，访问首页会重定向到车型管理。
 
 不要提交：
 
@@ -200,14 +200,14 @@ Vite proxy 会将 `/api` 转发到 `http://localhost:8080`。
 ## 常用页面
 
 - `/`
-- `/login`
+- `/login`（兼容跳转到首页登录弹窗）
 - `/recommend`
 - `/recommend/result/:recordId`
 - `/history`
 - `/compare`
 - `/favorites`
 - `/features`
-- `/admin/login`
+- `/admin/login`（兼容跳转到首页登录弹窗）
 - `/admin/favorites`
 - `/admin/feedbacks`
 - `/algorithm-demo`
@@ -218,8 +218,9 @@ Vite proxy 会将 `/api` 转发到 `http://localhost:8080`。
 ## 常用接口
 
 - 健康检查：`GET /api/health`
-- 普通用户登录：`POST /api/auth/user/login`
-- 管理员登录：`POST /api/auth/admin/login`
+- 统一登录：`POST /api/auth/login`
+- 普通用户登录兼容接口：`POST /api/auth/user/login`
+- 管理员登录兼容接口：`POST /api/auth/admin/login`
 - 当前身份：`GET /api/auth/me`
 - 管理端图片资源：`POST /api/admin/car-images`、`GET /api/admin/car-images`、`PUT /api/admin/car-images/{id}/audit`、`DELETE /api/admin/car-images/{id}`
 - 用户需求保存：`POST /api/user/demand`

@@ -1,5 +1,9 @@
 import http from './http'
 
+export function loginUnified(data) {
+  return http.post('/auth/login', data)
+}
+
 export function loginUser(data) {
   return http.post('/auth/user/login', data)
 }

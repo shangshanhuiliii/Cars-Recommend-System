@@ -14,11 +14,8 @@ import FavoritesView from '@/views/FavoritesView.vue'
 import FeatureShowcaseView from '@/views/FeatureShowcaseView.vue'
 import HistoryView from '@/views/HistoryView.vue'
 import HomeView from '@/views/HomeView.vue'
-import AdminLoginView from '@/views/AdminLoginView.vue'
-import LoginView from '@/views/LoginView.vue'
 import RecommendDemandView from '@/views/RecommendDemandView.vue'
 import RecommendResultView from '@/views/RecommendResultView.vue'
-import RegisterView from '@/views/RegisterView.vue'
 import UnauthorizedView from '@/views/UnauthorizedView.vue'
 import { useAuthStore } from '@/stores/auth'
 
@@ -34,20 +31,26 @@ const router = createRouter({
     {
       path: '/login',
       name: 'login',
-      component: LoginView,
-      meta: { public: true },
+      redirect: (to) => ({
+        path: '/',
+        query: buildAuthQuery('login', to.query.redirect),
+      }),
     },
     {
       path: '/admin/login',
       name: 'admin-login',
-      component: AdminLoginView,
-      meta: { public: true },
+      redirect: (to) => ({
+        path: '/',
+        query: buildAuthQuery('login', to.query.redirect || '/admin/cars'),
+      }),
     },
     {
       path: '/register',
       name: 'register',
-      component: RegisterView,
-      meta: { public: true },
+      redirect: (to) => ({
+        path: '/',
+        query: buildAuthQuery('register', to.query.redirect),
+      }),
     },
     {
       path: '/unauthorized',
@@ -160,8 +163,8 @@ router.beforeEach((to) => {
   }
   if (!authStore.isAuthenticated) {
     return {
-      path: to.path.startsWith('/admin') || to.meta.requiredRole === 'ADMIN' ? '/admin/login' : '/login',
-      query: { redirect: to.fullPath },
+      path: '/',
+      query: buildAuthQuery('login', to.fullPath),
     }
   }
   if (!authStore.hasRole(to.meta.requiredRole) || !authStore.hasPermission(to.meta.requiredPermission)) {
@@ -172,5 +175,13 @@ router.beforeEach((to) => {
   }
   return true
 })
+
+function buildAuthQuery(auth, redirect) {
+  const query = { auth }
+  if (typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//')) {
+    query.redirect = redirect
+  }
+  return query
+}
 
 export default router

@@ -21,11 +21,24 @@
 
         <div class="identity-box">
           <template v-if="authStore.isAuthenticated">
-            <span class="identity-box__role">{{ roleLabel }}</span>
-            <strong>{{ displayName }}</strong>
-            <el-button link type="primary" @click="logout">退出</el-button>
+            <el-dropdown trigger="click" @command="handleAccountCommand">
+              <button class="account-pill" type="button">
+                <span class="account-pill__role">{{ roleLabel }}</span>
+                <strong>{{ displayName }}</strong>
+                <span class="account-pill__chevron">⌄</span>
+              </button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <div class="account-menu__identity">
+                    <strong>{{ displayName }}</strong>
+                    <span>{{ roleLabel }}</span>
+                  </div>
+                  <el-dropdown-item divided command="logout">退出</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </template>
-          <RouterLink v-else class="login-link" to="/login">登录</RouterLink>
+          <button v-else class="login-link" type="button" @click="openAuth('login')">登录 / 注册</button>
         </div>
       </div>
     </el-header>
@@ -33,19 +46,28 @@
     <el-main class="main-shell">
       <RouterView />
     </el-main>
+    <AuthDialog
+      v-model="authDialogOpen"
+      :initial-mode="authDialogMode"
+      @mode-change="syncAuthMode"
+      @success="handleAuthSuccess"
+    />
   </el-container>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import AuthDialog from '@/components/AuthDialog.vue'
 import AppLogo from '@/components/AppLogo.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const authDialogOpen = ref(false)
+const authDialogMode = ref('login')
 
 const labelMap = {
   recommend: '购车推荐',
@@ -85,8 +107,96 @@ function menuLabel(item) {
   return labelMap[item.code] || item.label || item.code
 }
 
+watch(
+  () => route.query.auth,
+  (value) => {
+    if (value === 'login' || value === 'register') {
+      if (authStore.isAuthenticated) {
+        authDialogOpen.value = false
+        clearAuthQuery()
+        return
+      }
+      authDialogMode.value = value
+      authDialogOpen.value = true
+      return
+    }
+    authDialogOpen.value = false
+  },
+  { immediate: true },
+)
+
+watch(authDialogOpen, (value) => {
+  if (!value && (route.query.auth === 'login' || route.query.auth === 'register')) {
+    clearAuthQuery()
+  }
+})
+
+function openAuth(mode = 'login') {
+  const query = { auth: mode }
+  if (route.path !== '/') {
+    query.redirect = route.fullPath
+  }
+  router.push({ path: '/', query })
+}
+
+function syncAuthMode(mode) {
+  if (route.query.auth === mode) {
+    return
+  }
+  router.replace({
+    path: route.path,
+    query: {
+      ...route.query,
+      auth: mode,
+    },
+  })
+}
+
+async function handleAuthSuccess(data) {
+  authDialogOpen.value = false
+  const target = resolvePostAuthTarget(data?.principal?.principalType)
+  await router.replace(target)
+}
+
+function resolvePostAuthTarget(principalType) {
+  const redirect = safeRedirect(route.query.redirect)
+  if (principalType === 'ADMIN') {
+    return isAdminRedirect(redirect) ? redirect : '/admin/cars'
+  }
+  return isUserRedirect(redirect) ? redirect : '/'
+}
+
+function safeRedirect(value) {
+  if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//')) {
+    return ''
+  }
+  if (value.startsWith('/login') || value.startsWith('/admin/login') || value.startsWith('/register')) {
+    return ''
+  }
+  return value
+}
+
+function isAdminRedirect(value) {
+  return value.startsWith('/admin') || value.startsWith('/algorithm-demo')
+}
+
+function isUserRedirect(value) {
+  return Boolean(value) && !value.startsWith('/admin') && !value.startsWith('/algorithm-demo')
+}
+
+function clearAuthQuery() {
+  const { auth, redirect, ...rest } = route.query
+  router.replace({ path: route.path, query: rest })
+}
+
+function handleAccountCommand(command) {
+  if (command === 'logout') {
+    logout()
+  }
+}
+
 async function logout() {
   await authStore.logout()
-  await router.push('/login')
+  await router.push('/')
 }
 </script>

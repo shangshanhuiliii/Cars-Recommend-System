@@ -72,6 +72,7 @@ Authorization: Bearer <token>
 公开接口：
 
 - `GET /api/health`
+- `POST /api/auth/login`
 - `POST /api/auth/user/login`
 - `POST /api/auth/user/register`
 - `POST /api/auth/admin/login`
@@ -91,6 +92,19 @@ Authorization: Bearer <token>
 
 ## 认证接口
 
+统一登录：
+
+```text
+POST /api/auth/login
+```
+
+该接口供产品前端统一登录弹窗使用。后端按 `username` 同时查询普通用户和管理员，分别用现有密码哈希校验：
+
+- 只有普通用户匹配时，返回 `principalType = USER` 的 `AuthTokenVO`。
+- 只有管理员匹配时，返回 `principalType = ADMIN` 的 `AuthTokenVO`。
+- 用户名或密码不匹配、普通用户被禁用时返回 `401`。
+- 如果普通用户和管理员同时匹配，返回明确错误，提示账号冲突，避免无角色选择时误判身份。
+
 普通用户登录：
 
 ```text
@@ -102,6 +116,8 @@ POST /api/auth/user/login
 ```text
 POST /api/auth/admin/login
 ```
+
+旧分角色登录接口保留兼容和测试使用；产品前端统一调用 `POST /api/auth/login`，不再提供独立 `/login` 与 `/admin/login` 产品页面。
 
 请求：
 
@@ -154,13 +170,13 @@ POST /api/auth/user/register
 
 字段规则：
 
-- `username` 必填，trim 后 4-32 位，只允许字母、数字、下划线，且唯一。
+- `username` 必填，trim 后 4-32 位，只允许字母、数字、下划线，且不能与已有普通用户或管理员用户名冲突。
 - `password` 必填，8-32 位，至少包含字母和数字。
 - `confirmPassword` 必须与 `password` 一致。
 - `nickname` 可选，最多 32 个字符；为空时默认使用用户名。
 - `phone` 可选，当前仅做格式校验，不强制唯一。
 
-注册成功返回与登录相同的 `AuthTokenVO`，`principalType = USER`；注册接口只能创建普通 `app_user`，不能创建管理员账号。重复用户名返回 `400`，禁用用户再次登录返回 `401`。
+注册成功返回与登录相同的 `AuthTokenVO`，`principalType = USER`；注册接口只能创建普通 `app_user`，不能创建管理员账号。重复用户名或与管理员用户名冲突返回 `400`，禁用用户再次登录返回 `401`。
 
 当前登录身份：
 

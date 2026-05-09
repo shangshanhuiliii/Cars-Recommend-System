@@ -54,6 +54,14 @@ public class AdminMapper {
         return admins.stream().findFirst();
     }
 
+    public boolean existsByUsername(String username) {
+        Long count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM admin WHERE username = ? AND deleted = FALSE",
+                Long.class,
+                username);
+        return count != null && count > 0;
+    }
+
     private static LocalDateTime readLocalDateTime(ResultSet resultSet, String column) throws SQLException {
         Timestamp timestamp = resultSet.getTimestamp(column);
         return timestamp == null ? null : timestamp.toLocalDateTime();

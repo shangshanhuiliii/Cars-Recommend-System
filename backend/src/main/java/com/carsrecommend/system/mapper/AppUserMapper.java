@@ -54,6 +54,14 @@ public class AppUserMapper {
         return users.stream().findFirst();
     }
 
+    public Optional<AppUser> findByUsername(String username) {
+        List<AppUser> users = jdbcTemplate.query(
+                "SELECT " + SELECT_COLUMNS + " FROM app_user WHERE username = ? AND deleted = FALSE",
+                ROW_MAPPER,
+                username);
+        return users.stream().findFirst();
+    }
+
     public Optional<AppUser> findActiveById(Long id) {
         List<AppUser> users = jdbcTemplate.query(
                 "SELECT " + SELECT_COLUMNS

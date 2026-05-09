@@ -28,7 +28,9 @@ http.interceptors.request.use((config) => {
 http.interceptors.response.use(
   (response) => response.data,
   async (error) => {
-    if (error?.response?.status === 401) {
+    const requestUrl = error?.config?.url || ''
+    const isAuthRequest = /\/auth\/(login|user\/login|admin\/login|user\/register)$/.test(requestUrl)
+    if (error?.response?.status === 401 && !isAuthRequest) {
       localStorage.removeItem(STORAGE_KEY)
       const { useAuthStore } = await import('@/stores/auth')
       useAuthStore().clear()
@@ -36,8 +38,8 @@ http.interceptors.response.use(
       if (!currentPath.startsWith('/login') && !currentPath.startsWith('/admin/login')) {
         const { default: router } = await import('@/router')
         await router.push({
-          path: currentPath.startsWith('/admin') ? '/admin/login' : '/login',
-          query: { redirect: currentPath },
+          path: '/',
+          query: { auth: 'login', redirect: currentPath },
         })
       }
     }

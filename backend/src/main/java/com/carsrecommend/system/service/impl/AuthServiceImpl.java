@@ -83,19 +83,36 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    public AuthTokenVO login(LoginRequest request) {
+        String username = normalizeUsername(request.getUsername());
+        String password = normalizePassword(request.getPassword());
+        AppUser user = appUserMapper.findByUsername(username).orElse(null);
+        Admin admin = adminMapper.findActiveByUsername(username).orElse(null);
+        boolean userMatched = user != null && passwordHasher.matches(password, user.getPassword());
+        boolean adminMatched = admin != null && passwordHasher.matches(password, admin.getPassword());
+        if (userMatched && adminMatched) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "账号同时存在普通用户和管理员，请联系管理员处理");
+        }
+        if (userMatched) {
+            if (!USER_STATUS_ACTIVE.equals(user.getStatus())) {
+                throw invalidCredentials();
+            }
+            return toTokenVO(toUserPrincipal(user));
+        }
+        if (adminMatched) {
+            return toTokenVO(toAdminPrincipal(admin));
+        }
+        throw invalidCredentials();
+    }
+
+    @Override
     public AuthTokenVO loginUser(LoginRequest request) {
         AppUser user = appUserMapper.findActiveByUsername(request.getUsername().trim())
                 .orElseThrow(this::invalidCredentials);
         if (!passwordHasher.matches(request.getPassword(), user.getPassword())) {
             throw invalidCredentials();
         }
-        AuthPrincipal principal = new AuthPrincipal(
-                user.getId(),
-                PrincipalType.USER,
-                user.getUsername(),
-                USER_ROLE,
-                StringUtils.hasText(user.getNickname()) ? user.getNickname() : user.getUsername());
-        return toTokenVO(principal);
+        return toTokenVO(toUserPrincipal(user));
     }
 
     @Override
@@ -105,17 +122,29 @@ public class AuthServiceImpl implements AuthService {
         if (!passwordHasher.matches(request.getPassword(), admin.getPassword())) {
             throw invalidCredentials();
         }
+        return toTokenVO(toAdminPrincipal(admin));
+    }
+
+    private AuthPrincipal toAdminPrincipal(Admin admin) {
         String role = StringUtils.hasText(admin.getRole()) ? admin.getRole().trim() : ADMIN_ROLE;
         if (!ADMIN_ROLE.equals(role)) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "admin role is not allowed");
         }
-        AuthPrincipal principal = new AuthPrincipal(
+        return new AuthPrincipal(
                 admin.getId(),
                 PrincipalType.ADMIN,
                 admin.getUsername(),
                 role,
                 admin.getUsername());
-        return toTokenVO(principal);
+    }
+
+    private AuthPrincipal toUserPrincipal(AppUser user) {
+        return new AuthPrincipal(
+                user.getId(),
+                PrincipalType.USER,
+                user.getUsername(),
+                USER_ROLE,
+                StringUtils.hasText(user.getNickname()) ? user.getNickname() : user.getUsername());
     }
 
     @Override
@@ -123,7 +152,7 @@ public class AuthServiceImpl implements AuthService {
         String username = normalizeUsername(request.getUsername());
         String password = normalizePassword(request.getPassword());
         validateRegisterRequest(request, username, password);
-        if (appUserMapper.existsByUsername(username)) {
+        if (appUserMapper.existsByUsername(username) || adminMapper.existsByUsername(username)) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "用户名已存在");
         }
 
@@ -139,13 +168,7 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "用户名已存在");
         }
 
-        AuthPrincipal principal = new AuthPrincipal(
-                user.getId(),
-                PrincipalType.USER,
-                user.getUsername(),
-                USER_ROLE,
-                StringUtils.hasText(user.getNickname()) ? user.getNickname() : user.getUsername());
-        return toTokenVO(principal);
+        return toTokenVO(toUserPrincipal(user));
     }
 
     @Override

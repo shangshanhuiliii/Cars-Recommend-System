@@ -40,7 +40,7 @@ util         评分、解析、权重归一化等工具
 
 - 车型管理：维护 `car_model`、`car_param`，并提供车型详情、品牌选项和车型选项。
 - 图片资源管理：管理端上传、压缩、审核和软删除车型图片资源，审核通过后更新 `car_model.image_url`。
-- 登录认证：基于 `app_user` 和 `admin` 分开登录，`/login` 只处理普通用户，`/admin/login` 只处理管理员；支持普通用户注册，签发 HS256 JWT，`AuthInterceptor` 统一校验 token、角色和接口权限，并对未归类 `/api/**` 采用默认拒绝的 fail-closed 策略。
+- 登录认证：产品前端统一使用首页登录 / 注册弹窗，后端 `POST /api/auth/login` 根据账号密码识别 `app_user` 或 `admin` 并返回带 `principalType` 的 HS256 JWT；旧 `/login` 和 `/admin/login` 仅作为兼容跳转入口。普通用户注册只写入 `app_user`，管理员登录后进入 `/admin/cars`；`AuthInterceptor` 统一校验 token、角色和接口权限，并对未归类 `/api/**` 采用默认拒绝的 fail-closed 策略。
 - 管理端用户管理：管理员查看普通用户状态、统计数字、最近需求和推荐历史入口，并维护 `app_user.status`；收藏车型和反馈记录拆分到独立只读页面。
 - 车型评分：根据车型参数生成 `car_feature_score`。
 - 用户需求：保存结构化需求，生成画像文本和主观权重。
@@ -69,15 +69,15 @@ util         评分、解析、权重归一化等工具
 
 | 路由 | 页面 | 边界 |
 | --- | --- | --- |
-| `/` | 首页 | 面向普通用户的产品首页，由数据库随机车辆图片轮播、核心购车推荐入口和特色介绍跳转组成；轮播点击进入车型详情，不放推荐、历史或对比功能入口。 |
-| `/register` | 注册页 | 公开页面，只创建普通 `USER` 账号，成功后保存 token 并进入首页 `/`。 |
+| `/` | 首页 | 面向普通用户的产品首页，由数据库随机车辆图片轮播、唯一核心购车推荐入口和特色介绍跳转组成；轮播点击进入车型详情，不放推荐、历史、收藏或对比功能入口。 |
+| `/register` | 兼容注册入口 | 产品前端注册由首页弹窗完成，只创建普通 `USER` 账号。 |
 | `/recommend` | 购车需求页 | 产品化结构化需求表单，不展示自然语言解析入口。 |
 | `/recommend/result/:recordId` | 推荐结果页 | 读取推荐详情，车名可点击进入 `/car/{id}?recordId={recordId}`，按 `rankNo` 展示。 |
 | `/car/:id` | 车型详情页 | 独立车型详情页，展示横屏大图、基础信息、参数和特征评分。 |
 | `/features` | 特色介绍页 | 公开产品介绍页，集中说明结构化需求、推荐结果、车型详情、收藏对比和历史回看，不展示用户端复杂算法术语。 |
 | `/history` | 推荐历史页 | 展示当前用户推荐历史列表。 |
-| `/login` | 普通用户登录页 | 只登录 USER，保留注册入口和管理员登录入口。 |
-| `/admin/login` | 管理员登录页 | 只登录 ADMIN，登录后默认进入 `/admin/cars`。 |
+| `/login` | 兼容登录路由 | 重定向到 `/?auth=login` 并透传合法 redirect，不再作为独立产品页。 |
+| `/admin/login` | 兼容管理员登录路由 | 重定向到 `/?auth=login&redirect=/admin/cars` 或合法 admin redirect，不再作为独立产品页。 |
 | `/compare` | 车型对比页 | 读取当前 USER 后端持久化对比列表，只读比较 1-3 款车型，不影响推荐排序。 |
 | `/favorites` | 我的收藏页 | 展示收藏车型，收藏不参与推荐排序。 |
 | `/algorithm-demo` | 算法可视化页面 | 管理端导航中的只读工具页，展示推荐快照中的权重、矩阵、Pareto 和 TOPSIS 过程。 |
@@ -127,21 +127,26 @@ ADMIN 登录 -> /algorithm-demo
 认证与权限数据流：
 
 ```text
-POST /api/auth/user/login 或 /api/auth/admin/login
--> PasswordHasher 校验 PBKDF2 hash
--> JwtTokenService 签发 HS256 token
+POST /api/auth/login
+-> 后端按 username 查询 app_user 和 admin
+-> PasswordHasher 校验 PBKDF2 hash 并识别 USER / ADMIN
+-> JwtTokenService 签发带 principalType 的 HS256 token
 -> 前端保存 token / principal / permissions / menus
+-> 前端按 principalType 跳转：USER 默认 /，ADMIN 默认 /admin/cars
 -> 后续请求由 Axios 附加 Authorization
 -> AuthInterceptor 校验 token、principalType 和角色权限
 -> AuthContext 暴露当前用户或管理员 ID
 -> 未归类 /api/** 默认拒绝，新增 API 必须显式归类为 public / USER / ADMIN
 ```
 
+旧 `POST /api/auth/user/login` 与 `POST /api/auth/admin/login` 保留兼容；产品前端不再展示独立 `/login` 或 `/admin/login` 页面。
+
 用户注册与管理数据流：
 
 ```text
 POST /api/auth/user/register
 -> 校验 username / password / confirmPassword / nickname / phone
+-> 确认 username 不与 app_user 或 admin 冲突
 -> PasswordHasher 生成 PBKDF2 hash
 -> 写入 app_user，status = ACTIVE
 -> 签发 USER token 并自动登录

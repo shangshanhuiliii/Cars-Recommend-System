@@ -18,6 +18,11 @@ assert.match(homeView, /fetchHomeCarouselCars/)
 assert.match(homeView, /carImageSrc\(car\.imageUrl\)/)
 assert.match(homeView, /router\.push\(`\/car\/\$\{id\}`\)/)
 assert.doesNotMatch(homeView, /TOPSIS|Pareto|熵权/)
+assert.doesNotMatch(
+  homeView,
+  /轮播展示已审核车型图片|点击任意车辆可直接进入详情页|推荐入口在下方独立呈现|先看真实车型，再开始一段清晰的购车推荐/,
+)
+assert.doesNotMatch(homeView, /查看历史|车型对比|我的收藏|辅助入口|\/history|\/favorites|\/compare/)
 
 const carouselBlock = extractBlock(homeView, '<el-carousel', '</el-carousel>')
 assert.doesNotMatch(carouselBlock, /开始推荐|开始购车推荐|查看历史|车型对比|\/recommend|\/history|\/compare/)

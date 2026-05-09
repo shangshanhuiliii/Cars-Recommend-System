@@ -1,23 +1,24 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-const loginView = read('../src/views/LoginView.vue')
-const registerView = read('../src/views/RegisterView.vue')
+const authDialog = read('../src/components/AuthDialog.vue')
+const app = read('../src/App.vue')
 const demandView = read('../src/views/RecommendDemandView.vue')
 const resultView = read('../src/views/RecommendResultView.vue')
 const carDetailView = read('../src/views/CarDetailView.vue')
 const router = read('../src/router/index.js')
+const authApi = read('../src/api/auth.js')
 
-assert.doesNotMatch(loginView, /demo_user|demo_admin|测试账号|管理员切换|el-radio-button|loginType/)
-assert.match(loginView, /authStore\.login\('USER'/)
-assert.match(loginView, /router\.push\(resolveTarget\(\)\)/)
-assert.match(loginView, /return '\/'/)
+assert.doesNotMatch(authDialog, /demo_user|demo_admin|测试账号|管理员切换|el-radio-button|loginType/)
+assert.match(authDialog, /authStore\.loginUnified/)
+assert.match(authDialog, /authStore\.register/)
+assert.match(authApi, /loginUnified/)
+assert.match(authApi, /\/auth\/login/)
+assert.match(app, /<AuthDialog/)
 
-assert.doesNotMatch(registerView, /测试账号|演示账号/)
-assert.match(registerView, /return '\/'/)
-
-assert.match(router, /authStore\.principalType === 'ADMIN' \? '\/admin\/cars' : '\/'/)
 assert.match(router, /to\.name === 'home' && authStore\.isAuthenticated && authStore\.principalType === 'ADMIN'/)
+assert.match(router, /buildAuthQuery\('login', to\.fullPath\)/)
+assert.doesNotMatch(router, /LoginView|AdminLoginView|RegisterView/)
 
 assert.doesNotMatch(demandView, /parseDemandText|parse-text|自然语言|排除品牌|排除车型|excludedBrands|excludedCarIds/)
 assert.match(demandView, /budgetOptions/)

@@ -30,6 +30,11 @@ public class AuthController {
         this.authService = authService;
     }
 
+    @PostMapping("/login")
+    public ApiResponse<AuthTokenVO> login(@Valid @RequestBody LoginRequest request) {
+        return ApiResponse.success(authService.login(request));
+    }
+
     @PostMapping("/user/login")
     public ApiResponse<AuthTokenVO> userLogin(@Valid @RequestBody LoginRequest request) {
         return ApiResponse.success(authService.loginUser(request));
