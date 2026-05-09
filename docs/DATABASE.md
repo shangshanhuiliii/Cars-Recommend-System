@@ -41,7 +41,7 @@
 | `username` | 用户名，唯一 |
 | `password` | PBKDF2 密码哈希，格式为 `pbkdf2$iterations$base64Salt$base64Hash` |
 | `nickname` | 昵称 |
-| `email` | 邮箱，唯一，用于后续找回密码基础 |
+| `email` | 邮箱，必填且唯一，用于后续找回密码基础 |
 | `phone` | 手机号 |
 | `status` | 账号状态：`ACTIVE` / `DISABLED` |
 | `deleted` | 软删除 |
@@ -53,6 +53,7 @@
 ```text
 username = demo_user
 password = demo123456
+email = demo_user@example.com
 ```
 
 `app_user.id = 1` 只表示本地 seed 账号主键，不再作为接口默认身份来源。用户端接口身份必须来自 JWT。
@@ -431,7 +432,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\init-dev-db.ps1 -Recreate
 
 `seed-data.sql` 当前提供：
 
-- 本地默认普通用户 `demo_user / demo123456`，密码以 PBKDF2 hash 保存。
+- 本地默认普通用户 `demo_user / demo123456`，邮箱为 `demo_user@example.com`，密码以 PBKDF2 hash 保存。
 - 本地默认管理员 `demo_admin / admin123456`，`role = ADMIN`，密码以 PBKDF2 hash 保存。
 - 120 条车型基础数据。
 - 120 条车型参数数据。
@@ -472,6 +473,9 @@ car_feature_score = 120
 当前脚本包含常用索引：
 
 - `car_model(brand)`
+- `app_user(username)` 唯一约束
+- `app_user(email)` 唯一约束
+- `admin(username)` 唯一约束
 - `car_model(body_type)`
 - `car_model(energy_type)`
 - `car_model(guide_price)`

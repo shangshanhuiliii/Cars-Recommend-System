@@ -142,7 +142,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\init-dev-db.ps1 `
 
 `seed-data.sql` 当前包含：
 
-- 本地默认普通用户 `demo_user / demo123456`，`status = ACTIVE`，密码以 PBKDF2 hash 保存。
+- 本地默认普通用户 `demo_user / demo123456`，邮箱为 `demo_user@example.com`，`status = ACTIVE`，密码以 PBKDF2 hash 保存。
 - 本地默认管理员 `demo_admin / admin123456`，`role = ADMIN`，密码以 PBKDF2 hash 保存。
 - 120 条车型基础数据。
 - 120 条车型参数数据。
