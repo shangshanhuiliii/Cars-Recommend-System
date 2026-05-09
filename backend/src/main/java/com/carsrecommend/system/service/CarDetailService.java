@@ -3,6 +3,7 @@ package com.carsrecommend.system.service;
 import com.carsrecommend.system.vo.CarDetailVO;
 import com.carsrecommend.system.vo.CarCompareVO;
 import com.carsrecommend.system.vo.CarOptionVO;
+import com.carsrecommend.system.vo.HomeCarouselCarVO;
 import java.util.List;
 
 public interface CarDetailService {
@@ -14,4 +15,6 @@ public interface CarDetailService {
     List<String> getActiveBrands();
 
     List<CarOptionVO> getCarOptions(String keyword, Integer limit);
+
+    List<HomeCarouselCarVO> getHomeCarouselCars(Integer limit);
 }

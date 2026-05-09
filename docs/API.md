@@ -245,11 +245,28 @@ DELETE /api/admin/cars/{id}
 GET /api/car/{id}
 GET /api/car/brands
 GET /api/car/options
+GET /api/car/home-carousel?limit=6
 ```
 
 `GET /api/car/{id}` 只返回未删除车型。车型不存在或已删除时返回 404；参数或评分不存在时对应字段返回 `null`，接口不触发评分重算。
 
 `GET /api/car/brands` 返回可用品牌数组。
+
+`GET /api/car/home-carousel?limit=6` 是首页公开车辆轮播接口，默认返回 6 条，`limit` 允许范围为 3-12，非法值返回 400。接口只读，只查询 `deleted = FALSE` 且 `audit_status = 'APPROVED'` 的车型；优先随机返回 `imageUrl` 非空车型，有图车型不足时再随机补齐其他审核通过车型。该接口不写数据库、不触发车型评分重算、不保存用户需求、不生成推荐记录。
+
+响应字段：
+
+| 字段 | 说明 |
+| --- | --- |
+| `id` | 车型 ID |
+| `brand` | 品牌 |
+| `series` | 车系 |
+| `modelName` | 车型名称 |
+| `guidePrice` | 指导价，单位元 |
+| `bodyType` | 车型类型 |
+| `energyType` | 动力类型 |
+| `seats` | 座位数 |
+| `imageUrl` | 当前生效图片地址，可为空，前端用本地兜底图展示 |
 
 `GET /api/car/options` 查询可选车型：
 

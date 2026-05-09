@@ -1,487 +1,673 @@
 <template>
   <section class="home-page">
-    <el-carousel
-      class="hero-carousel"
-      height="420px"
-      indicator-position="outside"
-      arrow="always"
-      :interval="5200"
-    >
-      <el-carousel-item v-for="slide in heroSlides" :key="slide.title">
-        <article class="hero-slide" :class="slide.className">
-          <div class="hero-copy">
-            <p class="eyebrow">{{ slide.eyebrow }}</p>
-            <h1>{{ slide.title }}</h1>
-            <p>{{ slide.description }}</p>
-            <div class="hero-action-row">
-              <el-button type="primary" size="large" @click="router.push(slide.to)">
-                {{ slide.cta }}
-              </el-button>
-              <span>{{ slide.actionHint }}</span>
-            </div>
-          </div>
-          <div class="hero-visual" aria-hidden="true">
-            <div class="visual-panel">
-              <div class="visual-panel__head">
-                <span>{{ slide.visualTitle }}</span>
-                <strong>{{ slide.visualValue }}</strong>
-              </div>
-              <img src="/images/cars/default-car.svg" alt="" />
-              <div class="visual-specs">
-                <span v-for="spec in slide.specs" :key="spec">{{ spec }}</span>
-              </div>
-            </div>
-          </div>
-        </article>
-      </el-carousel-item>
-    </el-carousel>
-
-    <section class="recommend-entry" aria-labelledby="recommend-entry-title">
-      <div class="section-heading">
-        <p class="section-label">购车推荐入口</p>
-        <h2 id="recommend-entry-title">从需求到结果，按你的偏好推进</h2>
+    <section class="home-hero" aria-labelledby="home-hero-title">
+      <div class="hero-heading">
+        <p class="eyebrow">产品化购车决策</p>
+        <h1 id="home-hero-title">先看真实车型，再开始一段清晰的购车推荐。</h1>
+        <p>
+          轮播展示已审核车型图片；点击任意车辆可直接进入详情页。推荐入口在下方独立呈现，让浏览和决策各自清晰。
+        </p>
       </div>
-      <div class="entry-grid">
-        <button v-for="entry in quickEntries" :key="entry.title" class="entry-card" type="button" @click="router.push(entry.to)">
+
+      <div class="carousel-shell">
+        <div v-if="carouselLoading" class="carousel-state">
+          <span class="state-orb" />
+          <strong>正在加载车辆图片</strong>
+          <p>从公开车型接口读取已审核车型。</p>
+        </div>
+
+        <div v-else-if="carouselError" class="carousel-state carousel-state--error">
+          <strong>车辆轮播暂时不可用</strong>
+          <p>{{ carouselError }}</p>
+          <el-button type="primary" plain @click="loadCarousel">重新加载</el-button>
+        </div>
+
+        <div v-else-if="!carouselCars.length" class="carousel-state">
+          <img src="/images/cars/default-car.svg" alt="" />
+          <strong>暂时没有可展示车型</strong>
+          <p>有审核通过车型后，首页会自动展示车辆图片。</p>
+        </div>
+
+        <el-carousel
+          v-else
+          class="vehicle-carousel"
+          height="520px"
+          indicator-position="outside"
+          arrow="always"
+          trigger="click"
+          :interval="5600"
+        >
+          <el-carousel-item v-for="car in carouselCars" :key="car.id">
+            <button
+              class="carousel-slide"
+              type="button"
+              :aria-label="`查看${car.brand}${car.modelName}详情`"
+              @click="goCar(car.id)"
+            >
+              <img class="carousel-slide__image" :src="carImageSrc(car.imageUrl)" :alt="`${car.brand} ${car.modelName}`" @error="fallbackCarImage" />
+              <span class="carousel-slide__veil" aria-hidden="true" />
+              <span class="carousel-slide__content">
+                <span class="slide-kicker">{{ car.brand }} · {{ car.series || '精选车型' }}</span>
+                <strong>{{ car.modelName }}</strong>
+                <span class="slide-price">{{ formatPrice(car.guidePrice) }}</span>
+                <span class="slide-specs">
+                  <span>{{ car.energyType || '动力待补充' }}</span>
+                  <span>{{ car.bodyType || '车型待补充' }}</span>
+                  <span>{{ formatSeats(car.seats) }}</span>
+                </span>
+              </span>
+            </button>
+          </el-carousel-item>
+        </el-carousel>
+      </div>
+    </section>
+
+    <section class="recommend-core" aria-labelledby="recommend-core-title">
+      <div class="recommend-core__copy">
+        <p class="eyebrow">核心入口</p>
+        <h2 id="recommend-core-title">开始购车推荐</h2>
+        <p>用预算、场景、偏好找到适合车型。系统会保存当次需求和推荐结果，后续可继续回看和比较。</p>
+        <div class="recommend-core__actions">
+          <el-button class="primary-cta" type="primary" size="large" @click="router.push('/recommend')">
+            开始购车推荐
+          </el-button>
+          <span>约 1 分钟完成核心需求</span>
+        </div>
+      </div>
+      <div class="recommend-core__panel" aria-hidden="true">
+        <span class="panel-chip">预算</span>
+        <span class="panel-chip">场景</span>
+        <span class="panel-chip">偏好</span>
+        <div class="panel-line panel-line--wide" />
+        <div class="panel-line" />
+        <div class="panel-score">推荐分</div>
+      </div>
+    </section>
+
+    <section class="assist-section" aria-labelledby="assist-title">
+      <div class="section-heading">
+        <p class="section-label">辅助入口</p>
+        <h2 id="assist-title">把关注车型留给后续判断</h2>
+      </div>
+      <div class="assist-grid">
+        <button v-for="entry in assistEntries" :key="entry.title" class="assist-card" type="button" @click="router.push(entry.to)">
           <span>{{ entry.kicker }}</span>
-          <h3>{{ entry.title }}</h3>
+          <strong>{{ entry.title }}</strong>
           <p>{{ entry.description }}</p>
         </button>
       </div>
     </section>
 
-    <section class="capability-section" aria-labelledby="capability-title">
+    <section class="feature-entry" aria-labelledby="feature-entry-title">
       <div class="section-heading">
-        <p class="section-label">核心能力</p>
-        <h2 id="capability-title">推荐结果清晰、可比较、可回看</h2>
+        <p class="section-label">特色介绍</p>
+        <h2 id="feature-entry-title">了解每个环节如何辅助购车判断</h2>
       </div>
-      <div class="capability-grid">
-        <article v-for="item in capabilities" :key="item.title" class="capability-card">
-          <span>{{ item.index }}</span>
-          <h3>{{ item.title }}</h3>
-          <p>{{ item.description }}</p>
-        </article>
+      <div class="feature-grid">
+        <button v-for="feature in featureCards" :key="feature.section" class="feature-card" type="button" @click="goFeature(feature.section)">
+          <span>{{ feature.index }}</span>
+          <strong>{{ feature.title }}</strong>
+          <p>{{ feature.description }}</p>
+        </button>
       </div>
     </section>
   </section>
 </template>
 
 <script setup>
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+
+import { fetchHomeCarouselCars } from '@/api/cars'
+import { carImageSrc, fallbackCarImage } from '@/utils/carImage'
 
 const router = useRouter()
 
-const heroSlides = [
-  {
-    eyebrow: '个性化购车推荐',
-    title: '找到更适合你的车型',
-    description: '围绕预算、用车场景、座位需求和偏好重点生成推荐结果，帮助你快速缩小选择范围。',
-    cta: '开始推荐',
-    actionHint: '约 1 分钟填写核心需求',
-    to: '/recommend',
-    className: 'hero-slide--primary',
-    visualTitle: '推荐决策',
-    visualValue: '按偏好匹配',
-    specs: ['预算匹配', '场景适配', '偏好优先'],
-  },
-  {
-    eyebrow: '推荐记录回看',
-    title: '按预算、场景和偏好生成推荐',
-    description: '每次推荐都会保存当时的需求和结果，方便你之后继续比较和进入车型页。',
-    cta: '查看历史',
-    actionHint: '继续查看已保存的结果',
-    to: '/history',
-    className: 'hero-slide--green',
-    visualTitle: '推荐记录',
-    visualValue: '记录回看',
-    specs: ['历史记录', '结果回看', '详情入口'],
-  },
-  {
-    eyebrow: '收藏与对比',
-    title: '查看推荐理由、不足提醒和车型对比',
-    description: '把感兴趣的车型加入收藏或对比，从空间、安全、能耗、舒适等维度辅助最终判断。',
-    cta: '车型对比',
-    actionHint: '最多选择 3 款车型',
-    to: '/compare',
-    className: 'hero-slide--amber',
-    visualTitle: '车型决策',
-    visualValue: '横向比较',
-    specs: ['理由清晰', '不足提醒', '横向对比'],
-  },
-]
+const carouselCars = ref([])
+const carouselLoading = ref(false)
+const carouselError = ref('')
 
-const quickEntries = [
-  {
-    kicker: '推荐',
-    title: '开始购车推荐',
-    description: '填写预算、车型、动力、座位和场景偏好，生成适合当前需求的车型推荐。',
-    to: '/recommend',
-  },
+const assistEntries = [
   {
     kicker: '历史',
-    title: '查看推荐历史',
-    description: '回看已生成的推荐记录，继续查看推荐详情和车型信息。',
+    title: '历史回看',
+    description: '读取每次推荐发生时保存的结果，适合继续比较和复盘。',
     to: '/history',
   },
   {
     kicker: '收藏',
     title: '我的收藏',
-    description: '管理关注车型，后续可从收藏中进入详情或加入对比。',
+    description: '把感兴趣的车型集中起来，之后从收藏进入详情。',
     to: '/favorites',
   },
   {
     kicker: '对比',
     title: '车型对比',
-    description: '对 1-3 款车型做横向比较，查看参数和维度评分差异。',
+    description: '选择 1-3 款车型横向查看参数和维度表现。',
     to: '/compare',
   },
 ]
 
-const capabilities = [
+const featureCards = [
   {
     index: '01',
-    title: '多维车型评分',
-    description: '围绕空间、安全、能耗、智能、舒适、动力、口碑和热度展示车型表现。',
+    section: 'demand',
+    title: '结构化购车需求',
+    description: '预算、车型、动力、座位、场景和偏好按步骤组织。',
   },
   {
     index: '02',
-    title: '个性化偏好权重',
-    description: '根据用户主动填写的关注因素和使用场景，让推荐结果贴近真实购车偏好。',
+    section: 'result',
+    title: '推荐理由',
+    description: '结果说明车型为什么适合当前需求，并展示重点标签。',
   },
   {
     index: '03',
-    title: '推荐理由',
-    description: '推荐结果说明车型为什么适合当前需求，减少只看参数带来的判断成本。',
+    section: 'weakness',
+    title: '不足提醒',
+    description: '同步提示可能需要取舍的地方，避免只看亮点。',
   },
   {
     index: '04',
-    title: '不足提醒',
-    description: '在推荐车型中同步提示可能不满足预期的地方，帮助用户做平衡取舍。',
+    section: 'decision',
+    title: '收藏与对比',
+    description: '把候选车留给后续查看，不改变推荐结果本身。',
   },
   {
     index: '05',
-    title: '收藏与对比',
-    description: '支持关注车型和横向对比，让后续筛选、复看和决策更连贯。',
+    section: 'history',
+    title: '历史回看',
+    description: '按当时保存的快照读取结果，保留决策上下文。',
   },
 ]
+
+onMounted(loadCarousel)
+
+async function loadCarousel() {
+  carouselLoading.value = true
+  carouselError.value = ''
+  try {
+    const response = await fetchHomeCarouselCars(6)
+    carouselCars.value = Array.isArray(response?.data) ? response.data : []
+  } catch (error) {
+    carouselError.value = error?.response?.data?.message || '请稍后再试，页面其他入口仍可使用。'
+    carouselCars.value = []
+  } finally {
+    carouselLoading.value = false
+  }
+}
+
+function goCar(id) {
+  if (id) {
+    router.push(`/car/${id}`)
+  }
+}
+
+function goFeature(section) {
+  router.push({ path: '/features', query: { section } })
+}
+
+function formatPrice(value) {
+  const amount = Number(value)
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return '指导价待补充'
+  }
+  const price = amount / 10000
+  return `${Number.isInteger(price) ? price.toFixed(0) : price.toFixed(1)}万`
+}
+
+function formatSeats(seats) {
+  const value = Number(seats)
+  return Number.isFinite(value) && value > 0 ? `${value}座` : '座位待补充'
+}
 </script>
 
 <style scoped>
 .home-page {
   display: grid;
-  gap: 28px;
+  gap: 34px;
+  animation: page-in 520ms ease both;
 }
 
-.hero-carousel {
-  border-radius: var(--radius-lg);
-}
-
-.hero-carousel :deep(.el-carousel__container) {
-  border-radius: var(--radius-lg);
-}
-
-.hero-slide {
-  position: relative;
+.home-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 420px;
-  gap: 36px;
+  gap: 22px;
+}
+
+.hero-heading {
+  max-width: 860px;
+}
+
+.eyebrow,
+.section-label {
+  margin: 0 0 10px;
+  color: #0b65c2;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.hero-heading h1 {
+  margin: 0;
+  color: var(--color-primary-dark);
+  font-size: clamp(40px, 5vw, 72px);
+  line-height: 1.03;
+  letter-spacing: -0.055em;
+}
+
+.hero-heading p:not(.eyebrow) {
+  max-width: 760px;
+  margin: 20px 0 0;
+  color: var(--color-muted);
+  font-size: 17px;
+  line-height: 1.85;
+}
+
+.carousel-shell {
+  min-height: 560px;
+}
+
+.vehicle-carousel :deep(.el-carousel__container),
+.carousel-slide {
+  border-radius: var(--radius-xl);
+}
+
+.vehicle-carousel :deep(.el-carousel__arrow) {
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  background: rgba(17, 24, 39, 0.4);
+  backdrop-filter: blur(16px);
+}
+
+.carousel-slide {
+  position: relative;
+  display: block;
+  width: 100%;
   height: 100%;
   overflow: hidden;
-  padding: 48px;
-  border-radius: var(--radius-lg);
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  background: #111827;
+  box-shadow: 0 28px 70px rgba(17, 24, 39, 0.16);
   color: #fff;
-  box-shadow: var(--shadow-card);
+  cursor: pointer;
+  text-align: left;
 }
 
-.hero-slide::before {
+.carousel-slide__image {
   position: absolute;
   inset: 0;
-  content: "";
-  background:
-    linear-gradient(90deg, rgba(15, 23, 42, 0.96), rgba(15, 23, 42, 0.72) 55%, rgba(15, 23, 42, 0.18)),
-    repeating-linear-gradient(112deg, transparent 0 38px, rgba(255, 255, 255, 0.08) 38px 40px);
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.01);
+  transition: transform 700ms ease;
 }
 
-.hero-slide::after {
+.carousel-slide:hover .carousel-slide__image {
+  transform: scale(1.045);
+}
+
+.carousel-slide__veil {
   position: absolute;
-  right: -120px;
-  bottom: -90px;
-  width: 520px;
-  height: 240px;
-  content: "";
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  transform: rotate(-12deg);
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(8, 13, 23, 0.84), rgba(8, 13, 23, 0.45) 48%, rgba(8, 13, 23, 0.08)),
+    linear-gradient(0deg, rgba(8, 13, 23, 0.32), transparent 48%);
 }
 
-.hero-slide--primary {
-  background: linear-gradient(135deg, #0f172a, #2563eb 58%, #0891b2);
-}
-
-.hero-slide--green {
-  background: linear-gradient(135deg, #0f172a, #0f766e 58%, #16a34a);
-}
-
-.hero-slide--amber {
-  background: linear-gradient(135deg, #111827, #b45309 58%, #f59e0b);
-}
-
-.hero-copy,
-.hero-visual {
+.carousel-slide__content {
   position: relative;
   z-index: 1;
-}
-
-.hero-copy {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  align-items: flex-start;
+  justify-content: flex-end;
+  width: min(560px, 70%);
+  height: 100%;
+  padding: 52px;
 }
 
-.eyebrow {
-  margin: 0 0 14px;
-  padding: 7px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.84);
+.slide-kicker {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.carousel-slide__content strong {
+  margin-top: 14px;
+  font-size: clamp(34px, 5vw, 62px);
+  line-height: 1.02;
+  letter-spacing: -0.055em;
+}
+
+.slide-price {
+  margin-top: 18px;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.slide-specs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.slide-specs span {
+  padding: 9px 13px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.9);
   font-size: 13px;
   font-weight: 700;
+  backdrop-filter: blur(12px);
 }
 
-.hero-copy h1 {
-  max-width: 680px;
+.carousel-state {
+  display: grid;
+  min-height: 520px;
+  place-items: center;
+  align-content: center;
+  gap: 12px;
+  padding: 36px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: rgba(255, 255, 255, 0.68);
+  box-shadow: var(--shadow-card);
+  text-align: center;
+  backdrop-filter: blur(18px);
+}
+
+.carousel-state img {
+  width: min(320px, 80%);
+  opacity: 0.72;
+}
+
+.carousel-state strong {
+  color: var(--color-primary-dark);
+  font-size: 24px;
+}
+
+.carousel-state p {
   margin: 0;
-  font-size: 48px;
-  line-height: 1.12;
+  color: var(--color-muted);
 }
 
-.hero-copy p:not(.eyebrow) {
-  max-width: 680px;
-  margin: 20px 0 30px;
-  color: rgba(255, 255, 255, 0.84);
-  font-size: 16px;
-  line-height: 1.8;
+.carousel-state--error {
+  border-color: rgba(194, 65, 12, 0.2);
 }
 
-.hero-action-row {
+.state-orb {
+  width: 44px;
+  height: 44px;
+  border: 4px solid rgba(10, 132, 255, 0.14);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.recommend-core {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 28px;
+  padding: clamp(28px, 5vw, 56px);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  border-radius: var(--radius-xl);
+  background:
+    radial-gradient(circle at 90% 10%, rgba(90, 200, 250, 0.22), transparent 30%),
+    rgba(255, 255, 255, 0.74);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(20px);
+}
+
+.recommend-core__copy h2 {
+  margin: 0;
+  color: var(--color-primary-dark);
+  font-size: clamp(34px, 5vw, 64px);
+  line-height: 1.04;
+  letter-spacing: -0.055em;
+}
+
+.recommend-core__copy p:not(.eyebrow) {
+  max-width: 660px;
+  margin: 18px 0 0;
+  color: var(--color-muted);
+  font-size: 17px;
+  line-height: 1.85;
+}
+
+.recommend-core__actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 14px;
+  margin-top: 30px;
 }
 
-.hero-action-row span {
-  color: rgba(255, 255, 255, 0.72);
+.recommend-core__actions span {
+  color: var(--color-muted);
   font-size: 13px;
+  font-weight: 700;
 }
 
-.hero-visual {
-  display: grid;
-  align-content: center;
+.primary-cta {
+  min-width: 178px;
+  min-height: 48px;
+  border-radius: 999px;
+  box-shadow: 0 16px 30px rgba(10, 132, 255, 0.24);
+  font-weight: 800;
 }
 
-.visual-panel {
+.recommend-core__panel {
   position: relative;
   display: grid;
-  gap: 18px;
-  min-height: 290px;
-  padding: 22px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: var(--radius-md);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.08));
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
-  backdrop-filter: blur(10px);
+  align-content: start;
+  gap: 14px;
+  min-height: 250px;
+  padding: 24px;
+  border: 1px solid var(--color-border);
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.62);
+  box-shadow: var(--shadow-soft);
 }
 
-.visual-panel__head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.visual-panel__head span,
-.visual-panel__head strong {
-  display: block;
-}
-
-.visual-panel__head span {
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 12px;
-}
-
-.visual-panel__head strong {
-  color: #fff;
-  font-size: 22px;
-  line-height: 1.2;
-  text-align: right;
-}
-
-.visual-panel img {
-  width: 100%;
-  max-height: 168px;
-  object-fit: contain;
-  filter: drop-shadow(0 22px 24px rgba(15, 23, 42, 0.38));
-}
-
-.visual-specs {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.visual-specs span {
-  min-height: 42px;
-  display: grid;
-  place-items: center;
-  padding: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.88);
+.panel-chip {
+  width: fit-content;
+  padding: 9px 14px;
+  border-radius: 999px;
+  background: #f2f4f7;
+  color: #344054;
   font-size: 13px;
-  font-weight: 700;
-  text-align: center;
+  font-weight: 800;
 }
 
-.recommend-entry,
-.capability-section {
+.panel-line {
+  width: 72%;
+  height: 10px;
+  margin-top: 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(10, 132, 255, 0.28), rgba(10, 132, 255, 0.06));
+}
+
+.panel-line--wide {
+  width: 100%;
+}
+
+.panel-score {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  display: grid;
+  width: 88px;
+  height: 88px;
+  place-items: center;
+  border-radius: 50%;
+  background: #111827;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.assist-section,
+.feature-entry {
   display: grid;
   gap: 18px;
-}
-
-.section-heading {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 18px;
-}
-
-.section-label {
-  margin: 0 0 6px;
-  color: var(--color-muted);
-  font-size: 12px;
-  font-weight: 700;
 }
 
 .section-heading h2 {
   margin: 0;
   color: var(--color-primary-dark);
-  font-size: 24px;
+  font-size: clamp(24px, 3vw, 36px);
+  letter-spacing: -0.035em;
 }
 
-.entry-grid {
+.assist-grid,
+.feature-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
 }
 
-.entry-card,
-.capability-card {
+.assist-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.feature-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.assist-card,
+.feature-card {
+  display: grid;
+  gap: 12px;
+  min-height: 168px;
+  padding: 22px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: #fff;
-  box-shadow: var(--shadow-card);
-}
-
-.entry-card {
-  min-height: 176px;
-  padding: 22px;
-  text-align: left;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: var(--shadow-soft);
+  color: var(--color-text);
   cursor: pointer;
+  text-align: left;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease;
 }
 
-.entry-card span,
-.capability-card span {
-  color: var(--color-accent);
-  font-size: 13px;
-  font-weight: 700;
+.assist-card:hover,
+.feature-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(10, 132, 255, 0.22);
+  box-shadow: 0 20px 48px rgba(17, 24, 39, 0.1);
 }
 
-.entry-card h3,
-.capability-card h3 {
-  margin: 16px 0 10px;
+.assist-card span,
+.feature-card span {
+  color: #0b65c2;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.assist-card strong,
+.feature-card strong {
   color: var(--color-primary-dark);
-  font-size: 19px;
+  font-size: 20px;
+  letter-spacing: -0.02em;
 }
 
-.entry-card p,
-.capability-card p {
+.assist-card p,
+.feature-card p {
   margin: 0;
   color: var(--color-muted);
   line-height: 1.7;
 }
 
-.capability-grid {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 16px;
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.capability-card {
-  min-height: 166px;
-  padding: 20px;
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (max-width: 1080px) {
-  .hero-slide {
-    grid-template-columns: minmax(0, 1fr) 320px;
-    gap: 24px;
+  .recommend-core {
+    grid-template-columns: 1fr;
   }
 
-  .entry-grid,
-  .capability-grid {
+  .recommend-core__panel {
+    min-height: 220px;
+  }
+
+  .feature-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 760px) {
-  .hero-carousel {
-    border-radius: var(--radius-md);
+@media (max-width: 820px) {
+  .hero-heading h1 {
+    font-size: 42px;
   }
 
-  .hero-carousel :deep(.el-carousel__container) {
-    height: 390px !important;
+  .carousel-shell {
+    min-height: 480px;
   }
 
-  .hero-slide {
+  .vehicle-carousel :deep(.el-carousel__container),
+  .carousel-state {
+    height: 430px !important;
+    min-height: 430px;
+  }
+
+  .carousel-slide__content {
+    width: 100%;
+    padding: 30px;
+  }
+
+  .assist-grid,
+  .feature-grid {
     grid-template-columns: 1fr;
-    gap: 16px;
-    padding: 26px;
+  }
+}
+
+@media (max-width: 560px) {
+  .hero-heading h1,
+  .recommend-core__copy h2 {
+    font-size: 34px;
   }
 
-  .hero-copy h1 {
-    font-size: 29px;
-    line-height: 1.16;
-  }
-
-  .hero-copy p:not(.eyebrow) {
-    margin: 16px 0 22px;
+  .hero-heading p:not(.eyebrow),
+  .recommend-core__copy p:not(.eyebrow) {
     font-size: 15px;
-    line-height: 1.7;
   }
 
-  .hero-action-row {
-    align-items: flex-start;
-    gap: 10px;
+  .carousel-slide__content strong {
+    font-size: 32px;
   }
 
-  .hero-action-row span {
-    flex-basis: 100%;
+  .slide-price {
+    font-size: 18px;
   }
 
-  .hero-visual {
-    display: none;
+  .slide-specs {
+    gap: 8px;
   }
 
-  .section-heading {
-    display: block;
-  }
-
-  .entry-grid,
-  .capability-grid {
-    grid-template-columns: 1fr;
+  .recommend-core {
+    padding: 24px;
   }
 }
 </style>

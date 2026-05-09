@@ -2,13 +2,7 @@
   <el-container class="app-shell">
     <el-header class="topbar">
       <div class="topbar__inner">
-        <RouterLink class="brand" :to="brandTarget">
-          <span class="brand__mark">CR</span>
-          <span>
-            <strong>汽车推荐系统</strong>
-            <small>可解释购车决策</small>
-          </span>
-        </RouterLink>
+        <AppLogo :to="brandTarget" />
 
         <el-menu
           class="nav-menu"
@@ -46,6 +40,7 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import AppLogo from '@/components/AppLogo.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()

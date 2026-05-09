@@ -206,6 +206,7 @@ Vite proxy 会将 `/api` 转发到 `http://localhost:8080`。
 - `/history`
 - `/compare`
 - `/favorites`
+- `/features`
 - `/admin/login`
 - `/admin/favorites`
 - `/admin/feedbacks`
@@ -228,6 +229,7 @@ Vite proxy 会将 `/api` 转发到 `http://localhost:8080`。
 - 推荐历史：`GET /api/recommend/history`
 - 算法可视化：`GET /api/admin/recommend-records/{recordId}/algorithm-visualization`
 - 车型详情：`GET /api/car/{id}`
+- 首页车辆轮播：`GET /api/car/home-carousel?limit=6`
 - 用户级车型对比：`GET /api/user/compare`、`POST /api/user/compare/{carId}`、`DELETE /api/user/compare/{carId}`、`DELETE /api/user/compare`
 - 静态车型对比查询：`GET /api/car/compare`
 - 收藏：`POST /api/user/favorites/{carId}`、`DELETE /api/user/favorites/{carId}`、`GET /api/user/favorites`

@@ -6,18 +6,26 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.nio.charset.StandardCharsets;
 import java.math.BigDecimal;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.context.jdbc.SqlConfig;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
 @SpringBootTest(properties = {
-        "app.auth.enabled=false",
+        "app.auth.enabled=true",
+        "app.auth.jwt-secret=car-controller-test-secret-keep-at-least-32-bytes",
+        "app.auth.token-expire-seconds=7200",
         "spring.datasource.url=jdbc:h2:mem:cars_stage8_car_detail;MODE=MySQL;DATABASE_TO_UPPER=FALSE;DB_CLOSE_DELAY=-1",
         "spring.datasource.username=sa",
         "spring.datasource.password=",
@@ -36,9 +44,16 @@ class CarControllerTest {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private ObjectMapper objectMapper;
+
     @Test
     void userCarDetailReturnsModelParamScoreAndDoesNotRecalculate() throws Exception {
-        mockMvc.perform(post("/api/admin/cars/{id}/score/recalculate", 2))
+        verifyHomeCarouselIsPublicReadOnlyAndFiltersCars();
+
+        String adminToken = adminToken();
+        mockMvc.perform(post("/api/admin/cars/{id}/score/recalculate", 2)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(adminToken)))
                 .andExpect(status().isOk());
 
         mockMvc.perform(get("/api/car/{id}", 2))
@@ -101,13 +116,79 @@ class CarControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.length()").value(0));
 
-        compareCarsReturnsModelParamScoreAndDoesNotWriteRecommendationData();
+        compareCarsReturnsModelParamScoreAndDoesNotWriteRecommendationData(adminToken);
     }
 
-    private void compareCarsReturnsModelParamScoreAndDoesNotWriteRecommendationData() throws Exception {
-        mockMvc.perform(post("/api/admin/cars/{id}/score/recalculate", 1))
+    private void verifyHomeCarouselIsPublicReadOnlyAndFiltersCars() throws Exception {
+        jdbcTemplate.update("""
+                INSERT INTO car_model (
+                    id, brand, series, model_name, guide_price, body_type, energy_type,
+                    seats, launch_year, image_url, sales_volume, user_rating, audit_status, deleted
+                ) VALUES
+                    (601, '轮播测试', 'Aero', 'Aero One', 189900, 'SUV', '纯电',
+                        5, 2026, '/uploads/car-images/aero-one.jpg', 1200, ?, 'APPROVED', FALSE),
+                    (602, '轮播测试', 'Aero', 'Aero Two', 209900, '轿车', '插混',
+                        5, 2026, '/uploads/car-images/aero-two.jpg', 1100, ?, 'APPROVED', FALSE),
+                    (603, '轮播测试', 'Aero', 'Aero Three', 229900, 'MPV', '增程',
+                        6, 2026, '/uploads/car-images/aero-three.jpg', 900, ?, 'APPROVED', FALSE),
+                    (604, '轮播测试', 'Pending', 'Pending Car', 199900, 'SUV', '纯电',
+                        5, 2026, '/uploads/car-images/pending.jpg', 800, ?, 'PENDING', FALSE),
+                    (605, '轮播测试', 'Deleted', 'Deleted Car', 199900, 'SUV', '纯电',
+                        5, 2026, '/uploads/car-images/deleted.jpg', 800, ?, 'APPROVED', TRUE)
+                """,
+                new BigDecimal("4.6"),
+                new BigDecimal("4.5"),
+                new BigDecimal("4.4"),
+                new BigDecimal("4.3"),
+                new BigDecimal("4.2"));
+
+        int recordCount = count("SELECT COUNT(*) FROM recommend_record");
+        int itemCount = count("SELECT COUNT(*) FROM recommend_item");
+        int demandCount = count("SELECT COUNT(*) FROM user_demand");
+        int scoreCount = count("SELECT COUNT(*) FROM car_feature_score");
+
+        mockMvc.perform(get("/api/car/home-carousel").param("limit", "3"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.length()").value(3))
+                .andExpect(jsonPath("$.data[?(@.id==601)]").exists())
+                .andExpect(jsonPath("$.data[?(@.id==602)]").exists())
+                .andExpect(jsonPath("$.data[?(@.id==603)]").exists())
+                .andExpect(jsonPath("$.data[?(@.id==604)]").doesNotExist())
+                .andExpect(jsonPath("$.data[?(@.id==605)]").doesNotExist())
+                .andExpect(jsonPath("$.data[0].brand").exists())
+                .andExpect(jsonPath("$.data[0].series").exists())
+                .andExpect(jsonPath("$.data[0].modelName").exists())
+                .andExpect(jsonPath("$.data[0].guidePrice").exists())
+                .andExpect(jsonPath("$.data[0].bodyType").exists())
+                .andExpect(jsonPath("$.data[0].energyType").exists())
+                .andExpect(jsonPath("$.data[0].seats").exists())
+                .andExpect(jsonPath("$.data[0].imageUrl").exists());
+
+        mockMvc.perform(get("/api/car/home-carousel"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(6));
+
+        mockMvc.perform(get("/api/car/home-carousel").param("limit", "2"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400));
+
+        mockMvc.perform(get("/api/car/home-carousel").param("limit", "13"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400));
+
+        assertEquals(recordCount, count("SELECT COUNT(*) FROM recommend_record"));
+        assertEquals(itemCount, count("SELECT COUNT(*) FROM recommend_item"));
+        assertEquals(demandCount, count("SELECT COUNT(*) FROM user_demand"));
+        assertEquals(scoreCount, count("SELECT COUNT(*) FROM car_feature_score"));
+    }
+
+    private void compareCarsReturnsModelParamScoreAndDoesNotWriteRecommendationData(String adminToken) throws Exception {
+        mockMvc.perform(post("/api/admin/cars/{id}/score/recalculate", 1)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(adminToken)))
                 .andExpect(status().isOk());
-        mockMvc.perform(post("/api/admin/cars/{id}/score/recalculate", 2))
+        mockMvc.perform(post("/api/admin/cars/{id}/score/recalculate", 2)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(adminToken)))
                 .andExpect(status().isOk());
 
         assertEquals(2, count("SELECT COUNT(*) FROM car_feature_score"));
@@ -167,5 +248,41 @@ class CarControllerTest {
     private int count(String sql) {
         Integer value = jdbcTemplate.queryForObject(sql, Integer.class);
         return value == null ? 0 : value;
+    }
+
+    private String adminToken() throws Exception {
+        return login("/api/auth/admin/login", "demo_admin", "admin123456").andReturnData().path("token").asText();
+    }
+
+    private ResultActionsWithData login(String url, String username, String password) throws Exception {
+        String payload = """
+                {
+                  "username": "%s",
+                  "password": "%s"
+                }
+                """.formatted(username, password);
+        MvcResult result = mockMvc.perform(post(url)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .characterEncoding(StandardCharsets.UTF_8)
+                        .content(payload))
+                .andReturn();
+        return new ResultActionsWithData(result);
+    }
+
+    private String bearer(String token) {
+        return "Bearer " + token;
+    }
+
+    private class ResultActionsWithData {
+
+        private final MvcResult result;
+
+        ResultActionsWithData(MvcResult result) {
+            this.result = result;
+        }
+
+        JsonNode andReturnData() throws Exception {
+            return objectMapper.readTree(result.getResponse().getContentAsString(StandardCharsets.UTF_8)).path("data");
+        }
     }
 }

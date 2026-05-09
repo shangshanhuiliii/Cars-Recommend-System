@@ -11,6 +11,7 @@ import AlgorithmDemoView from '@/views/AlgorithmDemoView.vue'
 import CarDetailView from '@/views/CarDetailView.vue'
 import CarCompareView from '@/views/CarCompareView.vue'
 import FavoritesView from '@/views/FavoritesView.vue'
+import FeatureShowcaseView from '@/views/FeatureShowcaseView.vue'
 import HistoryView from '@/views/HistoryView.vue'
 import HomeView from '@/views/HomeView.vue'
 import AdminLoginView from '@/views/AdminLoginView.vue'
@@ -69,6 +70,12 @@ const router = createRouter({
       path: '/car/:id',
       name: 'car-detail',
       component: CarDetailView,
+      meta: { public: true },
+    },
+    {
+      path: '/features',
+      name: 'features',
+      component: FeatureShowcaseView,
       meta: { public: true },
     },
     {

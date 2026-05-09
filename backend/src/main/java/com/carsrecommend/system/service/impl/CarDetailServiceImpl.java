@@ -17,6 +17,7 @@ import com.carsrecommend.system.vo.CarFeatureScoreVO;
 import com.carsrecommend.system.vo.CarModelVO;
 import com.carsrecommend.system.vo.CarOptionVO;
 import com.carsrecommend.system.vo.CarParamVO;
+import com.carsrecommend.system.vo.HomeCarouselCarVO;
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -31,6 +32,9 @@ public class CarDetailServiceImpl implements CarDetailService {
 
     private static final int DEFAULT_OPTION_LIMIT = 20;
     private static final int MAX_OPTION_LIMIT = 100;
+    private static final int DEFAULT_HOME_CAROUSEL_LIMIT = 6;
+    private static final int MIN_HOME_CAROUSEL_LIMIT = 3;
+    private static final int MAX_HOME_CAROUSEL_LIMIT = 12;
     private static final int MIN_COMPARE_COUNT = 1;
     private static final int MAX_COMPARE_COUNT = 3;
     private static final List<CarCompareDimensionVO> COMPARE_DIMENSIONS = List.of(
@@ -98,12 +102,31 @@ public class CarDetailServiceImpl implements CarDetailService {
                 .toList();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<HomeCarouselCarVO> getHomeCarouselCars(Integer limit) {
+        int normalizedLimit = normalizeHomeCarouselLimit(limit);
+        return carModelMapper.findHomeCarouselCars(normalizedLimit).stream()
+                .map(this::toHomeCarouselCarVO)
+                .toList();
+    }
+
     private int normalizeLimit(Integer limit) {
         if (limit == null) {
             return DEFAULT_OPTION_LIMIT;
         }
         if (limit < 1 || limit > MAX_OPTION_LIMIT) {
             throw new BusinessException("limit must be between 1 and 100");
+        }
+        return limit;
+    }
+
+    private int normalizeHomeCarouselLimit(Integer limit) {
+        if (limit == null) {
+            return DEFAULT_HOME_CAROUSEL_LIMIT;
+        }
+        if (limit < MIN_HOME_CAROUSEL_LIMIT || limit > MAX_HOME_CAROUSEL_LIMIT) {
+            throw new BusinessException("limit must be between 3 and 12");
         }
         return limit;
     }
@@ -174,6 +197,20 @@ public class CarDetailServiceImpl implements CarDetailService {
         vo.setAuditStatus(carModel.getAuditStatus());
         vo.setCreateTime(carModel.getCreateTime());
         vo.setUpdateTime(carModel.getUpdateTime());
+        return vo;
+    }
+
+    private HomeCarouselCarVO toHomeCarouselCarVO(CarModel carModel) {
+        HomeCarouselCarVO vo = new HomeCarouselCarVO();
+        vo.setId(carModel.getId());
+        vo.setBrand(carModel.getBrand());
+        vo.setSeries(carModel.getSeries());
+        vo.setModelName(carModel.getModelName());
+        vo.setGuidePrice(carModel.getGuidePrice());
+        vo.setBodyType(carModel.getBodyType());
+        vo.setEnergyType(carModel.getEnergyType());
+        vo.setSeats(carModel.getSeats());
+        vo.setImageUrl(carModel.getImageUrl());
         return vo;
     }
 

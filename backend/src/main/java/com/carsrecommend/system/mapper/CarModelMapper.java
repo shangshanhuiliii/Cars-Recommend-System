@@ -125,6 +125,17 @@ public class CarModelMapper {
         return jdbcTemplate.query(sql.toString(), ROW_MAPPER, params.toArray());
     }
 
+    public List<CarModel> findHomeCarouselCars(int limit) {
+        return jdbcTemplate.query(
+                "SELECT " + SELECT_COLUMNS
+                        + " FROM car_model"
+                        + " WHERE deleted = FALSE AND audit_status = 'APPROVED'"
+                        + " ORDER BY CASE WHEN TRIM(COALESCE(image_url, '')) <> '' THEN 0 ELSE 1 END, RAND()"
+                        + " LIMIT ?",
+                ROW_MAPPER,
+                limit);
+    }
+
     public int findMaxSalesVolume() {
         Integer maxSales = jdbcTemplate.queryForObject(
                 "SELECT COALESCE(MAX(sales_volume), 0) FROM car_model WHERE deleted = FALSE",

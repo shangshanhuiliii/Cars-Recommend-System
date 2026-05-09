@@ -123,8 +123,9 @@ function resolveTarget() {
   padding: 44px;
   border-radius: 24px;
   background:
-    linear-gradient(135deg, rgba(15, 23, 42, 0.82), rgba(14, 116, 144, 0.62)),
-    url("https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1400&q=80") center/cover;
+    linear-gradient(135deg, rgba(17, 24, 39, 0.94), rgba(10, 132, 255, 0.28)),
+    url("/images/cars/default-car.svg") right 12% bottom 10% / min(520px, 78%) no-repeat,
+    #111827;
   color: #fff;
   box-shadow: var(--shadow-card);
 }

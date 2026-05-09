@@ -12,6 +12,10 @@ export function fetchCarOptions(params = {}) {
   return http.get('/car/options', { params })
 }
 
+export function fetchHomeCarouselCars(limit = 6) {
+  return http.get('/car/home-carousel', { params: { limit } })
+}
+
 export function fetchCarCompare(carIds = []) {
   return http.get('/car/compare', { params: { carIds: carIds.join(',') } })
 }

@@ -6,6 +6,7 @@ import com.carsrecommend.system.service.CarDetailService;
 import com.carsrecommend.system.vo.CarCompareVO;
 import com.carsrecommend.system.vo.CarDetailVO;
 import com.carsrecommend.system.vo.CarOptionVO;
+import com.carsrecommend.system.vo.HomeCarouselCarVO;
 import jakarta.validation.constraints.Positive;
 import java.util.Arrays;
 import java.util.List;
@@ -49,6 +50,11 @@ public class CarController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Integer limit) {
         return ApiResponse.success(carDetailService.getCarOptions(keyword, limit));
+    }
+
+    @GetMapping("/home-carousel")
+    public ApiResponse<List<HomeCarouselCarVO>> homeCarousel(@RequestParam(required = false) Integer limit) {
+        return ApiResponse.success(carDetailService.getHomeCarouselCars(limit));
     }
 
     private List<Long> parseCarIds(String carIds) {
