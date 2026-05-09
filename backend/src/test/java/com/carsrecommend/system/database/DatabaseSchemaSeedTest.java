@@ -86,7 +86,7 @@ class DatabaseSchemaSeedTest {
                             + "created_by_admin_id, reviewed_by_admin_id, deleted, create_time, update_time, review_time "
                             + "FROM car_image_asset WHERE 1 = 0");
             assertColumnSelectable(connection,
-                    "SELECT username, password, nickname, phone, status, deleted FROM app_user WHERE 1 = 0");
+                    "SELECT username, password, nickname, email, phone, status, deleted FROM app_user WHERE 1 = 0");
             assertColumnSelectable(connection,
                     "SELECT user_id, car_id, deleted, create_time, update_time FROM user_favorite WHERE 1 = 0");
             assertColumnSelectable(connection,

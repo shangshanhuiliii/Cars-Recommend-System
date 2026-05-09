@@ -157,7 +157,7 @@ git diff --check
 - 算法可视化接口只读，不写数据库。
 - 用户端接口身份来自 JWT 当前 `USER`，管理端接口身份来自 JWT 当前 `ADMIN`；不要在前端或请求参数中依赖默认 `userId` / `admin.id`。
 - 用户级车型对比必须写入 `/api/user/compare` 和 `user_compare_car`，不得使用固定 localStorage key 保存车型 ID，不得通过 `userId` 参数操作他人对比。
-- 普通用户注册只能创建 `USER`，`/login` 只处理普通用户登录，登录和注册成功默认进入首页 `/`；`/admin/login` 只处理管理员登录。
+- 普通用户注册只能创建 `USER`，产品前端统一使用首页登录 / 注册弹窗；旧 `/login`、`/admin/login` 和 `/register` 只做兼容跳转，不作为独立产品页。普通用户登录 / 注册成功默认进入首页 `/`，管理员登录成功默认进入 `/admin/cars`。
 - 当前购车需求字段以 `budgetMin`、`budgetMax`、`brands`、`bodyTypes`、`energyTypes`、`seatOptions`、`scenes`、`factorWeights` 为主；`minSeats`、`excludedBrands`、`excludedCarIds` 是兼容字段。
 - 管理员默认进入 `/admin/cars`，不显示首页入口；管理员用户管理只能维护 `app_user.status` 和查看用户数据，不得隐式生成推荐或改变推荐排序。
 - 管理端收藏车型和反馈记录第一版只读，不允许取消收藏、删除反馈或代用户操作。

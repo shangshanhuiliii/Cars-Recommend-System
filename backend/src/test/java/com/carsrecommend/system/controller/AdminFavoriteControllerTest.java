@@ -58,8 +58,8 @@ class AdminFavoriteControllerTest {
         jdbcTemplate.update("DELETE FROM app_user WHERE id = 2");
         jdbcTemplate.update(
                 """
-                        INSERT INTO app_user (id, username, password, nickname, phone, status)
-                        VALUES (2, 'favorite_user', ?, 'Favorite User', '13900000000', 'ACTIVE')
+                        INSERT INTO app_user (id, username, password, nickname, email, phone, status)
+                        VALUES (2, 'favorite_user', ?, 'Favorite User', 'favorite_user@example.com', '13900000000', 'ACTIVE')
                         """,
                 DEMO_USER_PASSWORD_HASH);
         jdbcTemplate.update("INSERT INTO user_favorite (user_id, car_id) VALUES (1, 1)");

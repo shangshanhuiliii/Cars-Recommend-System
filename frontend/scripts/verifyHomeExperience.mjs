@@ -17,6 +17,7 @@ const brandConfig = read('../src/config/brand.js')
 assert.match(homeView, /fetchHomeCarouselCars/)
 assert.match(homeView, /carImageSrc\(car\.imageUrl\)/)
 assert.match(homeView, /router\.push\(`\/car\/\$\{id\}`\)/)
+assert.match(homeView, /clamp\(240px,\s*33vh,\s*3[24]0px\)|33vh/)
 assert.doesNotMatch(homeView, /TOPSIS|Pareto|熵权/)
 assert.doesNotMatch(
   homeView,

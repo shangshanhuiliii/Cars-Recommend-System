@@ -22,7 +22,7 @@ import org.springframework.util.StringUtils;
 public class AppUserMapper {
 
     private static final String SELECT_COLUMNS = """
-            id, username, password, nickname, phone, status, deleted, create_time, update_time
+            id, username, password, nickname, email, phone, status, deleted, create_time, update_time
             """;
 
     private static final RowMapper<AppUser> ROW_MAPPER = (resultSet, rowNum) -> {
@@ -31,6 +31,7 @@ public class AppUserMapper {
         user.setUsername(resultSet.getString("username"));
         user.setPassword(resultSet.getString("password"));
         user.setNickname(resultSet.getString("nickname"));
+        user.setEmail(resultSet.getString("email"));
         user.setPhone(resultSet.getString("phone"));
         user.setStatus(resultSet.getString("status"));
         user.setDeleted(resultSet.getBoolean("deleted"));
@@ -87,10 +88,18 @@ public class AppUserMapper {
         return count != null && count > 0;
     }
 
+    public boolean existsByEmail(String email) {
+        Long count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM app_user WHERE email = ?",
+                Long.class,
+                email);
+        return count != null && count > 0;
+    }
+
     public AppUser insert(AppUser user) {
         String sql = """
-                INSERT INTO app_user (username, password, nickname, phone, status)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO app_user (username, password, nickname, email, phone, status)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """;
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(connection -> {
@@ -98,8 +107,9 @@ public class AppUserMapper {
             statement.setString(1, user.getUsername());
             statement.setString(2, user.getPassword());
             statement.setString(3, user.getNickname());
-            statement.setString(4, user.getPhone());
-            statement.setString(5, user.getStatus());
+            statement.setString(4, user.getEmail());
+            statement.setString(5, user.getPhone());
+            statement.setString(6, user.getStatus());
             return statement;
         }, keyHolder);
         Number key = keyHolder.getKey();

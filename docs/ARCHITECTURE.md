@@ -145,10 +145,10 @@ POST /api/auth/login
 
 ```text
 POST /api/auth/user/register
--> 校验 username / password / confirmPassword / nickname / phone
--> 确认 username 不与 app_user 或 admin 冲突
+-> 校验 username / password / confirmPassword / nickname / email / phone
+-> 确认 username 不与 app_user 或 admin 冲突，email 在 app_user 内唯一
 -> PasswordHasher 生成 PBKDF2 hash
--> 写入 app_user，status = ACTIVE
+-> 写入 app_user，保存 email，status = ACTIVE
 -> 签发 USER token 并自动登录
 -> 前端进入首页 /
 

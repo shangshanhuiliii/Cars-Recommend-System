@@ -62,8 +62,8 @@ class AdminFeedbackControllerTest {
         jdbcTemplate.update("DELETE FROM app_user WHERE id = 2");
         jdbcTemplate.update(
                 """
-                        INSERT INTO app_user (id, username, password, nickname, phone, status)
-                        VALUES (2, 'feedback_admin_user', ?, 'Feedback User', '', 'ACTIVE')
+                        INSERT INTO app_user (id, username, password, nickname, email, phone, status)
+                        VALUES (2, 'feedback_admin_user', ?, 'Feedback User', 'feedback_admin_user@example.com', '', 'ACTIVE')
                         """,
                 DEMO_USER_PASSWORD_HASH);
         jdbcTemplate.update("INSERT INTO user_demand (id, user_id, raw_text, profile_text) VALUES (301, 1, '', 'profile one')");

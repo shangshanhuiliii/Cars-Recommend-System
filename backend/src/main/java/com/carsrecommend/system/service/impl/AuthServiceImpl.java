@@ -17,6 +17,8 @@ import com.carsrecommend.system.vo.AuthMenuVO;
 import com.carsrecommend.system.vo.AuthPrincipalVO;
 import com.carsrecommend.system.vo.AuthTokenVO;
 import java.util.List;
+import java.util.Locale;
+import java.util.regex.Pattern;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -29,6 +31,8 @@ public class AuthServiceImpl implements AuthService {
     private static final String USER_ROLE = "USER";
     private static final String ADMIN_ROLE = "ADMIN";
     private static final String USER_STATUS_ACTIVE = "ACTIVE";
+    private static final Pattern EMAIL_PATTERN =
+            Pattern.compile("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
 
     private static final List<String> USER_PERMISSIONS = List.of(
             "user:demand",
@@ -151,21 +155,26 @@ public class AuthServiceImpl implements AuthService {
     public AuthTokenVO registerUser(UserRegisterRequest request) {
         String username = normalizeUsername(request.getUsername());
         String password = normalizePassword(request.getPassword());
-        validateRegisterRequest(request, username, password);
+        String email = normalizeEmail(request.getEmail());
+        validateRegisterRequest(request, username, password, email);
         if (appUserMapper.existsByUsername(username) || adminMapper.existsByUsername(username)) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "用户名已存在");
+        }
+        if (appUserMapper.existsByEmail(email)) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "邮箱已存在");
         }
 
         AppUser user = new AppUser();
         user.setUsername(username);
         user.setPassword(passwordHasher.hash(password));
         user.setNickname(normalizeNickname(request.getNickname(), username));
+        user.setEmail(email);
         user.setPhone(normalizePhone(request.getPhone()));
         user.setStatus(USER_STATUS_ACTIVE);
         try {
             appUserMapper.insert(user);
         } catch (DataIntegrityViolationException exception) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "用户名已存在");
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "用户名或邮箱已存在");
         }
 
         return toTokenVO(toUserPrincipal(user));
@@ -207,7 +216,7 @@ public class AuthServiceImpl implements AuthService {
         return new BusinessException(ErrorCode.UNAUTHORIZED, "username or password is incorrect");
     }
 
-    private void validateRegisterRequest(UserRegisterRequest request, String username, String password) {
+    private void validateRegisterRequest(UserRegisterRequest request, String username, String password, String email) {
         if (username.length() < 4 || username.length() > 32 || !username.matches("[A-Za-z0-9_]+")) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "用户名必须为4-32位字母、数字或下划线");
         }
@@ -222,6 +231,9 @@ public class AuthServiceImpl implements AuthService {
         String nickname = request.getNickname();
         if (StringUtils.hasText(nickname) && nickname.trim().length() > 32) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "昵称最多32个字符");
+        }
+        if (!StringUtils.hasText(email) || email.length() > 128 || !EMAIL_PATTERN.matcher(email).matches()) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "邮箱格式不正确");
         }
         String phone = normalizePhone(request.getPhone());
         if (phone != null && !phone.matches("1\\d{10}") && !phone.matches("\\d{11,}")) {
@@ -239,6 +251,10 @@ public class AuthServiceImpl implements AuthService {
 
     private String normalizeNickname(String nickname, String username) {
         return StringUtils.hasText(nickname) ? nickname.trim() : username;
+    }
+
+    private String normalizeEmail(String email) {
+        return StringUtils.hasText(email) ? email.trim().toLowerCase(Locale.ROOT) : "";
     }
 
     private String normalizePhone(String phone) {

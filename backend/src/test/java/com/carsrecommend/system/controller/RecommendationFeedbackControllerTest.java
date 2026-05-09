@@ -41,7 +41,8 @@ class RecommendationFeedbackControllerTest {
     @Test
     void submitFeedbackValidatesOwnershipAndOverwritesExistingFeedbackOnly() throws Exception {
         jdbcTemplate.update(
-                "INSERT INTO app_user (id, username, password, nickname, phone) VALUES (2, 'feedback_user', 'pwd', 'Feedback', '')");
+                "INSERT INTO app_user (id, username, password, nickname, email, phone) "
+                        + "VALUES (2, 'feedback_user', 'pwd', 'Feedback', 'feedback_user@example.com', '')");
         insertDemand(301, 1);
         insertDemand(302, 2);
         insertRecommendRecord(401, 1, 301, "SUCCESS");

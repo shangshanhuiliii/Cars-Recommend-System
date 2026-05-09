@@ -15,6 +15,9 @@ public class AppUser extends BaseEntity {
     @TableField("nickname")
     private String nickname;
 
+    @TableField("email")
+    private String email;
+
     @TableField("phone")
     private String phone;
 
@@ -43,6 +46,14 @@ public class AppUser extends BaseEntity {
 
     public void setNickname(String nickname) {
         this.nickname = nickname;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
     }
 
     public String getPhone() {

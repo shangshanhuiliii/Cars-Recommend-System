@@ -20,6 +20,10 @@ public class UserRegisterRequest {
     @Size(max = 64)
     private String nickname;
 
+    @NotBlank
+    @Size(max = 128)
+    private String email;
+
     @Size(max = 32)
     private String phone;
 
@@ -53,6 +57,14 @@ public class UserRegisterRequest {
 
     public void setNickname(String nickname) {
         this.nickname = nickname;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
     }
 
     public String getPhone() {

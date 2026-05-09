@@ -105,8 +105,8 @@ class UserCompareControllerTest {
     void compareSelectionsAreIsolatedByUserAndStaticCompareStaysPublic() throws Exception {
         jdbcTemplate.update(
                 """
-                        INSERT INTO app_user (id, username, password, nickname, phone, status)
-                        VALUES (2, 'compare_user', ?, 'Compare User', '', 'ACTIVE')
+                        INSERT INTO app_user (id, username, password, nickname, email, phone, status)
+                        VALUES (2, 'compare_user', ?, 'Compare User', 'compare_user@example.com', '', 'ACTIVE')
                         """,
                 DEMO_USER_PASSWORD_HASH);
         String userOneToken = userToken();

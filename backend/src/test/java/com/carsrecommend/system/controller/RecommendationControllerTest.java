@@ -307,7 +307,8 @@ class RecommendationControllerTest {
                 .compareTo(legacySnapshotDetail.path("weights").path("space").decimalValue()));
 
         jdbcTemplate.update(
-                "INSERT INTO app_user (id, username, password, nickname, phone) VALUES (2, 'other_user', 'pwd', 'Other', '')");
+                "INSERT INTO app_user (id, username, password, nickname, email, phone) "
+                        + "VALUES (2, 'other_user', 'pwd', 'Other', 'other_user@example.com', '')");
         JsonNode otherUserHistory = getJson("/api/recommend/history?userId=2&page=1&size=10");
         assertEquals(0, otherUserHistory.path("total").asLong());
         assertEquals(0, otherUserHistory.path("records").size());

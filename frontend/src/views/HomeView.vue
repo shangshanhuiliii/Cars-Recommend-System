@@ -20,7 +20,7 @@
       <el-carousel
         v-else
         class="vehicle-carousel"
-        height="560px"
+        height="clamp(240px, 33vh, 340px)"
         indicator-position="outside"
         arrow="always"
         trigger="click"
@@ -169,12 +169,61 @@ function formatSeats(seats) {
 }
 
 .carousel-shell {
-  min-height: 600px;
+  --home-carousel-height: clamp(240px, 33vh, 340px);
+
+  position: relative;
+  display: grid;
+  min-height: calc(var(--home-carousel-height) + 58px);
+  place-items: center;
+  padding: 22px clamp(10px, 4vw, 52px);
+  isolation: isolate;
+}
+
+.carousel-shell::before,
+.carousel-shell::after {
+  position: absolute;
+  z-index: -1;
+  content: "";
+  pointer-events: none;
+}
+
+.carousel-shell::before {
+  inset: 0;
+  border-radius: 34px;
+  background:
+    radial-gradient(circle at 12% 42%, rgba(10, 132, 255, 0.16), transparent 26%),
+    radial-gradient(circle at 88% 35%, rgba(90, 200, 250, 0.14), transparent 24%),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.56), rgba(255, 255, 255, 0.22));
+}
+
+.carousel-shell::after {
+  top: 50%;
+  left: 50%;
+  width: min(1120px, 92%);
+  height: calc(var(--home-carousel-height) + 18px);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 34px;
+  background:
+    linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+    rgba(255, 255, 255, 0.24);
+  background-size: 120px 100%;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.62);
+  backdrop-filter: blur(18px);
+  transform: translate(-50%, -50%);
+}
+
+.vehicle-carousel {
+  z-index: 1;
+  width: min(980px, 100%);
 }
 
 .vehicle-carousel :deep(.el-carousel__container),
 .carousel-slide {
   border-radius: var(--radius-xl);
+}
+
+.vehicle-carousel :deep(.el-carousel__container) {
+  height: var(--home-carousel-height) !important;
 }
 
 .vehicle-carousel :deep(.el-carousel__arrow) {
@@ -222,13 +271,13 @@ function formatSeats(seats) {
 
 .vehicle-badge {
   position: absolute;
-  right: clamp(18px, 4vw, 44px);
-  bottom: clamp(18px, 4vw, 44px);
+  right: clamp(14px, 3vw, 28px);
+  bottom: clamp(14px, 3vw, 28px);
   z-index: 1;
   display: grid;
-  width: min(390px, calc(100% - 36px));
-  gap: 8px;
-  padding: 18px;
+  width: min(320px, calc(100% - 28px));
+  gap: 6px;
+  padding: 14px;
   border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: 24px;
   background: rgba(17, 24, 39, 0.42);
@@ -245,14 +294,14 @@ function formatSeats(seats) {
 
 .vehicle-badge strong {
   color: #fff;
-  font-size: clamp(24px, 3vw, 34px);
+  font-size: clamp(20px, 2.3vw, 28px);
   line-height: 1.08;
   letter-spacing: -0.035em;
 }
 
 .vehicle-badge__price {
   color: rgba(255, 255, 255, 0.9);
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 850;
 }
 
@@ -264,7 +313,7 @@ function formatSeats(seats) {
 }
 
 .vehicle-badge__specs span {
-  padding: 7px 10px;
+  padding: 6px 9px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.13);
   color: rgba(255, 255, 255, 0.86);
@@ -274,7 +323,8 @@ function formatSeats(seats) {
 
 .carousel-state {
   display: grid;
-  min-height: 560px;
+  width: min(980px, 100%);
+  min-height: var(--home-carousel-height);
   place-items: center;
   align-content: center;
   gap: 12px;
@@ -456,13 +506,16 @@ function formatSeats(seats) {
 
 @media (max-width: 820px) {
   .carousel-shell {
-    min-height: 500px;
+    --home-carousel-height: clamp(240px, 33vh, 320px);
+
+    min-height: calc(var(--home-carousel-height) + 48px);
+    padding-inline: 0;
   }
 
   .vehicle-carousel :deep(.el-carousel__container),
   .carousel-state {
-    height: 460px !important;
-    min-height: 460px;
+    height: var(--home-carousel-height) !important;
+    min-height: var(--home-carousel-height);
   }
 
   .vehicle-badge {

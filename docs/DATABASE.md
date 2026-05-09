@@ -41,6 +41,7 @@
 | `username` | 用户名，唯一 |
 | `password` | PBKDF2 密码哈希，格式为 `pbkdf2$iterations$base64Salt$base64Hash` |
 | `nickname` | 昵称 |
+| `email` | 邮箱，唯一，用于后续找回密码基础 |
 | `phone` | 手机号 |
 | `status` | 账号状态：`ACTIVE` / `DISABLED` |
 | `deleted` | 软删除 |
@@ -57,6 +58,8 @@ password = demo123456
 `app_user.id = 1` 只表示本地 seed 账号主键，不再作为接口默认身份来源。用户端接口身份必须来自 JWT。
 
 `deleted` 用于软删除；`status` 用于账号启用 / 禁用。普通用户注册时写入 `ACTIVE`，登录只允许 `status = ACTIVE` 且 `deleted = FALSE` 的账号。管理员禁用用户不会删除其需求、推荐记录、收藏或反馈。
+
+`email` 当前只作为账号安全增强基础字段保存，不实现邮箱验证状态、验证码表、邮件发送或密码重置流程。
 
 ### `admin`
 

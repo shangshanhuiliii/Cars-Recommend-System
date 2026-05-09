@@ -164,6 +164,7 @@ POST /api/auth/user/register
   "password": "User123456",
   "confirmPassword": "User123456",
   "nickname": "新用户",
+  "email": "new_user@example.com",
   "phone": "13800000000"
 }
 ```
@@ -174,9 +175,12 @@ POST /api/auth/user/register
 - `password` 必填，8-32 位，至少包含字母和数字。
 - `confirmPassword` 必须与 `password` 一致。
 - `nickname` 可选，最多 32 个字符；为空时默认使用用户名。
+- `email` 必填，trim 后最长 128 个字符，必须符合常规邮箱格式；当前仅保存为账号安全增强基础，不触发验证码发送。
 - `phone` 可选，当前仅做格式校验，不强制唯一。
 
-注册成功返回与登录相同的 `AuthTokenVO`，`principalType = USER`；注册接口只能创建普通 `app_user`，不能创建管理员账号。重复用户名或与管理员用户名冲突返回 `400`，禁用用户再次登录返回 `401`。
+注册成功返回与登录相同的 `AuthTokenVO`，`principalType = USER`；注册接口只能创建普通 `app_user`，不能创建管理员账号。重复用户名、与管理员用户名冲突或重复邮箱返回 `400`，禁用用户再次登录返回 `401`。
+
+本阶段没有邮箱验证码接口、没有密码重置接口，也不会发送找回密码邮件。
 
 当前登录身份：
 

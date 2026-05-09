@@ -59,6 +59,8 @@ app:
 
 前端登录入口统一为首页右上角登录 / 注册弹窗：后端通过 `POST /api/auth/login` 根据账号密码识别普通用户或管理员。普通用户登录或注册成功默认进入首页 `/`；管理员登录成功默认进入 `/admin/cars`。旧 `/login` 和 `/admin/login` URL 保留兼容，访问时重定向到首页并打开登录弹窗；管理员界面不展示首页入口，访问首页会重定向到车型管理。
 
+注册表单会保存普通用户邮箱到 `app_user.email`，用于后续找回密码能力基础。本阶段忘记密码入口只展示占位提示，不发送邮件、不重置密码，也不需要 SMTP 配置或 Redis。
+
 不要提交：
 
 - `backend/src/main/resources/application-local.yml`

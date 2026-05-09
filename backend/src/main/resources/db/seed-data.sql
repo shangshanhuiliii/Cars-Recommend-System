@@ -1,5 +1,5 @@
-INSERT INTO app_user (id, username, password, nickname, phone, status) VALUES
-(1, 'demo_user', 'pbkdf2$310000$ZGVtb191c2VyX3NhbHQxNg==$9w9/M2pOGlYqpRoEtjTJr5MwQ6UMyGM2/OSH577wGCY=', '演示用户', NULL, 'ACTIVE');
+INSERT INTO app_user (id, username, password, nickname, email, phone, status) VALUES
+(1, 'demo_user', 'pbkdf2$310000$ZGVtb191c2VyX3NhbHQxNg==$9w9/M2pOGlYqpRoEtjTJr5MwQ6UMyGM2/OSH577wGCY=', '演示用户', 'demo_user@example.com', NULL, 'ACTIVE');
 
 INSERT INTO admin (id, username, password, role) VALUES
 (1, 'demo_admin', 'pbkdf2$310000$ZGVtb19hZG1pbl9zYWx0MQ==$Gcee8nYBbp/Z6ZlUWTYT3hj3g/LqGiwpUhUUav4c34U=', 'ADMIN');

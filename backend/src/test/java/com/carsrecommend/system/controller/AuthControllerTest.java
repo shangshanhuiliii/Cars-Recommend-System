@@ -120,6 +120,11 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.data.principal.principalType").value("USER"))
                 .andExpect(jsonPath("$.data.principal.role").value("USER"))
                 .andExpect(jsonPath("$.data.principal.menus[1].code").value("recommend"));
+        String email = jdbcTemplate.queryForObject(
+                "SELECT email FROM app_user WHERE username = ?",
+                String.class,
+                "register_success_user");
+        org.junit.jupiter.api.Assertions.assertEquals("register_success_user@example.test", email);
     }
 
     @Test
@@ -157,6 +162,23 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.code").value(400));
 
         register("bad-name", "User123456", "User123456")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400));
+    }
+
+    @Test
+    void invalidRegisterEmailReturnsBadRequest() throws Exception {
+        register("bad_email_user", "User123456", "User123456", "not-an-email")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400));
+    }
+
+    @Test
+    void duplicateRegisterEmailReturnsBadRequest() throws Exception {
+        register("email_one_user", "User123456", "User123456", "shared_email@example.test")
+                .andExpect(status().isOk());
+
+        register("email_two_user", "User123456", "User123456", "shared_email@example.test")
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(400));
     }
@@ -277,15 +299,24 @@ class AuthControllerTest {
     }
 
     private ResultActionsWithData register(String username, String password, String confirmPassword) throws Exception {
+        return register(username, password, confirmPassword, username + "@example.test");
+    }
+
+    private ResultActionsWithData register(
+            String username,
+            String password,
+            String confirmPassword,
+            String email) throws Exception {
         String payload = """
                 {
                   "username": "%s",
                   "password": "%s",
                   "confirmPassword": "%s",
                   "nickname": "%s",
+                  "email": "%s",
                   "phone": "13800000000"
                 }
-                """.formatted(username, password, confirmPassword, username);
+                """.formatted(username, password, confirmPassword, username, email);
         MvcResult result = mockMvc.perform(post("/api/auth/user/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .characterEncoding(StandardCharsets.UTF_8)
