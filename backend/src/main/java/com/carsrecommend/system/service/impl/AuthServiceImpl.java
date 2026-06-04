@@ -7,6 +7,7 @@ import com.carsrecommend.system.auth.PrincipalType;
 import com.carsrecommend.system.common.BusinessException;
 import com.carsrecommend.system.common.ErrorCode;
 import com.carsrecommend.system.dto.LoginRequest;
+import com.carsrecommend.system.dto.UserProfileUpdateRequest;
 import com.carsrecommend.system.dto.UserRegisterRequest;
 import com.carsrecommend.system.entity.Admin;
 import com.carsrecommend.system.entity.AppUser;
@@ -16,6 +17,7 @@ import com.carsrecommend.system.service.AuthService;
 import com.carsrecommend.system.vo.AuthMenuVO;
 import com.carsrecommend.system.vo.AuthPrincipalVO;
 import com.carsrecommend.system.vo.AuthTokenVO;
+import com.carsrecommend.system.vo.UserProfileVO;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
@@ -40,7 +42,8 @@ public class AuthServiceImpl implements AuthService {
             "user:history",
             "user:favorites",
             "user:feedback",
-            "user:compare");
+            "user:compare",
+            "user:profile");
 
     private static final List<String> ADMIN_PERMISSIONS = List.of(
             "admin:cars",
@@ -58,7 +61,8 @@ public class AuthServiceImpl implements AuthService {
             new AuthMenuVO("recommend", "购车推荐", "/recommend"),
             new AuthMenuVO("history", "推荐历史", "/history"),
             new AuthMenuVO("favorites", "我的收藏", "/favorites"),
-            new AuthMenuVO("compare", "车型对比", "/compare"));
+            new AuthMenuVO("compare", "车型对比", "/compare"),
+            new AuthMenuVO("profile", "我的", "/me"));
 
     private static final List<AuthMenuVO> ADMIN_MENUS = List.of(
             new AuthMenuVO("admin-cars", "车型管理", "/admin/cars"),
@@ -132,7 +136,7 @@ public class AuthServiceImpl implements AuthService {
     private AuthPrincipal toAdminPrincipal(Admin admin) {
         String role = StringUtils.hasText(admin.getRole()) ? admin.getRole().trim() : ADMIN_ROLE;
         if (!ADMIN_ROLE.equals(role)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN, "admin role is not allowed");
+            throw new BusinessException(ErrorCode.FORBIDDEN, "当前账号不是管理员，无法进入管理端");
         }
         return new AuthPrincipal(
                 admin.getId(),
@@ -182,7 +186,39 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthPrincipalVO current(AuthPrincipal principal) {
+        if (principal.principalType() == PrincipalType.USER) {
+            return appUserMapper.findActiveById(principal.id())
+                    .map(user -> toPrincipalVO(toUserPrincipal(user)))
+                    .orElseGet(() -> toPrincipalVO(principal));
+        }
         return toPrincipalVO(principal);
+    }
+
+    @Override
+    public UserProfileVO currentUserProfile(AuthPrincipal principal) {
+        ensureUserPrincipal(principal);
+        AppUser user = appUserMapper.findActiveById(principal.id())
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "用户不存在或已停用"));
+        return toUserProfileVO(user);
+    }
+
+    @Override
+    public UserProfileVO updateCurrentUserProfile(AuthPrincipal principal, UserProfileUpdateRequest request) {
+        ensureUserPrincipal(principal);
+        AppUser current = appUserMapper.findActiveById(principal.id())
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "用户不存在或已停用"));
+        String nickname = normalizeNickname(request.getNickname(), current.getUsername());
+        String email = normalizeEmail(request.getEmail());
+        String phone = normalizePhone(request.getPhone());
+        validateProfileRequest(nickname, email, phone);
+        if (appUserMapper.existsByEmailExcludingId(email, current.getId())) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "邮箱已存在");
+        }
+        int updated = appUserMapper.updateProfile(current.getId(), nickname, email, phone);
+        if (updated == 0) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "用户不存在或已停用");
+        }
+        return currentUserProfile(principal);
     }
 
     private AuthTokenVO toTokenVO(AuthPrincipal principal) {
@@ -213,7 +249,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private BusinessException invalidCredentials() {
-        return new BusinessException(ErrorCode.UNAUTHORIZED, "username or password is incorrect");
+        return new BusinessException(ErrorCode.UNAUTHORIZED, "用户名或密码不正确");
     }
 
     private void validateRegisterRequest(UserRegisterRequest request, String username, String password, String email) {
@@ -239,6 +275,37 @@ public class AuthServiceImpl implements AuthService {
         if (phone != null && !phone.matches("1\\d{10}") && !phone.matches("\\d{11,}")) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "手机号格式不正确");
         }
+    }
+
+    private void validateProfileRequest(String nickname, String email, String phone) {
+        if (!StringUtils.hasText(nickname) || nickname.trim().length() > 32) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "昵称必须为 1-32 个字符");
+        }
+        if (!StringUtils.hasText(email) || email.length() > 128 || !EMAIL_PATTERN.matcher(email).matches()) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "邮箱格式不正确");
+        }
+        if (phone != null && !phone.matches("1\\d{10}") && !phone.matches("\\d{11,}")) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "手机号格式不正确");
+        }
+    }
+
+    private void ensureUserPrincipal(AuthPrincipal principal) {
+        if (principal.principalType() != PrincipalType.USER) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "permission denied");
+        }
+    }
+
+    private UserProfileVO toUserProfileVO(AppUser user) {
+        UserProfileVO vo = new UserProfileVO();
+        vo.setId(user.getId());
+        vo.setUsername(user.getUsername());
+        vo.setNickname(user.getNickname());
+        vo.setEmail(user.getEmail());
+        vo.setPhone(user.getPhone());
+        vo.setStatus(user.getStatus());
+        vo.setCreateTime(user.getCreateTime());
+        vo.setUpdateTime(user.getUpdateTime());
+        return vo;
     }
 
     private String normalizeUsername(String username) {

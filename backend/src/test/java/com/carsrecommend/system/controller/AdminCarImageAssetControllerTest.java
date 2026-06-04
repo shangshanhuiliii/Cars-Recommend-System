@@ -106,7 +106,7 @@ class AdminCarImageAssetControllerTest {
 
         mockMvc.perform(delete("/api/admin/car-images/{id}", approvedAssetId))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("approved image is currently used by the car model"));
+                .andExpect(jsonPath("$.message").value("该图片正在作为车型当前图片使用，不能删除"));
 
         JsonNode rejectedUpload = uploadImage("reject-me.png", MediaType.IMAGE_PNG_VALUE, pngImage(320, 240));
         long rejectedAssetId = rejectedUpload.path("id").asLong();

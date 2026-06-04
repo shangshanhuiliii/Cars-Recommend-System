@@ -51,6 +51,65 @@ class CarControllerTest {
     void userCarDetailReturnsModelParamScoreAndDoesNotRecalculate() throws Exception {
         verifyHomeCarouselIsPublicReadOnlyAndFiltersCars();
 
+        mockMvc.perform(get("/api/car")
+                        .param("page", "1")
+                        .param("pageSize", "5")
+                        .param("bodyType", "SUV"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.records.length()").value(5))
+                .andExpect(jsonPath("$.data.records[0].carId").exists())
+                .andExpect(jsonPath("$.data.records[0].brand").exists())
+                .andExpect(jsonPath("$.data.records[0].modelName").exists())
+                .andExpect(jsonPath("$.data.records[0].priceMin").exists())
+                .andExpect(jsonPath("$.data.records[0].priceMax").exists())
+                .andExpect(jsonPath("$.data.records[0].salesVolume").isNumber())
+                .andExpect(jsonPath("$.data.records[0].userRating").isNumber())
+                .andExpect(jsonPath("$.data.records[0].keyTags.length()").value(3));
+
+        jdbcTemplate.update("""
+                INSERT INTO car_model (
+                    id, brand, series, model_name, guide_price, body_type, energy_type,
+                    seats, launch_year, image_url, sales_volume, user_rating, audit_status
+                ) VALUES
+                    (701, '排序测试', 'Sort', 'Sort Low Price', 100000, 'SUV', '燃油', 5, 2026, '', 1000, 4.10, 'APPROVED'),
+                    (702, '排序测试', 'Sort', 'Sort High Rating', 150000, 'SUV', '燃油', 5, 2026, '', 3000, 4.90, 'APPROVED'),
+                    (703, '排序测试', 'Sort', 'Sort High Sales', 120000, 'SUV', '燃油', 5, 2026, '', 9000, 4.30, 'APPROVED')
+                """);
+
+        mockMvc.perform(get("/api/car")
+                        .param("page", "1")
+                        .param("pageSize", "3")
+                        .param("keyword", "排序测试")
+                        .param("sortBy", "price")
+                        .param("sortOrder", "asc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.records[0].carId").value(701))
+                .andExpect(jsonPath("$.data.records[1].carId").value(703))
+                .andExpect(jsonPath("$.data.records[2].carId").value(702));
+
+        mockMvc.perform(get("/api/car")
+                        .param("page", "1")
+                        .param("pageSize", "3")
+                        .param("keyword", "排序测试")
+                        .param("sortBy", "rating")
+                        .param("sortOrder", "desc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.records[0].carId").value(702))
+                .andExpect(jsonPath("$.data.records[1].carId").value(703))
+                .andExpect(jsonPath("$.data.records[2].carId").value(701));
+
+        mockMvc.perform(get("/api/car")
+                        .param("page", "1")
+                        .param("pageSize", "3")
+                        .param("keyword", "排序测试")
+                        .param("sortBy", "sales")
+                        .param("sortOrder", "desc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.records[0].carId").value(703))
+                .andExpect(jsonPath("$.data.records[1].carId").value(702))
+                .andExpect(jsonPath("$.data.records[2].carId").value(701));
+
         String adminToken = adminToken();
         mockMvc.perform(post("/api/admin/cars/{id}/score/recalculate", 2)
                         .header(HttpHeaders.AUTHORIZATION, bearer(adminToken)))
@@ -64,7 +123,10 @@ class CarControllerTest {
                 .andExpect(jsonPath("$.data.carParam.carId").value(2))
                 .andExpect(jsonPath("$.data.carParam.wheelbaseMm").value(2765))
                 .andExpect(jsonPath("$.data.carFeatureScore.carId").value(2))
-                .andExpect(jsonPath("$.data.carFeatureScore.spaceScore").value(83.00));
+                .andExpect(jsonPath("$.data.carFeatureScore.spaceScore").value(83.00))
+                .andExpect(jsonPath("$.data.media").doesNotExist())
+                .andExpect(jsonPath("$.data.reviews").doesNotExist())
+                .andExpect(jsonPath("$.data.dealerQuotes").doesNotExist());
 
         assertEquals(1, count("SELECT COUNT(*) FROM car_feature_score WHERE car_id = 2"));
         assertEquals(0, count("SELECT COUNT(*) FROM car_feature_score WHERE car_id = 1"));
@@ -86,7 +148,10 @@ class CarControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.carModel.id").value(501))
                 .andExpect(jsonPath("$.data.carParam").doesNotExist())
-                .andExpect(jsonPath("$.data.carFeatureScore").doesNotExist());
+                .andExpect(jsonPath("$.data.carFeatureScore").doesNotExist())
+                .andExpect(jsonPath("$.data.media").doesNotExist())
+                .andExpect(jsonPath("$.data.reviews").doesNotExist())
+                .andExpect(jsonPath("$.data.dealerQuotes").doesNotExist());
 
         jdbcTemplate.update("UPDATE car_model SET deleted = TRUE WHERE id = 501");
         mockMvc.perform(get("/api/car/{id}", 501))

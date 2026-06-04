@@ -79,6 +79,8 @@ Authorization: Bearer <token>
 - `GET /api/car/**`
 - `/uploads/**` 静态图片资源
 
+公开接口只表示后端允许匿名加载必要资源或完成登录注册动作，不代表前端存在游客产品身份。当前产品前端未登录访问需要身份的页面时，会在当前背景页面打开登录 / 注册浮窗；推荐、收藏、反馈、对比和管理端能力仍必须携带对应 JWT 身份后才能使用。
+
 `OPTIONS` 请求放行，用于 CORS 预检。无 token 或 token 过期、签名错误返回 `401`；角色不匹配返回 `403`。前端菜单隐藏不是安全边界，后端拦截器才是接口权限边界。
 
 认证拦截器采用 fail-closed 策略。新增 `/api/**` 接口必须显式归类为公开、`USER` 或 `ADMIN`；未归类的 `/api/**` 不默认放行。未携带 token 访问未归类 API 返回 `401`，携带有效 token 访问未归类 API 返回 `404`。
@@ -98,7 +100,7 @@ Authorization: Bearer <token>
 POST /api/auth/login
 ```
 
-该接口供产品前端统一登录弹窗使用。后端按 `username` 同时查询普通用户和管理员，分别用现有密码哈希校验：
+该接口可供产品前端登录浮窗或其他客户端使用。后端按 `username` 同时查询普通用户和管理员，分别用现有密码哈希校验：
 
 - 只有普通用户匹配时，返回 `principalType = USER` 的 `AuthTokenVO`。
 - 只有管理员匹配时，返回 `principalType = ADMIN` 的 `AuthTokenVO`。
@@ -117,7 +119,7 @@ POST /api/auth/user/login
 POST /api/auth/admin/login
 ```
 
-旧分角色登录接口保留兼容和测试使用；产品前端统一调用 `POST /api/auth/login`，不再提供独立 `/login` 与 `/admin/login` 产品页面。
+分角色登录接口用于登录浮窗中的普通用户登录和管理员登录模式；统一登录接口继续保留，供需要自动识别 `USER` / `ADMIN` 身份的客户端或测试使用。产品前端不使用独立登录页作为默认入口。
 
 请求：
 
@@ -190,6 +192,23 @@ GET /api/auth/me
 
 返回当前 principal、permissions 和 menus。
 
+当前普通用户资料：
+
+```text
+GET /api/auth/profile
+PUT /api/auth/profile
+```
+
+该接口需要 `USER` token，只读取和修改当前登录普通用户，不接受 `userId` 参数。可修改字段：
+
+| 字段 | 说明 |
+| --- | --- |
+| `nickname` | 必填，1-32 个字符。 |
+| `email` | 必填，最长 128 个字符，需符合邮箱格式，并在 `app_user` 内唯一。 |
+| `phone` | 可选，手机号格式。 |
+
+响应返回 `id`、`username`、`nickname`、`email`、`phone`、`status`、`createTime`、`updateTime`。保存成功后，`GET /api/auth/me` 会按数据库中最新昵称返回 `displayName`。
+
 退出登录：
 
 ```text
@@ -224,6 +243,7 @@ GET    /api/admin/cars/{id}
 POST   /api/admin/cars
 PUT    /api/admin/cars/{id}
 DELETE /api/admin/cars/{id}
+POST   /api/admin/cars/data-source/import
 ```
 
 分页查询参数：
@@ -610,7 +630,7 @@ GET  /api/recommend/{recordId}
 }
 ```
 
-推荐接口需要 `USER` 权限。推荐生成请求不包含推荐数量字段，`userId` 来自 JWT 当前用户，`demandId` 必须属于当前用户。后端按候选集、分组和排序规则返回结果。
+推荐接口需要 `USER` 权限。推荐生成请求不包含推荐数量字段，`userId` 来自 JWT 当前用户，`demandId` 必须属于当前用户。后端按候选集、分组和排序规则返回结果，每次最多返回并保存 30 条推荐明细。
 
 推荐响应核心结构：
 
@@ -799,7 +819,7 @@ GET  /api/recommend/{recordId}/feedback
 GET /api/admin/users?page=1&size=10&keyword=&status=
 ```
 
-返回 `PageResult<AdminUserListItemVO>`，列表项包含 `id`、`username`、`nickname`、`phone`、`status`、`deleted`、`recommendRecordCount`、`favoriteCount`、`feedbackCount`、`createTime`、`updateTime`。
+返回 `PageResult<AdminUserListItemVO>`，列表项包含 `id`、`username`、`nickname`、`email`、`phone`、`status`、`deleted`、`recommendRecordCount`、`favoriteCount`、`feedbackCount`、`createTime`、`updateTime`。
 
 用户详情：
 
@@ -904,3 +924,57 @@ GET /api/admin/stat/overview
 | `averageSatisfaction` | 平均满意度。 |
 
 其中各类图表数组使用 `{ "name": "...", "value": 0 }` 结构，便于前端图表或列表渲染。
+## 车型数据源导入
+
+```text
+POST /api/admin/cars/data-source/import
+Content-Type: multipart/form-data
+file: JSON 文件
+```
+
+该接口仅允许 `ADMIN` 调用，用于把结构化 JSON 数据源导入到 `car_model` 和 `car_param`。JSON 根节点可以是数组，也可以是包含 `cars` 数组的对象。系统按 `brand + series + modelName + launchYear` 匹配已有未删除车型：不存在则新增，存在则更新车型基础信息并按 `car_id` 更新或新增参数；不会删除已有车型，不会修改收藏、对比、反馈、推荐历史或 `recommend_item` 快照。
+
+导入字段沿用车型保存字段和车型参数字段，`param.carId` 必须省略，由后端在导入时写入当前车型 ID。`energyType` 只能是 `燃油 / 纯电 / 插混 / 增程` 等 `car_model` 允许的具体动力类型，不能写入 `新能源`。`imageUrl` 只维护当前生效图片地址，不改变图片资源上传、审核和删除规则。
+
+返回 `CarDataSourceImportResultVO`：
+
+```json
+{
+  "totalCount": 2,
+  "successCount": 1,
+  "createdCount": 1,
+  "updatedCount": 0,
+  "skippedCount": 1,
+  "failedCount": 0,
+  "matchingRule": "brand + series + modelName + launchYear",
+  "nextStep": "导入车型可立即用于详情、对比、收藏和管理端维护；进入推荐前请执行全部车型评分重算。",
+  "issues": [
+    {
+      "rowNo": 2,
+      "uniqueKey": "示例品牌|示例车系|示例车型 2026 入门版|2026",
+      "type": "SKIPPED",
+      "message": "duplicate row in the import file"
+    }
+  ]
+}
+```
+
+导入不会自动触发 `car_feature_score` 重算。导入完成后，管理员需要执行 `POST /api/admin/cars/scores/recalculate`，让新增或更新车型参与推荐评分链路。
+
+## User Car Display Module
+
+The user car display module is read-only and uses public `GET /api/car/**` endpoints. It does not create user demand, recommendation records, feedback, favorites, compare records, or feature scores.
+
+```text
+GET /api/car?page=1&pageSize=12&keyword=&bodyType=&energyType=&priceMin=&priceMax=&sortBy=&sortOrder=
+```
+
+Returns `PageResult<CarListItemVO>`. Each item contains `carId`, `brand`, `series`, `modelName`, `imageUrl`, `priceMin`, `priceMax`, `bodyType`, `energyType`, `seatCount`, `salesVolume`, `userRating`, `summary`, and `keyTags`. Only non-deleted, `APPROVED` cars are returned. `priceMin/priceMax` are aliases for the existing guide-price filters.
+
+`sortBy` is optional and only accepts `price`, `rating`, or `sales`. `sortOrder` only accepts `asc` or `desc`; price defaults to ascending, rating and sales default to descending. Sorting is executed by the backend SQL query with a stable `id DESC` tie-breaker. Unsupported values fall back to the default `id DESC` order.
+
+```text
+GET /api/car/{id}
+```
+
+Returns current static car detail data: `carModel`, `carParam`, and `carFeatureScore`. Missing params or scores return `null`; a missing/deleted car returns `404`. Detail-page media, user review samples, and dealer quote demo data are not part of the current API.

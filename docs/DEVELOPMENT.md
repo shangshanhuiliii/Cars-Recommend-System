@@ -157,7 +157,8 @@ git diff --check
 - 算法可视化接口只读，不写数据库。
 - 用户端接口身份来自 JWT 当前 `USER`，管理端接口身份来自 JWT 当前 `ADMIN`；不要在前端或请求参数中依赖默认 `userId` / `admin.id`。
 - 用户级车型对比必须写入 `/api/user/compare` 和 `user_compare_car`，不得使用固定 localStorage key 保存车型 ID，不得通过 `userId` 参数操作他人对比。
-- 普通用户注册只能创建 `USER`，产品前端统一使用首页登录 / 注册弹窗；旧 `/login`、`/admin/login` 和 `/register` 只做兼容跳转，不作为独立产品页。普通用户登录 / 注册成功默认进入首页 `/`，管理员登录成功默认进入 `/admin/cars`。
+- 普通用户注册只能创建 `USER`。产品前端使用登录 / 注册浮窗承载普通用户登录、普通用户注册和管理员登录模式；`/login`、`/register` 和 `/admin/login` 只作为兼容入口触发浮窗。普通用户登录 / 注册成功默认进入首页 `/` 或合法 USER redirect，管理员登录成功默认进入 `/admin/cars` 或合法 ADMIN redirect。
+- 未登录用户访问需要身份的页面时，前端路由守卫保留当前目标路径，只补充 `auth=login/admin` 与合法 `redirect` 打开浮窗，不强制切换背景到首页。
 - 当前购车需求字段以 `budgetMin`、`budgetMax`、`brands`、`bodyTypes`、`energyTypes`、`seatOptions`、`scenes`、`factorWeights` 为主；`minSeats`、`excludedBrands`、`excludedCarIds` 是兼容字段。
 - 管理员默认进入 `/admin/cars`，不显示首页入口；管理员用户管理只能维护 `app_user.status` 和查看用户数据，不得隐式生成推荐或改变推荐排序。
 - 管理端收藏车型和反馈记录第一版只读，不允许取消收藏、删除反馈或代用户操作。
@@ -186,3 +187,17 @@ git status --short
 - 日志文件
 
 只改 Markdown 文档时，不需要执行 `mvn test`、`mvn package` 或 `npm run build`，但应执行文本搜索和 `git diff --check`。
+## 车型数据源导入开发流程
+
+车型种子数据保留为本地最小开发数据。需要批量补充或更新车型时，优先使用管理端 JSON 数据源导入能力，而不是改写一次性 seed。
+
+1. 按 `docs/API.md` 中管理端车型数据源导入字段说明准备结构化 JSON。
+2. 使用管理员账号登录管理端，在 `/admin/cars` 打开“导入数据源”。
+3. 上传 JSON 后检查导入摘要和问题列表。
+4. 如果需要让新增或更新车型参与推荐，执行全部车型评分重算：
+
+```text
+POST http://localhost:8080/api/admin/cars/scores/recalculate
+```
+
+导入实现必须继续遵守当前分层：Controller 只接收文件并返回统一响应，Service 负责解析、校验、自然键匹配和 upsert，Mapper 只处理 `car_model` 与 `car_param` 数据访问。不要在导入流程中修改收藏、对比、反馈、推荐历史或推荐快照。

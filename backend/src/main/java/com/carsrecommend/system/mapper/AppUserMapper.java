@@ -96,6 +96,15 @@ public class AppUserMapper {
         return count != null && count > 0;
     }
 
+    public boolean existsByEmailExcludingId(String email, Long excludedId) {
+        Long count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM app_user WHERE email = ? AND id <> ? AND deleted = FALSE",
+                Long.class,
+                email,
+                excludedId);
+        return count != null && count > 0;
+    }
+
     public AppUser insert(AppUser user) {
         String sql = """
                 INSERT INTO app_user (username, password, nickname, email, phone, status)
@@ -149,6 +158,19 @@ public class AppUserMapper {
                         WHERE id = ? AND deleted = FALSE
                         """,
                 status,
+                id);
+    }
+
+    public int updateProfile(Long id, String nickname, String email, String phone) {
+        return jdbcTemplate.update(
+                """
+                        UPDATE app_user
+                        SET nickname = ?, email = ?, phone = ?, update_time = CURRENT_TIMESTAMP
+                        WHERE id = ? AND status = 'ACTIVE' AND deleted = FALSE
+                        """,
+                nickname,
+                email,
+                phone,
                 id);
     }
 

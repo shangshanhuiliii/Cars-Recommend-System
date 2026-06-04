@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -19,6 +20,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.context.jdbc.SqlConfig;
 import org.springframework.test.web.servlet.MockMvc;
@@ -122,6 +124,62 @@ class AdminCarControllerTest {
         mockMvc.perform(get("/api/admin/cars/{id}", carId))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value(404));
+
+        importDataSourceUpsertsCarModelsAndParams();
+    }
+
+    void importDataSourceUpsertsCarModelsAndParams() throws Exception {
+        MockMultipartFile createFile = new MockMultipartFile(
+                "file",
+                "cars.json",
+                MediaType.APPLICATION_JSON_VALUE,
+                importPayload("Data Source Import 2026", 1800, 2810, true).getBytes(StandardCharsets.UTF_8));
+
+        mockMvc.perform(multipart("/api/admin/cars/data-source/import").file(createFile))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalCount").value(2))
+                .andExpect(jsonPath("$.data.successCount").value(1))
+                .andExpect(jsonPath("$.data.createdCount").value(1))
+                .andExpect(jsonPath("$.data.updatedCount").value(0))
+                .andExpect(jsonPath("$.data.skippedCount").value(1))
+                .andExpect(jsonPath("$.data.failedCount").value(0))
+                .andExpect(jsonPath("$.data.issues[0].type").value("SKIPPED"));
+
+        Long carId = jdbcTemplate.queryForObject(
+                "SELECT id FROM car_model WHERE brand = ? AND series = ? AND model_name = ? AND launch_year = ? AND deleted = FALSE",
+                Long.class,
+                "DataSourceBrand",
+                "DataSourceSeries",
+                "Data Source Import 2026",
+                2026);
+        assertEquals(1, jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM car_param WHERE car_id = ? AND wheelbase_mm = ? AND deleted = FALSE",
+                Integer.class,
+                carId,
+                2810));
+
+        MockMultipartFile updateFile = new MockMultipartFile(
+                "file",
+                "cars-update.json",
+                MediaType.APPLICATION_JSON_VALUE,
+                importPayload("Data Source Import 2026", 2600, 2860, false).getBytes(StandardCharsets.UTF_8));
+
+        mockMvc.perform(multipart("/api/admin/cars/data-source/import").file(updateFile))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalCount").value(1))
+                .andExpect(jsonPath("$.data.successCount").value(1))
+                .andExpect(jsonPath("$.data.createdCount").value(0))
+                .andExpect(jsonPath("$.data.updatedCount").value(1))
+                .andExpect(jsonPath("$.data.failedCount").value(0));
+
+        assertEquals(2600, jdbcTemplate.queryForObject(
+                "SELECT sales_volume FROM car_model WHERE id = ?",
+                Integer.class,
+                carId));
+        assertEquals(2860, jdbcTemplate.queryForObject(
+                "SELECT wheelbase_mm FROM car_param WHERE car_id = ?",
+                Integer.class,
+                carId));
     }
 
     private long readDataId(MvcResult result) throws Exception {
@@ -177,5 +235,50 @@ class AdminCarControllerTest {
                   "assistDriveLevel": "L2"
                 }
                 """.formatted(carId, wheelbaseMm);
+    }
+
+    private String importPayload(String modelName, int salesVolume, int wheelbaseMm, boolean duplicate) {
+        String row = """
+                {
+                  "brand": "DataSourceBrand",
+                  "series": "DataSourceSeries",
+                  "modelName": "%s",
+                  "guidePrice": 186800,
+                  "bodyType": "SUV",
+                  "energyType": "插混",
+                  "seats": 5,
+                  "launchYear": 2026,
+                  "imageUrl": "",
+                  "salesVolume": %d,
+                  "userRating": 4.5,
+                  "auditStatus": "APPROVED",
+                  "param": {
+                    "lengthMm": 4820,
+                    "widthMm": 1900,
+                    "heightMm": 1690,
+                    "wheelbaseMm": %d,
+                    "fuelConsumption": 4.6,
+                    "electricConsumption": null,
+                    "electricRangeKm": 125,
+                    "totalRangeKm": 1100,
+                    "acceleration100": 7.2,
+                    "airbagCount": 6,
+                    "hasAbs": true,
+                    "hasEsp": true,
+                    "hasActiveBrake": true,
+                    "hasLaneKeep": true,
+                    "hasAdaptiveCruise": true,
+                    "hasBlindSpot": true,
+                    "hasReverseCamera": true,
+                    "has360Camera": true,
+                    "hasOta": true,
+                    "hasVoiceControl": true,
+                    "hasAutoParking": false,
+                    "screenSize": 15.6,
+                    "assistDriveLevel": "L2"
+                  }
+                }
+                """.formatted(modelName, salesVolume, wheelbaseMm);
+        return duplicate ? "{\"cars\":[" + row + "," + row + "]}" : "{\"cars\":[" + row + "]}";
     }
 }

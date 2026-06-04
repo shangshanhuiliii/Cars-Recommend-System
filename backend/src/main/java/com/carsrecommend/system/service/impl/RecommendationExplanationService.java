@@ -20,8 +20,8 @@ public class RecommendationExplanationService {
     private static final int CONTRIBUTION_REASON_LIMIT = 3;
     private static final int HIGH_WEIGHT_DIMENSION_LIMIT = 4;
     private static final String DEFAULT_REASON_TEXT =
-            "该车型在多个关键维度上表现较均衡，可作为备选车型进一步对比。";
-    private static final String DEFAULT_WEAKNESS_TEXT = "该车型整体匹配较均衡，暂无明显短板。";
+            "该车型在多个关键维度上表现较均衡，可作为备选车型进一步对比";
+    private static final String DEFAULT_WEAKNESS_TEXT = "该车型整体匹配较均衡，暂无明显短板";
 
     public Explanation generate(
             RecommendationScoreVector scoreVector,
@@ -73,6 +73,7 @@ public class RecommendationExplanationService {
                 .sorted(Comparator.comparing(DimensionExplanation::contribution).reversed())
                 .limit(CONTRIBUTION_REASON_LIMIT)
                 .map(DimensionExplanation::reasonText)
+                .map(this::withoutTrailingChinesePeriod)
                 .toList();
         if (reasons.size() < 2) {
             return DEFAULT_REASON_TEXT;
@@ -89,8 +90,16 @@ public class RecommendationExplanationService {
                 .sorted(Comparator.comparing(DimensionExplanation::gap).reversed())
                 .limit(2)
                 .map(DimensionExplanation::weaknessText)
+                .map(this::withoutTrailingChinesePeriod)
                 .toList();
         return weaknesses.isEmpty() ? DEFAULT_WEAKNESS_TEXT : String.join("；", weaknesses);
+    }
+
+    private String withoutTrailingChinesePeriod(String text) {
+        if (text == null || !text.endsWith("。")) {
+            return text;
+        }
+        return text.substring(0, text.length() - 1);
     }
 
     private List<DimensionExplanation> dimensions(

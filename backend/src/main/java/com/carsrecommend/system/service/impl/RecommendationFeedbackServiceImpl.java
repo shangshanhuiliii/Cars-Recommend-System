@@ -76,14 +76,14 @@ public class RecommendationFeedbackServiceImpl implements RecommendationFeedback
         Long currentUserId = AuthContext.currentUserIdOrNull();
         Long resolvedUserId = currentUserId != null ? currentUserId : (userId == null ? DEFAULT_SEED_USER_ID : userId);
         if (!userDemandMapper.existsActiveUser(resolvedUserId)) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "app user not found");
+            throw new BusinessException(ErrorCode.NOT_FOUND, "用户不存在");
         }
         return resolvedUserId;
     }
 
     private void assertOwnRecord(Long recordId, Long userId) {
         recommendRecordMapper.findByIdAndUserId(recordId, userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "recommend record not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "推荐记录不存在"));
     }
 
     private String satisfactionLevel(Integer score) {

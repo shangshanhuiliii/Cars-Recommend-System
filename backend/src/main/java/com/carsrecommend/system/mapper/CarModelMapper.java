@@ -68,7 +68,7 @@ public class CarModelMapper {
         sql.append(SELECT_COLUMNS).append(" FROM car_model");
         List<Object> params = new ArrayList<>();
         appendPageFilters(sql, params, query);
-        sql.append(" ORDER BY id DESC LIMIT ? OFFSET ?");
+        sql.append(orderByClause(query)).append(" LIMIT ? OFFSET ?");
         params.add(query.getSize());
         params.add((query.getPage() - 1L) * query.getSize());
         return jdbcTemplate.query(sql.toString(), ROW_MAPPER, params.toArray());
@@ -79,6 +79,23 @@ public class CarModelMapper {
                 "SELECT " + SELECT_COLUMNS + " FROM car_model WHERE id = ? AND deleted = FALSE",
                 ROW_MAPPER,
                 id);
+        return cars.stream().findFirst();
+    }
+
+    public Optional<CarModel> findActiveByNaturalKey(String brand, String series, String modelName, Integer launchYear) {
+        List<CarModel> cars = jdbcTemplate.query(
+                "SELECT " + SELECT_COLUMNS
+                        + " FROM car_model"
+                        + " WHERE brand = ? AND series = ? AND model_name = ?"
+                        + " AND (launch_year = ? OR (launch_year IS NULL AND ? IS NULL))"
+                        + " AND deleted = FALSE"
+                        + " ORDER BY id ASC LIMIT 1",
+                ROW_MAPPER,
+                brand,
+                series,
+                modelName,
+                launchYear,
+                launchYear);
         return cars.stream().findFirst();
     }
 
@@ -246,6 +263,33 @@ public class CarModelMapper {
             sql.append(" AND guide_price <= ?");
             params.add(query.getMaxPrice());
         }
+    }
+
+    private String orderByClause(CarPageQuery query) {
+        String sortBy = query.getSortBy();
+        String column = "id";
+        String defaultDirection = "DESC";
+        if (StringUtils.hasText(sortBy)) {
+            String normalized = sortBy.trim().toLowerCase();
+            if ("price".equals(normalized)) {
+                column = "guide_price";
+                defaultDirection = "ASC";
+            } else if ("rating".equals(normalized)) {
+                column = "user_rating";
+            } else if ("sales".equals(normalized)) {
+                column = "sales_volume";
+            }
+        }
+        String direction = defaultDirection;
+        if (StringUtils.hasText(query.getSortOrder())) {
+            String normalizedOrder = query.getSortOrder().trim().toLowerCase();
+            if ("asc".equals(normalizedOrder)) {
+                direction = "ASC";
+            } else if ("desc".equals(normalizedOrder)) {
+                direction = "DESC";
+            }
+        }
+        return " ORDER BY " + column + " " + direction + ", id DESC";
     }
 
     private static Integer readInteger(ResultSet resultSet, String column) throws SQLException {

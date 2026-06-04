@@ -75,29 +75,29 @@ font-family: "SF Pro Display", "SF Pro Text", "PingFang SC", "HarmonyOS Sans SC"
 
 ## 全局布局
 
-顶部导航按当前登录身份展示，左侧统一使用品牌 Logo 组件：
+普通用户端使用顶部导航，管理端使用左侧侧边栏导航。未登录时可以停留在当前目标页面背景并通过浮窗完成认证，不展示普通业务导航：
 
 ```text
-未登录：品牌 Logo / 首页 / 右上角登录 / 注册按钮
-USER：品牌 Logo / 首页 / 购车推荐 / 推荐历史 / 我的收藏 / 车型对比 / 账户按钮
-ADMIN：品牌 Logo / 车型管理 / 用户管理 / 收藏车型 / 反馈记录 / 推荐记录 / 运营概览 / 系统健康检查 / 算法可视化 / 账户按钮
+未登录：品牌 Logo / 登录注册按钮
+USER：品牌 Logo / 首页 / 购车推荐 / 推荐历史 / 我的收藏 / 车型对比 / 我的 / 账户按钮
+ADMIN：左侧品牌区 / 管理员身份 / 车型管理 / 用户管理 / 收藏车型 / 反馈记录 / 推荐记录 / 运营概览 / 系统健康检查 / 算法可视化 / 退出登录
 ```
 
-品牌图标从固定公开路径 `/brand/logo-icon.svg` 加载，品牌名称和副标题由前端统一配置维护。图标替换时只需更新 `frontend/public/brand/logo-icon.svg`，组件在图片加载失败时显示简洁文字 fallback，不出现破图。普通用户和未登录状态点击品牌进入 `/`，管理员点击品牌进入 `/admin/cars`。
+品牌图标从固定公开路径 `/brand/logo-icon.svg` 加载，品牌名称和副标题由前端统一配置维护。图标替换时只需更新 `frontend/public/brand/logo-icon.svg`，组件在图片加载失败时显示简洁文字 fallback，不出现破图。未登录和普通用户点击品牌进入 `/`，管理员点击品牌进入 `/admin/cars`。
 
-主体区域建议最大宽度 `1240px`，左右留白 `24px`。
+普通用户端主体区域建议最大宽度 `1240px`，左右留白 `24px`。管理端主体区域使用浅灰背景和内容面板，桌面端左侧栏固定在视口左侧，主内容最大宽度放宽到 `1480px`；窄屏下侧栏切换为抽屉，不长期挤压内容。
 
 菜单来自登录响应或 `/api/auth/me` 返回的 `menus`，也可以用 `principalType` 做兜底展示。菜单隐藏不是安全边界，后端接口权限才是安全边界。
 
-产品前端统一使用首页登录 / 注册弹窗。未登录右上角按钮打开弹窗；登录后右上角显示带边框和玻璃质感的账户按钮，点击后下拉展示昵称、角色和退出，不在顶栏直接裸露退出按钮。管理员展示名称固定为“管理员”。
+产品前端统一使用全局登录 / 注册浮窗，不使用独立登录注册页作为默认入口。普通用户登录后右上角显示带边框和玻璃质感的账户按钮，点击后下拉展示昵称、角色、“我的”和退出，不在顶栏直接裸露退出按钮。管理员展示名称固定为“管理员”，进入 `/admin/**` 或 `/algorithm-demo` 后使用管理端左侧栏，不展示普通用户顶部导航。
 
-登录 / 注册弹窗规则：
+登录 / 注册浮窗规则：
 
-- 登录和注册在同一个弹窗内切换，不跳离首页。
-- 登录模式底部保留“没有账号？立即注册”和“忘记密码”；点击“立即注册”切换到注册模式，点击“忘记密码”只展示占位提示。
-- 忘记密码本阶段只提示“邮箱找回密码功能将在后续开放。当前请联系管理员协助处理。”，不发送邮件、不重置密码。
-- 登录和注册提交前必须勾选“我已阅读并同意《用户协议》和《隐私协议》”；未勾选时阻止提交，并让协议区域执行轻微 shake 警示。
-- 《用户协议》和《隐私协议》本阶段可以在弹窗内展示简洁占位说明，不新增强制独立路由。
+- 浮窗支持普通用户登录、普通用户注册和管理员登录模式。
+- `/login`、`/register` 和 `/admin/login` 只作为兼容入口，重定向到合法背景路由并通过 `auth=login/register/admin` 打开浮窗。
+- 未登录访问 `/recommend`、`/history`、`/favorites`、`/compare`、`/me`、`/car/:id`、`/features` 等需要 USER 身份的页面时，路由守卫保留当前目标地址和合法 `redirect`，只补充认证浮窗状态，不把背景强制切换成首页。
+- 普通用户注册只创建 `USER` 账号，注册成功自动保存登录态并进入合法 USER redirect；没有 redirect 时进入首页 `/`。
+- 普通用户登录成功进入合法 USER redirect；没有 redirect 时进入首页 `/`。管理员登录成功进入合法 ADMIN redirect；没有 redirect 时进入 `/admin/cars`。
 - 注册普通用户时需要填写邮箱并保存到 `app_user.email`，作为后续找回密码能力基础；本阶段不触发邮箱验证码发送。
 
 普通操作成功或失败不使用顶部 toast。收藏、取消收藏、加入对比、提交反馈等操作使用按钮状态、卡片内提示、表单区域提示或页面内状态条表达结果。
@@ -106,18 +106,20 @@ ADMIN：品牌 Logo / 车型管理 / 用户管理 / 收藏车型 / 反馈记录 
 
 | 路由 | 页面 | 说明 |
 | --- | --- | --- |
-| `/` | 首页 | 面向普通用户的产品首页，顶部只展示数据库随机车辆图片轮播和极简车辆信息角标；轮播下方只保留核心购车推荐入口；特色区用可点击卡片进入 `/features`。 |
-| `/login` | 兼容登录路由 | 不再展示独立页面，重定向到 `/?auth=login`，并透传合法 `redirect`。 |
-| `/admin/login` | 兼容管理员登录路由 | 不再展示独立页面，重定向到 `/?auth=login&redirect=/admin/cars` 或透传合法 admin redirect。 |
-| `/register` | 兼容注册入口 | 产品前端不再作为独立入口使用；注册由首页弹窗完成，只能创建普通 USER 账号。 |
+| `/` | 首页 | USER 路由；面向普通用户的产品首页，首屏突出“推荐”圆形核心入口，产品能力以小圆环绕展示并可进入 `/features`。 |
+| `/login` | 登录浮窗入口 | 兼容入口；重定向到合法 `redirect` 背景或首页，并通过 `auth=login` 打开认证浮窗。 |
+| `/admin/login` | 管理员登录浮窗入口 | 兼容入口；通过 `auth=admin` 打开管理员登录模式，登录后进入合法 admin redirect 或 `/admin/cars`。 |
+| `/register` | 注册浮窗入口 | 兼容入口；通过 `auth=register` 打开注册浮窗，只能创建普通 USER 账号。 |
 | `/unauthorized` | 无权限页 | 登录身份与路由权限不匹配时展示。 |
 | `/recommend` | 购车需求页 | USER 路由；产品化结构化需求表单，不展示自然语言解析入口。 |
-| `/recommend/result/:recordId` | 推荐结果页 | USER 路由；读取推荐详情，车名可点击进入 `/car/{id}?recordId={recordId}`，按后端 `rankNo` 展示。 |
-| `/car/:id` | 车型详情页 | 独立车型详情页，横屏大图展示基础信息、参数和特征评分。 |
-| `/features` | 特色介绍页 | 公开页面；集中介绍结构化需求、推荐理由、不足提醒、收藏对比和历史回看，不展示复杂算法术语。 |
+| `/recommend/result/:recordId` | 推荐结果页 | USER 路由；读取推荐详情，车名可点击进入 `/car/{id}?recordId={recordId}`，按后端 `rankNo` 展示，并提供当前推荐车型的价格从低到高演示。 |
+| `/cars` | 车型库 | USER 路由；顶部展示车辆轮播，下面提供关键词、品牌、级别、动力和价格筛选，支持进入详情、收藏和加入对比。 |
+| `/car/:id` | 车型详情页 | USER 路由；横屏大图展示基础信息、参数和特征评分。 |
+| `/features` | 特色介绍页 | USER 路由；集中介绍结构化需求、推荐理由、不足提醒、收藏对比和历史回看，不展示复杂算法术语。 |
 | `/history` | 推荐历史页 | USER 路由；展示当前用户推荐历史列表和详情入口。 |
 | `/compare` | 车型对比页 | USER 路由；加载当前用户后端持久化对比列表，支持 1-3 款车型横向对比。 |
 | `/favorites` | 我的收藏页 | USER 路由；展示当前用户收藏车型。 |
+| `/me` | 我的页面 | USER 路由；读取并保存当前登录用户的昵称、邮箱和手机号，保存后刷新顶部显示名称。 |
 | `/algorithm-demo` | 算法可视化页面 | ADMIN 路由；管理端导航中的只读工具页，展示推荐快照中的算法过程。 |
 | `/admin/cars` | 管理端车型管理 | ADMIN 路由；车型、参数、评分维护。 |
 | `/admin/users` | 管理端用户管理 | ADMIN 路由；查看普通用户状态、统计数字、最近需求和推荐历史入口，点击用户行显示右侧详情，支持启用 / 禁用。 |
@@ -129,14 +131,14 @@ ADMIN：品牌 Logo / 车型管理 / 用户管理 / 收藏车型 / 反馈记录 
 
 路由守卫规则：
 
-- 未登录访问 USER / ADMIN 路由时跳转 `/?auth=login&redirect=<to.fullPath>`。
-- `/login` 和 `/admin/login` 只作为兼容路由，访问后重定向到首页并打开登录弹窗。
+- 未登录访问 USER 路由、ADMIN 路由或其他业务页面时，停留在目标路由背景，补充 `auth=login/admin` 与合法 `redirect` 打开浮窗，不强制跳首页。
+- `/login`、`/register` 和 `/admin/login` 只作为模式化兼容入口；认证 UI 由全局浮窗承载。
 - 登录成功后，ADMIN 在 redirect 是合法 admin 路由时进入 redirect，否则进入 `/admin/cars`；USER 在 redirect 是合法 USER 路由或公开路由时进入 redirect，否则进入 `/`。
 - 注册成功后自动保存 USER 登录态；有合法 USER 或公开 redirect 时进入 redirect，否则进入首页 `/`。
 - USER 访问 ADMIN 路由、ADMIN 访问 USER 路由时进入 `/unauthorized`。
 - ADMIN 访问 `/` 重定向 `/admin/cars`；ADMIN 访问 `/login`、`/admin/login` 或 `/register` 也重定向 `/admin/cars`。
 - Axios 请求拦截器自动附加 `Authorization: Bearer <token>`。
-- Axios 响应拦截器遇到 `401` 清除本地登录态，并跳转 `/?auth=login&redirect=<currentPath>`。
+- Axios 响应拦截器遇到 `401` 清除本地登录态，并在当前路径上补充 `auth` 与 `redirect` 打开浮窗，不把背景页面切换成首页。
 
 ## 首页
 
@@ -144,14 +146,14 @@ ADMIN：品牌 Logo / 车型管理 / 用户管理 / 收藏车型 / 反馈记录 
 
 首页结构：
 
-- 顶部车辆轮播只展示数据库随机返回的车型图片和极简车辆信息角标，数据来自公开接口 `GET /api/car/home-carousel?limit=6`。
-- 轮播高度约占视口 1/3，建议使用 `clamp(240px, 33vh, 340px)`；保持车辆图片正常展示比例，不做细长横幅。
-- 轮播主体可以适当收窄居中，两侧留白可使用 Apple-inspired 的柔和 radial-gradient 光斑、极淡线条或玻璃层次装饰，但不堆文案、不做 AI 风视觉。
-- 轮播整张 slide 可点击进入 `/car/{id}`；轮播不展示解释性文案，不放“开始推荐”“查看历史”“我的收藏”“车型对比”等功能 CTA。
-- 轮播优先使用车型 `imageUrl`，通过 `carImageSrc(imageUrl)` 兜底，本地开发库没有审核通过图片时仍保持页面可用。
-- 轮播下方只保留“开始购车推荐”核心入口，文案简短，CTA 跳转 `/recommend`。
+- 首页首屏使用淡蓝渐变背景，中心放置浅蓝圆形“推荐”入口，点击进入 `/recommend`。
+- 产品能力以小圆围绕核心入口展示，例如结构化购车需求、推荐理由、不足提醒、车型收藏与对比、历史回看；点击进入 `/features` 的对应 section。
+- 首页不再承载车辆轮播，避免首页焦点从推荐主链路偏移到车型浏览。
 - 首页删除推荐历史、我的收藏、车型对比等辅助入口卡片；这些入口由导航栏提供。
-- 特色介绍集中为克制的可点击功能卡片，例如结构化购车需求、推荐理由、不足提醒、车型收藏与对比、历史回看；点击进入 `/features` 的对应 section。
+
+车型库顶部展示数据库随机返回的车辆轮播，数据来自公开接口 `GET /api/car/home-carousel?limit=6`。轮播高度约占视口 1/3，建议使用 `clamp(240px, 33vh, 340px)`；整张 slide 可点击进入 `/car/{id}`，优先使用车型 `imageUrl` 并通过 `carImageSrc(imageUrl)` 兜底。本地开发库没有审核通过图片时仍保持页面可用。
+
+车型库列表只作为车型浏览入口，提供关键词、品牌、级别、动力和价格筛选。车型卡片保持简洁，只展示品牌车系、车型名称、价格、级别、动力和座位，不展示评分 / 销量 / 简介辅助文字。
 
 首页不得调用 `GET /api/health`，不得展示健康检查状态；不得把算法可视化作为首页主入口；不得展示 TOPSIS、Pareto、熵权等复杂算法术语。
 
@@ -218,9 +220,10 @@ ADMIN：品牌 Logo / 车型管理 / 用户管理 / 收藏车型 / 反馈记录 
 
 排序规则：
 
-- 每组内部必须按后端 `rankNo` 升序展示。
-- 不按 `totalScore`、`reputationScore`、`popularityScore` 或其他字段二次排序。
-- `rankNo` 是展示排序的唯一权威。
+- 默认推荐展示必须按后端 `rankNo` 升序展示。
+- 不按 `totalScore`、`reputationScore`、`popularityScore` 或其他字段覆盖推荐排序。
+- `rankNo` 是推荐排序的唯一权威。
+- “价格从低到高演示”只作用于当前推荐记录中的车型，作为辅助查看视图；关闭演示后恢复后端 `rankNo` 推荐排序，不覆盖推荐记录。
 
 推荐卡片必须展示：
 
@@ -395,7 +398,11 @@ ADMIN：品牌 Logo / 车型管理 / 用户管理 / 收藏车型 / 反馈记录 
 算法可视化
 ```
 
-管理员界面不展示首页入口，品牌 Logo 指向 `/admin/cars`，右上角名称固定显示“管理员”。管理员登录后默认进入 `/admin/cars`，不能进入普通首页。
+管理员界面采用左侧侧边栏：顶部为品牌和系统名称，中部展示当前身份“管理员”，下方是管理菜单，底部提供退出登录入口。管理员界面不展示首页入口，品牌 Logo 指向 `/admin/cars`，管理员登录后默认进入 `/admin/cars`，不能进入普通首页。
+
+管理端主内容区使用后台系统风格：浅灰页面背景、白色面板、紧凑筛选区、稳定表格和清晰操作层级，不使用营销 hero、大面积装饰渐变或夸张视觉元素。窄屏时左侧栏转为抽屉，由顶部菜单按钮打开，关闭后不遮挡主内容。
+
+管理端顶部栏只展示当前模块名称和管理员身份，内容区不重复展示大标题和长说明。页面级刷新、新增、导入、重算等操作保留在内容区顶部的紧凑操作栏；表格行内只常驻最高频操作，次级操作放入“更多”菜单，删除等危险操作必须弱化并保留二次确认。
 
 用户管理页规则：
 
@@ -460,6 +467,8 @@ ADMIN：品牌 Logo / 车型管理 / 用户管理 / 收藏车型 / 反馈记录 
 
 运营概览展示：
 
+- 顶部提供运营指标曲线，基于现有用户、车型、推荐、收藏、反馈和满意度统计生成概览轮廓，不伪造时间序列。
+- 核心指标卡使用图标、轻量渐变和状态色增强扫描效率。
 - 用户总数、ACTIVE 用户数、DISABLED 用户数。
 - 车型总数、推荐记录数、今日推荐记录数、最近 7 天推荐记录数。
 - 收藏总数、反馈总数和平均满意度。
@@ -474,7 +483,7 @@ ADMIN：品牌 Logo / 车型管理 / 用户管理 / 收藏车型 / 反馈记录 
 - 满意度分布。
 - 原因标签分布。
 
-统计图表消费 `{ name, value }` 数组。没有数据时展示空状态，不展示无意义随机数据。
+统计图表消费 `{ name, value }` 数组，排行和分布使用统计表展示排名、名称、数量和占比进度条。没有数据时展示空状态，不展示无意义随机数据。
 
 系统健康检查页：
 
@@ -526,6 +535,7 @@ GET /api/admin/recommend-records/{recordId}/algorithm-visualization
 
 ## 验收清单
 
+- 未登录用户访问需要身份的页面时打开登录 / 注册浮窗，背景仍保留目标页面而不是被强制切到首页。
 - 用户能从首页进入购车需求页。
 - 用户填写需求后能看到推荐结果。
 - 推荐结果页展示 `tags`、`reasonText`、`weaknessText`、维度分数和分组语义。
@@ -536,3 +546,19 @@ GET /api/admin/recommend-records/{recordId}/algorithm-visualization
 - `/algorithm-demo` 只读展示权重、候选、九维矩阵、Pareto、TOPSIS、解释和快照边界。
 - 普通操作反馈使用页面内状态。
 - 推荐算法不写在前端。
+## 管理端车型数据源导入
+
+`/admin/cars` 在车型维护操作区提供“导入数据源”入口，仅管理员可见。该入口上传 JSON 文件，导入完成后在弹窗内展示总记录数、成功数、新增数、更新数、跳过数、失败数、匹配规则、下一步提示和问题列表，不使用顶部 toast 作为主要反馈。
+
+导入入口只服务管理端车型维护，不影响用户端推荐结果展示，不改变推荐排序。导入结果提示管理员在需要让新增或更新车型进入推荐评分链路前执行“全部评分重算”。
+
+## Car Display Module
+
+The user car display module includes:
+
+- `/cars`: public car library page with keyword, brand, body type, energy type, price filters, car cards, pagination, detail entry, favorite action, and compare action.
+- `/car/:id`: public car detail page showing base information, grouped parameter tabs, and feature scores.
+
+Unauthenticated users may browse car information. When they click favorite or add-to-compare, the current background page is preserved and the global auth dialog opens through `auth=login&redirect=...`. Add-to-compare only updates inline state and does not navigate automatically.
+
+Empty display rules: missing main images use the existing `carImageSrc` fallback; `null` and `undefined` values are rendered as friendly placeholders. The module must not show TOPSIS/Pareto/entropy-weight terminology and must not change recommendation result sorting.

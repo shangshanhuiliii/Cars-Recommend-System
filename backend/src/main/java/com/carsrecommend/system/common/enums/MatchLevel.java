@@ -29,6 +29,6 @@ public enum MatchLevel {
                 return value;
             }
         }
-        throw new IllegalArgumentException("Unsupported matchLevel: " + code);
+        throw new IllegalArgumentException("不支持的匹配层级：" + code);
     }
 }

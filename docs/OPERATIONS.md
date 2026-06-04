@@ -57,7 +57,9 @@ app:
 
 普通用户注册只创建 `USER` 账号，密码以 PBKDF2 hash 写入 `app_user.password`，账号状态默认为 `ACTIVE`。管理员将用户状态改为 `DISABLED` 后，该用户不能再次登录；当前轻量 JWT 不维护服务端黑名单，已签发 token 在过期前仍可能可用，如需立即失效需后续增加 tokenVersion 或 token blacklist。
 
-前端登录入口统一为首页右上角登录 / 注册弹窗：后端通过 `POST /api/auth/login` 根据账号密码识别普通用户或管理员。普通用户登录或注册成功默认进入首页 `/`；管理员登录成功默认进入 `/admin/cars`。旧 `/login` 和 `/admin/login` URL 保留兼容，访问时重定向到首页并打开登录弹窗；管理员界面不展示首页入口，访问首页会重定向到车型管理。
+前端使用全局登录 / 注册浮窗承载认证：浮窗支持普通用户登录、普通用户注册和管理员登录模式。普通用户登录或注册成功进入合法 USER redirect；没有 redirect 时进入首页 `/`。管理员登录成功进入合法 ADMIN redirect；没有 redirect 时进入 `/admin/cars`。`/login`、`/register` 和 `/admin/login` 只作为兼容入口触发对应浮窗模式；管理员界面不展示首页入口，访问首页会重定向到车型管理。
+
+未登录用户不能真正使用购车推荐、推荐历史、收藏、车型对比、车型详情、特色介绍或管理端页面中的身份相关功能。前端路由守卫会保留当前目标路径作为背景，补充 `auth=login/admin` 与合法 `redirect` 打开浮窗，不把背景强制切换成首页。后端公开接口仅用于健康检查、登录注册、车辆图片和必要车型资源加载，不代表存在游客产品身份。
 
 注册表单会保存普通用户邮箱到 `app_user.email`，用于后续找回密码能力基础。本阶段忘记密码入口只展示占位提示，不发送邮件、不重置密码，也不需要 SMTP 配置或 Redis。
 
@@ -199,17 +201,19 @@ http://localhost:5173
 
 Vite proxy 会将 `/api` 转发到 `http://localhost:8080`。
 
+管理员登录后默认进入 `/admin/cars`。管理端页面使用左侧侧边栏导航，包含车型管理、用户管理、收藏车型、反馈记录、推荐记录、运营概览、系统健康检查和算法可视化入口；窄屏下侧边栏以抽屉方式打开。
+
 ## 常用页面
 
 - `/`
-- `/login`（兼容跳转到首页登录弹窗）
+- `/login`（兼容登录浮窗入口）
 - `/recommend`
 - `/recommend/result/:recordId`
 - `/history`
 - `/compare`
 - `/favorites`
 - `/features`
-- `/admin/login`（兼容跳转到首页登录弹窗）
+- `/admin/login`（兼容管理员登录浮窗入口）
 - `/admin/favorites`
 - `/admin/feedbacks`
 - `/algorithm-demo`
@@ -221,8 +225,8 @@ Vite proxy 会将 `/api` 转发到 `http://localhost:8080`。
 
 - 健康检查：`GET /api/health`
 - 统一登录：`POST /api/auth/login`
-- 普通用户登录兼容接口：`POST /api/auth/user/login`
-- 管理员登录兼容接口：`POST /api/auth/admin/login`
+- 普通用户登录：`POST /api/auth/user/login`
+- 管理员登录：`POST /api/auth/admin/login`
 - 当前身份：`GET /api/auth/me`
 - 管理端图片资源：`POST /api/admin/car-images`、`GET /api/admin/car-images`、`PUT /api/admin/car-images/{id}/audit`、`DELETE /api/admin/car-images/{id}`
 - 用户需求保存：`POST /api/user/demand`
@@ -299,3 +303,22 @@ POST /api/admin/cars/scores/recalculate
 - 上传图片文件
 - 日志文件
 - 含真实密码、token、密钥的任何文件
+## 车型数据源导入
+
+管理端车型管理页提供 JSON 数据源导入入口，接口为：
+
+```text
+POST /api/admin/cars/data-source/import
+```
+
+请求使用 `multipart/form-data`，字段名为 `file`。JSON 字段以 `docs/API.md` 中管理端车型数据源导入说明为准。
+
+导入会按 `brand + series + modelName + launchYear` 匹配未删除车型：新车型新增，已存在车型更新 `car_model` 并 upsert 对应 `car_param`。导入不会清空数据库，不会删除已有车型，不会修改推荐历史、收藏、对比、反馈或推荐快照。
+
+导入完成后如需让新增或更新车型进入推荐主链路，需要执行全部车型评分重算：
+
+```text
+POST http://localhost:8080/api/admin/cars/scores/recalculate
+```
+
+该能力不接入真实商业接口密钥，不爬取图片。`imageUrl` 仍只是当前生效图片地址，图片资源上传和审核规则保持不变。

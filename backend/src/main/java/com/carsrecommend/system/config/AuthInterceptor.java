@@ -41,6 +41,7 @@ public class AuthInterceptor implements HandlerInterceptor {
             "/api/user/compare/**",
             "/api/user/favorites",
             "/api/user/favorites/**",
+            "/api/auth/profile",
             "/api/recommend/generate",
             "/api/recommend/history",
             "/api/recommend/*",
@@ -88,7 +89,7 @@ public class AuthInterceptor implements HandlerInterceptor {
             return false;
         }
         if (!requiresAuthentication) {
-            writeFailure(response, ErrorCode.NOT_FOUND, "api endpoint is not registered for access");
+            writeFailure(response, ErrorCode.NOT_FOUND, "接口未注册访问权限，请检查后端接口权限配置");
             return false;
         }
         if (requiredType != null && principal.principalType() != requiredType) {
@@ -132,7 +133,7 @@ public class AuthInterceptor implements HandlerInterceptor {
     private String resolveBearerToken(HttpServletRequest request) {
         String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
         if (!StringUtils.hasText(authorization) || !authorization.startsWith("Bearer ")) {
-            throw new BusinessException(ErrorCode.UNAUTHORIZED, "missing bearer token");
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "请先登录后再继续操作");
         }
         return authorization.substring("Bearer ".length()).trim();
     }

@@ -62,11 +62,11 @@
       />
 
       <div class="overview-grid">
-        <div class="panel hero-panel">
+        <div class="panel algorithm-overview-card">
           <div class="panel__body">
             <p class="eyebrow">算法版本 algorithmVersion</p>
             <h2>{{ detail.algorithmVersion }}</h2>
-            <div class="hero-metrics">
+            <div class="algorithm-overview-metrics">
               <div>
                 <span>组合系数 alpha</span>
                 <strong>{{ formatAlpha(detail.alpha) }}</strong>
@@ -395,11 +395,11 @@
               <div class="reason-grid">
                 <div>
                   <span>推荐理由</span>
-                  <p>{{ item.reasonText }}</p>
+                  <p>{{ displayExplanationText(item.reasonText) }}</p>
                 </div>
                 <div>
                   <span>不足提醒</span>
-                  <p>{{ item.weaknessText }}</p>
+                  <p>{{ displayExplanationText(item.weaknessText) }}</p>
                 </div>
               </div>
               <div class="contribution-line">
@@ -434,7 +434,7 @@ import { computed, defineComponent, h, onMounted, ref } from 'vue'
 
 import { fetchAlgorithmVisualization } from '@/api/algorithmVisualization'
 import { fetchAdminRecommendationHistory } from '@/api/adminRecommendRecords'
-import { displayTags, matchTagType } from '@/utils/recommendPresentation'
+import { displayExplanationText, displayTags, matchTagType } from '@/utils/recommendPresentation'
 
 const WeightBar = defineComponent({
   props: {
@@ -709,7 +709,7 @@ function formatDate(value) {
 
 .control-row h2,
 .section-head h2,
-.hero-panel h2 {
+.algorithm-overview-card h2 {
   margin: 6px 0 0;
   color: var(--color-primary-dark);
   font-size: 22px;
@@ -745,17 +745,21 @@ function formatDate(value) {
   gap: 18px;
 }
 
-.hero-panel {
+.overview-grid .algorithm-overview-card {
   color: #fff;
-  background: linear-gradient(135deg, #0f172a, #155e75 58%, #f59e0b);
+  border-color: rgba(10, 132, 255, 0.16);
+  background:
+    radial-gradient(circle at 88% 10%, rgba(90, 200, 250, 0.26), transparent 28%),
+    linear-gradient(135deg, #102033, #0f4d68 58%, #0a84ff);
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.16);
 }
 
-.hero-panel h2,
-.hero-panel .eyebrow {
+.overview-grid .algorithm-overview-card h2,
+.overview-grid .algorithm-overview-card .eyebrow {
   color: #fff;
 }
 
-.hero-metrics,
+.algorithm-overview-metrics,
 .stage-grid,
 .demand-grid {
   display: grid;
@@ -764,26 +768,26 @@ function formatDate(value) {
   margin-top: 18px;
 }
 
-.hero-metrics div {
+.algorithm-overview-metrics div {
   padding: 14px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: var(--radius-sm);
   background: rgba(255, 255, 255, 0.1);
 }
 
-.hero-metrics span,
-.hero-metrics strong,
+.algorithm-overview-metrics span,
+.algorithm-overview-metrics strong,
 .demand-grid span,
 .demand-grid strong {
   display: block;
 }
 
-.hero-metrics span {
+.algorithm-overview-metrics span {
   color: rgba(255, 255, 255, 0.75);
   font-size: 12px;
 }
 
-.hero-metrics strong {
+.algorithm-overview-metrics strong {
   margin-top: 6px;
   font-size: 22px;
 }

@@ -141,17 +141,17 @@ public class AdminUserServiceImpl implements AdminUserService {
         String status = normalizeStatus(request == null ? null : request.getStatus());
         int updated = appUserMapper.updateStatus(userId, status);
         if (updated == 0) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "app user not found");
+            throw new BusinessException(ErrorCode.NOT_FOUND, "用户不存在");
         }
         return toBaseVO(getExistingUser(userId));
     }
 
     private AppUser getExistingUser(Long userId) {
         if (userId == null || userId <= 0) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "app user not found");
+            throw new BusinessException(ErrorCode.NOT_FOUND, "用户不存在");
         }
         return appUserMapper.findByIdForAdmin(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "app user not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "用户不存在"));
     }
 
     private AdminUserSummaryVO buildSummary(Long userId) {
@@ -183,6 +183,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         vo.setId(user.getId());
         vo.setUsername(user.getUsername());
         vo.setNickname(user.getNickname());
+        vo.setEmail(user.getEmail());
         vo.setPhone(user.getPhone());
         vo.setStatus(user.getStatus());
         vo.setDeleted(user.getDeleted());
@@ -227,7 +228,7 @@ public class AdminUserServiceImpl implements AdminUserService {
             return DEFAULT_PAGE;
         }
         if (page < 1) {
-            throw new BusinessException("page must be greater than or equal to 1");
+            throw new BusinessException("页码必须大于或等于 1");
         }
         return page;
     }
@@ -237,7 +238,7 @@ public class AdminUserServiceImpl implements AdminUserService {
             return DEFAULT_SIZE;
         }
         if (size < 1 || size > MAX_SIZE) {
-            throw new BusinessException("size must be between 1 and 100");
+            throw new BusinessException("每页数量必须在 1 到 100 之间");
         }
         return size;
     }
@@ -252,11 +253,11 @@ public class AdminUserServiceImpl implements AdminUserService {
     private String normalizeStatus(String status) {
         String normalized = trimToNull(status);
         if (normalized == null) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "status is required");
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "用户状态不能为空");
         }
         normalized = normalized.toUpperCase();
         if (!STATUS_ACTIVE.equals(normalized) && !STATUS_DISABLED.equals(normalized)) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "status must be ACTIVE or DISABLED");
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "用户状态只能为启用或禁用");
         }
         return normalized;
     }

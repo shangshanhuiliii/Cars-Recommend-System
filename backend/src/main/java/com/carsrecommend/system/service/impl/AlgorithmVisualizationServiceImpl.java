@@ -100,7 +100,7 @@ public class AlgorithmVisualizationServiceImpl implements AlgorithmVisualization
     public AlgorithmVisualizationVO getVisualization(Long recordId, Long userId) {
         Long resolvedUserId = resolveUserId(userId);
         RecommendRecord record = recommendRecordMapper.findByIdAndUserId(recordId, resolvedUserId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "recommend record not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "推荐记录不存在"));
         return buildVisualization(record);
     }
 
@@ -108,7 +108,7 @@ public class AlgorithmVisualizationServiceImpl implements AlgorithmVisualization
     @Transactional(readOnly = true)
     public AlgorithmVisualizationVO getVisualizationForAdmin(Long recordId) {
         RecommendRecord record = recommendRecordMapper.findById(recordId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "recommend record not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "推荐记录不存在"));
         return buildVisualization(record);
     }
 
@@ -151,7 +151,7 @@ public class AlgorithmVisualizationServiceImpl implements AlgorithmVisualization
         Long currentUserId = AuthContext.currentUserIdOrNull();
         Long resolvedUserId = currentUserId != null ? currentUserId : (userId == null ? DEFAULT_SEED_USER_ID : userId);
         if (!userDemandMapper.existsActiveUser(resolvedUserId)) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "app user not found");
+            throw new BusinessException(ErrorCode.NOT_FOUND, "用户不存在");
         }
         return resolvedUserId;
     }

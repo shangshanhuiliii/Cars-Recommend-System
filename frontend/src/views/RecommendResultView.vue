@@ -74,6 +74,19 @@
         </div>
       </div>
 
+      <div v-if="detail.recommendStatus !== 'EMPTY' && detail.items?.length" class="panel price-demo-panel">
+        <div class="panel__body price-demo-entry">
+          <div>
+            <p class="eyebrow">当前推荐车型</p>
+            <h2>价格从低到高演示</h2>
+            <p class="inline-state">仅调整本页展示顺序，推荐排名仍以卡片上的 # 排名为准。</p>
+          </div>
+          <el-button type="primary" plain @click="priceSortDemoActive = !priceSortDemoActive">
+            {{ priceSortDemoActive ? '恢复推荐排序' : '价格从低到高演示' }}
+          </el-button>
+        </div>
+      </div>
+
       <el-alert
         v-if="favoriteLoadError"
         class="state-alert"
@@ -92,7 +105,7 @@
       </div>
 
       <div v-else class="result-list">
-        <section v-for="group in itemGroups" :key="group.key" class="result-group">
+        <section v-for="group in displayItemGroups" :key="group.key" class="result-group">
           <div class="group-head">
             <h2>{{ group.title }}</h2>
             <span>{{ group.items.length }} 款车型</span>
@@ -161,11 +174,11 @@
             <div class="explain-grid">
               <div>
                 <h3>推荐理由</h3>
-                <p>{{ item.reasonText }}</p>
+                <p>{{ displayExplanationText(item.reasonText) }}</p>
               </div>
               <div>
                 <h3>不足提醒</h3>
-                <p>{{ item.weaknessText }}</p>
+                <p>{{ displayExplanationText(item.weaknessText) }}</p>
               </div>
             </div>
 
@@ -249,7 +262,7 @@ import {
   readCompareScrollFor,
   saveCompareReturn,
 } from '@/utils/compareSelection'
-import { displayTags, rankOrderedItems } from '@/utils/recommendPresentation'
+import { displayExplanationText, displayTags, rankOrderedItems } from '@/utils/recommendPresentation'
 
 const route = useRoute()
 const router = useRouter()
@@ -273,6 +286,7 @@ const compareIds = ref([])
 const compareNotice = ref('')
 const compareError = ref('')
 const actionMessages = ref({})
+const priceSortDemoActive = ref(false)
 
 const recordId = computed(() => route.params.recordId)
 
@@ -340,6 +354,20 @@ const itemGroups = computed(() => {
   return groups
 })
 
+const priceSortedItems = computed(() =>
+  [...rankOrderedItems(detail.value?.items || [])].sort((left, right) => {
+    const leftPrice = Number(left.guidePrice || Number.MAX_SAFE_INTEGER)
+    const rightPrice = Number(right.guidePrice || Number.MAX_SAFE_INTEGER)
+    if (leftPrice !== rightPrice) return leftPrice - rightPrice
+    return Number(left.rankNo || 0) - Number(right.rankNo || 0)
+  }),
+)
+
+const displayItemGroups = computed(() => {
+  if (!priceSortDemoActive.value) return itemGroups.value
+  return [{ key: 'price-demo', title: '价格从低到高演示', items: priceSortedItems.value }]
+})
+
 const compareEntryText = computed(() => {
   if (compareError.value) return compareError.value
   if (compareNotice.value) return compareNotice.value
@@ -358,6 +386,7 @@ async function loadDetail() {
   try {
     const response = await fetchRecommendationDetail(recordId.value)
     detail.value = response.data
+    priceSortDemoActive.value = false
     loadCompareList()
     loadFavoriteStatuses()
     loadFeedback()
@@ -655,18 +684,21 @@ function formatDate(value) {
 }
 
 .empty-panel,
-.compare-entry-panel {
+.compare-entry-panel,
+.price-demo-panel {
   margin-bottom: 20px;
 }
 
-.compare-entry {
+.compare-entry,
+.price-demo-entry {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
 }
 
-.compare-entry h2 {
+.compare-entry h2,
+.price-demo-entry h2 {
   margin: 4px 0 6px;
   color: var(--color-primary-dark);
   font-size: 18px;
@@ -938,6 +970,7 @@ function formatDate(value) {
 @media (max-width: 980px) {
   .result-summary,
   .compare-entry,
+  .price-demo-entry,
   .card-top,
   .explain-grid,
   .score-grid {

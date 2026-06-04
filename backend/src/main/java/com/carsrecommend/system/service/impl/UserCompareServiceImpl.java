@@ -103,17 +103,17 @@ public class UserCompareServiceImpl implements UserCompareService {
     private Long currentUserId() {
         Long userId = AuthContext.currentUserIdOrNull();
         if (userId == null) {
-            throw new BusinessException(ErrorCode.UNAUTHORIZED, "missing user token");
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "请先登录后再继续操作");
         }
         if (appUserMapper.findByIdForAdmin(userId).isEmpty()) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "app user not found");
+            throw new BusinessException(ErrorCode.NOT_FOUND, "用户不存在");
         }
         return userId;
     }
 
     private void assertActiveCar(Long carId) {
         if (carId == null || carId <= 0 || !carModelMapper.existsActiveById(carId)) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "car model not found");
+            throw new BusinessException(ErrorCode.NOT_FOUND, "车型不存在");
         }
     }
 }

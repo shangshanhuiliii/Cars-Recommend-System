@@ -2,6 +2,7 @@ package com.carsrecommend.system.controller;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -125,6 +126,63 @@ class AuthControllerTest {
                 String.class,
                 "register_success_user");
         org.junit.jupiter.api.Assertions.assertEquals("register_success_user@example.test", email);
+    }
+
+    @Test
+    void userCanReadAndUpdateOwnProfile() throws Exception {
+        String token = register("profile_update_user", "User123456", "User123456", "profile_update_user@example.test")
+                .andReturnData()
+                .path("token")
+                .asText();
+
+        mockMvc.perform(get("/api/auth/profile").header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.username").value("profile_update_user"))
+                .andExpect(jsonPath("$.data.email").isString());
+
+        String payload = """
+                {
+                  "nickname": "Profile User",
+                  "email": "profile_user@example.test",
+                  "phone": "13900000000"
+                }
+                """;
+        mockMvc.perform(put("/api/auth/profile")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .characterEncoding(StandardCharsets.UTF_8)
+                        .content(payload))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.nickname").value("Profile User"))
+                .andExpect(jsonPath("$.data.email").value("profile_user@example.test"))
+                .andExpect(jsonPath("$.data.phone").value("13900000000"));
+
+        mockMvc.perform(get("/api/auth/me").header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.displayName").value("Profile User"));
+    }
+
+    @Test
+    void updateProfileValidatesEmailAndRole() throws Exception {
+        String userToken = register("profile_invalid_user", "User123456", "User123456", "profile_invalid_user@example.test")
+                .andReturnData()
+                .path("token")
+                .asText();
+        String adminToken = login("/api/auth/admin/login", "admin", "admin123456")
+                .andReturnData()
+                .path("token")
+                .asText();
+
+        mockMvc.perform(put("/api/auth/profile")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(userToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nickname\":\"Bad Email\",\"email\":\"bad-email\",\"phone\":\"13900000000\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400));
+
+        mockMvc.perform(get("/api/auth/profile").header(HttpHeaders.AUTHORIZATION, bearer(adminToken)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(403));
     }
 
     @Test

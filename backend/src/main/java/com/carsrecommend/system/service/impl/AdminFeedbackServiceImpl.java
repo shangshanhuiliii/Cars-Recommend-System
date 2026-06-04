@@ -51,7 +51,7 @@ public class AdminFeedbackServiceImpl implements AdminFeedbackService {
             Long userId,
             Integer satisfactionScore) {
         if (userId != null && appUserMapper.findByIdForAdmin(userId).isEmpty()) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "app user not found");
+            throw new BusinessException(ErrorCode.NOT_FOUND, "用户不存在");
         }
         int pageNo = normalizePage(page);
         int pageSize = normalizeSize(size);
@@ -108,7 +108,7 @@ public class AdminFeedbackServiceImpl implements AdminFeedbackService {
         }
         if (satisfactionScore != null) {
             if (satisfactionScore < 1 || satisfactionScore > 5) {
-                throw new BusinessException(ErrorCode.BAD_REQUEST, "satisfactionScore must be between 1 and 5");
+                throw new BusinessException(ErrorCode.BAD_REQUEST, "满意度评分必须在 1 到 5 之间");
             }
             where.append(" AND rf.satisfaction_score = ? ");
             args.add(satisfactionScore);
@@ -159,7 +159,7 @@ public class AdminFeedbackServiceImpl implements AdminFeedbackService {
             return DEFAULT_PAGE;
         }
         if (page < 1) {
-            throw new BusinessException("page must be greater than or equal to 1");
+            throw new BusinessException("页码必须大于或等于 1");
         }
         return page;
     }
@@ -169,7 +169,7 @@ public class AdminFeedbackServiceImpl implements AdminFeedbackService {
             return DEFAULT_SIZE;
         }
         if (size < 1 || size > MAX_SIZE) {
-            throw new BusinessException("size must be between 1 and 100");
+            throw new BusinessException("每页数量必须在 1 到 100 之间");
         }
         return size;
     }

@@ -20,6 +20,14 @@ export function fetchCurrentPrincipal() {
   return http.get('/auth/me')
 }
 
+export function fetchUserProfile() {
+  return http.get('/auth/profile')
+}
+
+export function updateUserProfile(data) {
+  return http.put('/auth/profile', data)
+}
+
 export function logoutAuth() {
   return http.post('/auth/logout')
 }

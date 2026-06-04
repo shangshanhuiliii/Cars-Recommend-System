@@ -4,10 +4,6 @@ export function createUserDemand(data) {
   return http.post('/user/demand', data)
 }
 
-export function parseDemandText(data) {
-  return http.post('/user/demand/parse-text', data)
-}
-
 export function generateRecommendation(data) {
   return http.post('/recommend/generate', data)
 }

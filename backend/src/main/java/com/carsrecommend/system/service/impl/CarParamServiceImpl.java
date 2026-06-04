@@ -29,13 +29,13 @@ public class CarParamServiceImpl implements CarParamService {
         ensureActiveCarExists(carId);
         return carParamMapper.findByCarId(carId)
                 .map(this::toVO)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "car param not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "车型参数不存在"));
     }
 
     @Override
     public CarParamVO saveByCarId(Long carId, CarParamSaveRequest request) {
         if (request.getCarId() != null && !request.getCarId().equals(carId)) {
-            throw new BusinessException("request carId must match path car id");
+            throw new BusinessException("请求中的车型 ID 必须与路径中的车型 ID 一致");
         }
         ensureActiveCarExists(carId);
         CarParam param = toEntity(carId, request);
@@ -49,7 +49,7 @@ public class CarParamServiceImpl implements CarParamService {
 
     private void ensureActiveCarExists(Long carId) {
         if (!carModelMapper.existsActiveById(carId)) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "car model not found");
+            throw new BusinessException(ErrorCode.NOT_FOUND, "车型不存在");
         }
     }
 

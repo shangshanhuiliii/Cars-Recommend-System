@@ -16,7 +16,7 @@
     </template>
 
     <el-form
-      v-if="mode === 'login'"
+      v-if="mode === 'login' || mode === 'admin'"
       ref="loginFormRef"
       class="auth-form"
       :model="loginForm"
@@ -25,7 +25,7 @@
       @keyup.enter="submitLogin"
     >
       <el-form-item label="用户名" prop="username">
-        <el-input v-model.trim="loginForm.username" autocomplete="username" placeholder="请输入用户名" />
+        <el-input v-model.trim="loginForm.username" autocomplete="username" :placeholder="mode === 'admin' ? '请输入管理员用户名' : '请输入用户名'" />
       </el-form-item>
       <el-form-item label="密码" prop="password">
         <el-input
@@ -37,7 +37,7 @@
         />
       </el-form-item>
 
-      <div class="agreement-line" :class="{ 'agreement-line--shake': agreementShake && mode === 'login' }">
+      <div class="agreement-line" :class="{ 'agreement-line--shake': agreementShake && (mode === 'login' || mode === 'admin') }">
         <el-checkbox v-model="agreements.login" aria-label="同意用户协议和隐私协议" />
         <span>
           我已阅读并同意
@@ -48,11 +48,15 @@
       </div>
 
       <p v-if="message" class="auth-message">{{ message }}</p>
-      <el-button class="auth-submit" type="primary" :loading="loading" @click="submitLogin">登录</el-button>
+      <el-button class="auth-submit" type="primary" :loading="loading" @click="submitLogin">
+        {{ mode === 'admin' ? '登录管理端' : '登录' }}
+      </el-button>
 
       <div class="auth-dialog__footer-links">
-        <button type="button" @click="openForgot">忘记密码</button>
-        <button type="button" @click="switchMode('register')">没有账号？立即注册</button>
+        <button v-if="mode === 'login'" type="button" @click="openForgot">忘记密码</button>
+        <button v-if="mode === 'login'" type="button" @click="switchMode('register')">没有账号？立即注册</button>
+        <button v-if="mode === 'login'" type="button" @click="switchMode('admin')">管理员登录</button>
+        <button v-if="mode === 'admin'" type="button" @click="switchMode('login')">返回用户登录</button>
       </div>
     </el-form>
 
@@ -151,7 +155,7 @@ const emit = defineEmits(['update:modelValue', 'success', 'mode-change'])
 const authStore = useAuthStore()
 const emailPattern = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/
 
-const mode = ref(props.initialMode === 'register' ? 'register' : 'login')
+const mode = ref(normalizeMode(props.initialMode))
 const loading = ref(false)
 const message = ref('')
 const agreementShake = ref(false)
@@ -187,6 +191,13 @@ const authHeader = computed(() => {
       subtitle: '注册只创建普通用户账号。',
     }
   }
+  if (mode.value === 'admin') {
+    return {
+      eyebrow: '管理端登录',
+      title: '进入车型管理和推荐追溯',
+      subtitle: '管理员登录后默认进入车型管理。',
+    }
+  }
   if (mode.value === 'forgot') {
     return {
       eyebrow: '账号协助',
@@ -197,7 +208,7 @@ const authHeader = computed(() => {
   return {
     eyebrow: '欢迎回来',
     title: '登录后继续购车决策',
-    subtitle: '普通用户和管理员使用同一个入口。',
+    subtitle: '',
   }
 })
 
@@ -246,7 +257,7 @@ const registerRules = {
 watch(
   () => props.initialMode,
   (value) => {
-    mode.value = value === 'register' ? 'register' : 'login'
+    mode.value = normalizeMode(value)
     resetInlineState()
   },
 )
@@ -255,7 +266,7 @@ watch(
   () => props.modelValue,
   (value) => {
     if (value) {
-      mode.value = props.initialMode === 'register' ? 'register' : 'login'
+      mode.value = normalizeMode(props.initialMode)
       resetInlineState()
     }
   },
@@ -265,10 +276,14 @@ onBeforeUnmount(() => {
   window.clearTimeout(shakeTimer)
 })
 
+function normalizeMode(value) {
+  return value === 'register' || value === 'admin' ? value : 'login'
+}
+
 function switchMode(nextMode) {
   mode.value = nextMode
   resetInlineState()
-  if (nextMode === 'login' || nextMode === 'register') {
+  if (nextMode === 'login' || nextMode === 'register' || nextMode === 'admin') {
     emit('mode-change', nextMode)
   }
 }
@@ -295,7 +310,7 @@ async function submitLogin() {
   }
   loading.value = true
   try {
-    const data = await authStore.loginUnified({
+    const data = await authStore.login(mode.value === 'admin' ? 'ADMIN' : 'USER', {
       username: loginForm.username,
       password: loginForm.password,
     })
@@ -407,10 +422,6 @@ function close() {
   border-radius: 16px;
   background: rgba(246, 248, 251, 0.9);
   box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.16);
-  transition:
-    box-shadow 180ms ease,
-    background 180ms ease,
-    transform 180ms ease;
 }
 
 .auth-dialog :deep(.el-input__wrapper.is-focus) {
@@ -509,9 +520,10 @@ function close() {
 
 .auth-dialog__footer-links {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
+  gap: 12px 14px;
   margin-top: 16px;
   color: var(--color-muted);
   font-size: 13px;

@@ -6,6 +6,7 @@
         <p class="page-subtitle">维护车型基础信息、参数和特征评分，确保推荐算法读取到可信的数据基础。</p>
       </div>
       <div class="header-actions">
+        <el-button :icon="Upload" @click="openImportDialog">导入数据源</el-button>
         <el-button :icon="Refresh" :loading="recalculatingAll" @click="recalculateAllScores">全部评分重算</el-button>
         <el-button type="primary" :icon="Plus" @click="openCreateDialog">新增车型</el-button>
       </div>
@@ -54,7 +55,7 @@
           <el-table-column prop="seats" label="座位" width="80" />
           <el-table-column prop="auditStatus" label="审核" width="120">
             <template #default="{ row }">
-              <el-tag :type="auditTagType(row.auditStatus)" effect="light">{{ row.auditStatus }}</el-tag>
+              <el-tag :type="auditTagType(row.auditStatus)" effect="light">{{ auditLabel(row.auditStatus) }}</el-tag>
             </template>
           </el-table-column>
           <el-table-column label="评分状态" width="150">
@@ -62,17 +63,31 @@
               <div class="score-cell">
                 <el-tag v-if="scoreMap[row.id]" type="success" effect="light">已评分</el-tag>
                 <el-tag v-else type="warning" effect="light">待评分</el-tag>
-                <span v-if="scoreMap[row.id]">空间 {{ formatScore(scoreMap[row.id].spaceScore) }}</span>
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="维护" width="330" fixed="right">
+          <el-table-column label="维护" width="132" fixed="right">
             <template #default="{ row }">
-              <el-button size="small" :icon="Edit" @click="openEditDialog(row)">基础信息</el-button>
-              <el-button size="small" :icon="Setting" @click="openParamDialog(row)">参数</el-button>
-              <el-button size="small" @click="openScoreDialog(row)">评分</el-button>
-              <el-button size="small" :loading="recalculatingCarId === row.id" @click="recalculateCarScore(row)">重算</el-button>
-              <el-button size="small" type="danger" :icon="Delete" @click="confirmDelete(row)">删除</el-button>
+              <div class="car-row-actions">
+                <el-button size="small" type="primary" plain :icon="Edit" @click="openEditDialog(row)">编辑</el-button>
+                <el-dropdown
+                  trigger="click"
+                  popper-class="admin-car-row-dropdown"
+                  @command="(command) => handleRowCommand(command, row)"
+                >
+                  <el-button size="small" :icon="MoreFilled">更多</el-button>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item command="param" :icon="Setting">参数</el-dropdown-item>
+                      <el-dropdown-item command="score">评分</el-dropdown-item>
+                      <el-dropdown-item command="recalculate" :disabled="recalculatingCarId === row.id">
+                        {{ recalculatingCarId === row.id ? '重算中' : '重算评分' }}
+                      </el-dropdown-item>
+                      <el-dropdown-item command="delete" :icon="Delete" class="admin-car-row-dropdown__danger" divided>删除</el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
+              </div>
             </template>
           </el-table-column>
         </el-table>
@@ -130,7 +145,7 @@
           </el-form-item>
           <el-form-item label="审核" prop="auditStatus">
             <el-select v-model="carForm.auditStatus">
-              <el-option v-for="item in auditStatuses" :key="item" :label="item" :value="item" />
+              <el-option v-for="item in auditStatuses" :key="item" :label="auditLabel(item)" :value="item" />
             </el-select>
           </el-form-item>
           <el-form-item label="图片地址" prop="imageUrl" class="grid-span-2">
@@ -334,12 +349,62 @@
         </el-empty>
       </div>
     </el-dialog>
+
+    <el-dialog v-model="importDialogVisible" title="导入车型数据源" width="760px">
+      <div class="data-source-import">
+        <p class="import-note">
+          上传 JSON 数据文件，系统按品牌、车系、车型名称和年款匹配车型；新车型会新增，已存在车型会更新基础信息和参数。
+        </p>
+        <el-upload
+          class="data-source-upload"
+          drag
+          action="#"
+          :auto-upload="false"
+          :limit="1"
+          accept=".json,application/json"
+          :on-change="handleDataSourceFileChange"
+          :on-remove="clearDataSourceFile"
+        >
+          <el-icon class="el-icon--upload"><Upload /></el-icon>
+          <div class="el-upload__text">将 JSON 文件拖到这里，或点击选择</div>
+        </el-upload>
+
+        <p v-if="importMessage" class="inline-state" :class="{ 'inline-state--error': importMessageType === 'error' }">
+          {{ importMessage }}
+        </p>
+
+        <div v-if="importResult" class="import-result">
+          <div class="import-summary">
+            <span>总数 {{ importResult.totalCount }}</span>
+            <span>成功 {{ importResult.successCount }}</span>
+            <span>新增 {{ importResult.createdCount }}</span>
+            <span>更新 {{ importResult.updatedCount }}</span>
+            <span>跳过 {{ importResult.skippedCount }}</span>
+            <span>失败 {{ importResult.failedCount }}</span>
+          </div>
+          <p class="import-note">匹配规则：{{ importResult.matchingRule }}</p>
+          <p class="import-note">下一步：{{ importResult.nextStep }}</p>
+          <el-table v-if="importResult.issues?.length" :data="importResult.issues" class="import-issue-table" size="small">
+            <el-table-column prop="rowNo" label="行号" width="80" />
+            <el-table-column label="类型" width="90">
+              <template #default="{ row }">{{ importIssueTypeLabel(row.type) }}</template>
+            </el-table-column>
+            <el-table-column prop="uniqueKey" label="匹配键" min-width="180" show-overflow-tooltip />
+            <el-table-column prop="message" label="原因" min-width="220" show-overflow-tooltip />
+          </el-table>
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="importDialogVisible = false">关闭</el-button>
+        <el-button type="primary" :loading="importingDataSource" @click="submitDataSourceImport">开始导入</el-button>
+      </template>
+    </el-dialog>
   </section>
 </template>
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
-import { Delete, Edit, Plus, Refresh, Search, Setting, Upload } from '@element-plus/icons-vue'
+import { Delete, Edit, MoreFilled, Plus, Refresh, Search, Setting, Upload } from '@element-plus/icons-vue'
 import { ElMessageBox as ConfirmBox } from 'element-plus'
 
 import {
@@ -348,6 +413,7 @@ import {
   fetchAdminCarParam,
   fetchAdminCars,
   fetchAdminCarScore,
+  importAdminCarDataSource,
   recalculateAdminCarScore,
   recalculateAllAdminCarScores,
   saveAdminCarParam,
@@ -401,6 +467,13 @@ const scoreDialogVisible = ref(false)
 const scoreLoading = ref(false)
 const currentScoreCar = ref(null)
 const currentScore = ref(null)
+
+const importDialogVisible = ref(false)
+const selectedDataSourceFile = ref(null)
+const importingDataSource = ref(false)
+const importResult = ref(null)
+const importMessage = ref('')
+const importMessageType = ref('info')
 
 const carDialogTitle = computed(() => (editingCarId.value ? '编辑车型基础信息' : '新增车型'))
 const paramDialogTitle = computed(() => (currentParamCar.value ? `${currentParamCar.value.modelName} 参数维护` : '参数维护'))
@@ -489,6 +562,24 @@ function resetQuery() {
   query.bodyType = ''
   query.energyType = ''
   searchCars()
+}
+
+function handleRowCommand(command, row) {
+  if (command === 'param') {
+    openParamDialog(row)
+    return
+  }
+  if (command === 'score') {
+    openScoreDialog(row)
+    return
+  }
+  if (command === 'recalculate') {
+    recalculateCarScore(row)
+    return
+  }
+  if (command === 'delete') {
+    confirmDelete(row)
+  }
 }
 
 function openCreateDialog() {
@@ -728,6 +819,46 @@ async function recalculateAllScores() {
   }
 }
 
+function openImportDialog() {
+  selectedDataSourceFile.value = null
+  importResult.value = null
+  importMessage.value = ''
+  importMessageType.value = 'info'
+  importDialogVisible.value = true
+}
+
+function handleDataSourceFileChange(uploadFile) {
+  selectedDataSourceFile.value = uploadFile.raw
+  importResult.value = null
+  importMessage.value = uploadFile.name ? `已选择 ${uploadFile.name}` : ''
+  importMessageType.value = 'info'
+}
+
+function clearDataSourceFile() {
+  selectedDataSourceFile.value = null
+}
+
+async function submitDataSourceImport() {
+  if (!selectedDataSourceFile.value) {
+    importMessage.value = '请先选择 JSON 数据文件。'
+    importMessageType.value = 'error'
+    return
+  }
+  importingDataSource.value = true
+  try {
+    const response = await importAdminCarDataSource(selectedDataSourceFile.value)
+    importResult.value = response.data
+    importMessage.value = `导入完成：成功 ${response.data.successCount} 条，失败 ${response.data.failedCount} 条。`
+    importMessageType.value = response.data.failedCount > 0 ? 'error' : 'info'
+    await loadCars()
+  } catch (error) {
+    importMessage.value = error?.response?.data?.message || error?.message || '车型数据源导入失败。'
+    importMessageType.value = 'error'
+  } finally {
+    importingDataSource.value = false
+  }
+}
+
 function defaultCarForm() {
   return {
     brand: '',
@@ -834,10 +965,21 @@ function auditTagType(value) {
   return 'warning'
 }
 
-function imageAuditLabel(value) {
+function auditLabel(value) {
   if (value === 'APPROVED') return '已通过'
+  if (value === 'PENDING') return '待审核'
   if (value === 'REJECTED') return '已拒绝'
-  return '待审核'
+  return value || '未知'
+}
+
+function imageAuditLabel(value) {
+  return auditLabel(value)
+}
+
+function importIssueTypeLabel(value) {
+  if (value === 'FAILED') return '失败'
+  if (value === 'SKIPPED') return '跳过'
+  return value || '未知'
 }
 
 function setOperationMessage(text, type = 'info') {
@@ -905,6 +1047,47 @@ function revokeSelectedImagePreview() {
 
 .car-table {
   width: 100%;
+}
+
+.car-row-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  width: 108px;
+}
+
+.car-row-actions :deep(.el-button) {
+  margin-left: 0;
+  padding: 5px 8px;
+}
+
+:global(.admin-car-row-dropdown .el-dropdown-menu) {
+  padding: 6px;
+}
+
+:global(.admin-car-row-dropdown .el-dropdown-menu__item) {
+  border-radius: 6px;
+  margin: 2px 0;
+}
+
+:global(.admin-car-row-dropdown .el-dropdown-menu__item:not(.is-disabled):focus),
+:global(.admin-car-row-dropdown .el-dropdown-menu__item:not(.is-disabled):hover) {
+  background: #eff6ff;
+  color: var(--color-primary);
+}
+
+:global(.admin-car-row-dropdown .admin-car-row-dropdown__danger) {
+  color: #f56c6c;
+}
+
+:global(.admin-car-row-dropdown .admin-car-row-dropdown__danger .el-icon) {
+  color: inherit;
+}
+
+:global(.admin-car-row-dropdown .admin-car-row-dropdown__danger:not(.is-disabled):focus),
+:global(.admin-car-row-dropdown .admin-car-row-dropdown__danger:not(.is-disabled):hover) {
+  background: #fef2f2;
+  color: #f56c6c;
 }
 
 .car-thumb,
@@ -1076,11 +1259,47 @@ function revokeSelectedImagePreview() {
   font-size: 12px;
 }
 
+.data-source-import {
+  display: grid;
+  gap: 14px;
+}
+
+.import-note {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.import-result {
+  display: grid;
+  gap: 10px;
+}
+
+.import-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.import-summary span {
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: #f9fafb;
+  font-size: 13px;
+}
+
+.import-issue-table {
+  width: 100%;
+}
+
 @media (max-width: 760px) {
   .form-grid,
   .feature-switches,
   .image-upload-row,
-  .score-overview {
+  .score-overview,
+  .import-summary {
     grid-template-columns: 1fr;
   }
 

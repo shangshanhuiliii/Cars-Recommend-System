@@ -1,5 +1,9 @@
 import http from './http'
 
+export function fetchCars(params = {}) {
+  return http.get('/car', { params })
+}
+
 export function fetchCarDetail(id) {
   return http.get(`/car/${id}`)
 }

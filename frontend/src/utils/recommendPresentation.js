@@ -40,6 +40,15 @@ export function displayTags(tags) {
   return tags.filter((tag) => !technicalTags.has(tag))
 }
 
+export function displayExplanationText(text) {
+  if (typeof text !== 'string') {
+    return ''
+  }
+  return text
+    .replace(/。(?=；)/g, '')
+    .replace(/。$/g, '')
+}
+
 export function rankOrderedItems(items) {
   if (!Array.isArray(items)) {
     return []

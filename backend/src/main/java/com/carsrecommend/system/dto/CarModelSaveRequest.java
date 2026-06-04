@@ -61,7 +61,7 @@ public class CarModelSaveRequest {
     @NotNull
     private AuditStatus auditStatus;
 
-    @AssertTrue(message = "car model energyType must not be NEW_ENERGY")
+    @AssertTrue(message = "车型动力类型不能保存为新能源，请选择纯电、插混或增程")
     public boolean isCarModelEnergyTypeValid() {
         return energyType == null || energyType.isCarModelType();
     }

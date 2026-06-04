@@ -27,6 +27,6 @@ public enum RecommendStatus {
                 return value;
             }
         }
-        throw new IllegalArgumentException("Unsupported recommendStatus: " + code);
+        throw new IllegalArgumentException("不支持的推荐状态：" + code);
     }
 }

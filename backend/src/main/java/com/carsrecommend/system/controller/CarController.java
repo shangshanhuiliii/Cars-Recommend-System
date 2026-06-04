@@ -2,12 +2,16 @@ package com.carsrecommend.system.controller;
 
 import com.carsrecommend.system.common.ApiResponse;
 import com.carsrecommend.system.common.BusinessException;
+import com.carsrecommend.system.common.PageResult;
+import com.carsrecommend.system.dto.CarPageQuery;
 import com.carsrecommend.system.service.CarDetailService;
 import com.carsrecommend.system.vo.CarCompareVO;
 import com.carsrecommend.system.vo.CarDetailVO;
+import com.carsrecommend.system.vo.CarListItemVO;
 import com.carsrecommend.system.vo.CarOptionVO;
 import com.carsrecommend.system.vo.HomeCarouselCarVO;
 import jakarta.validation.constraints.Positive;
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -28,6 +32,24 @@ public class CarController {
 
     public CarController(CarDetailService carDetailService) {
         this.carDetailService = carDetailService;
+    }
+
+    @GetMapping
+    public ApiResponse<PageResult<CarListItemVO>> list(
+            CarPageQuery query,
+            @RequestParam(required = false) BigDecimal priceMin,
+            @RequestParam(required = false) BigDecimal priceMax,
+            @RequestParam(required = false) Integer pageSize) {
+        if (priceMin != null) {
+            query.setMinPrice(priceMin);
+        }
+        if (priceMax != null) {
+            query.setMaxPrice(priceMax);
+        }
+        if (pageSize != null) {
+            query.setSize(pageSize);
+        }
+        return ApiResponse.success(carDetailService.pageUserCars(query));
     }
 
     @GetMapping("/compare")
@@ -65,7 +87,7 @@ public class CarController {
                     .map(Long::valueOf)
                     .toList();
         } catch (NumberFormatException exception) {
-            throw new BusinessException("carIds must be comma separated numbers");
+            throw new BusinessException("车型 ID 列表必须使用英文逗号分隔");
         }
     }
 }

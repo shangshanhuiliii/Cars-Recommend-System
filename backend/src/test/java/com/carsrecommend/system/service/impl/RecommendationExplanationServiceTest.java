@@ -42,6 +42,8 @@ class RecommendationExplanationServiceTest {
 
         assertTrue(explanation.reasonText().contains("空间表现"));
         assertTrue(explanation.reasonText().contains("舒适性表现"));
+        assertFalse(explanation.reasonText().contains("。；"));
+        assertFalse(explanation.reasonText().endsWith("。"));
         assertFalse(explanation.reasonText().contains("TOPSIS"));
     }
 
@@ -74,6 +76,8 @@ class RecommendationExplanationServiceTest {
                 weights());
 
         assertTrue(explanation.weaknessText().contains("安全配置"));
+        assertFalse(explanation.weaknessText().contains("。；"));
+        assertFalse(explanation.weaknessText().endsWith("。"));
         assertFalse(explanation.weaknessText().contains("理想解"));
     }
 
@@ -96,6 +100,7 @@ class RecommendationExplanationServiceTest {
                 weights());
 
         assertTrue(explanation.weaknessText().contains("暂无明显短板"));
+        assertFalse(explanation.weaknessText().endsWith("。"));
     }
 
     @Test

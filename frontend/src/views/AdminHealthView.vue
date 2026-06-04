@@ -20,12 +20,12 @@
     <div class="health-grid">
       <article class="health-card">
         <span>后端服务状态</span>
-        <strong>{{ backendStatus }}</strong>
+        <strong>{{ backendStatusText }}</strong>
         <el-tag :type="backendTagType" effect="light">{{ backendLabel }}</el-tag>
       </article>
       <article class="health-card">
         <span>数据库状态</span>
-        <strong>{{ databaseStatus }}</strong>
+        <strong>{{ databaseStatusText }}</strong>
         <el-tag :type="databaseTagType" effect="light">{{ databaseLabel }}</el-tag>
       </article>
       <article class="health-card">
@@ -61,11 +61,17 @@ const checkedAt = ref('')
 const backendStatus = computed(() => status.value.backend || 'unknown')
 const databaseStatus = computed(() => status.value.database || 'unknown')
 const backendLabel = computed(() => (backendStatus.value === 'running' ? '正常' : '异常'))
+const backendStatusText = computed(() => (backendStatus.value === 'running' ? '运行中' : '未知'))
 const backendTagType = computed(() => (backendStatus.value === 'running' ? 'success' : 'danger'))
 const databaseLabel = computed(() => {
   if (databaseStatus.value === 'connected') return '已连接'
   if (databaseStatus.value === 'not_configured') return '未配置'
   return '不可用'
+})
+const databaseStatusText = computed(() => {
+  if (databaseStatus.value === 'connected') return '已连接'
+  if (databaseStatus.value === 'not_configured') return '未配置'
+  return '未知'
 })
 const databaseTagType = computed(() => {
   if (databaseStatus.value === 'connected') return 'success'
@@ -88,7 +94,7 @@ async function loadHealth() {
   } catch (requestError) {
     status.value = {}
     rawResponse.value = requestError?.response?.data || {
-      message: requestError?.message || 'health request failed',
+      message: requestError?.message || '健康检查请求失败',
     }
     checkedAt.value = formatTime(new Date())
     error.value = requestError?.response?.data?.message || requestError?.message || '系统健康检查失败。'

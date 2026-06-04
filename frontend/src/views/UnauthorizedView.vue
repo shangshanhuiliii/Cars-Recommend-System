@@ -28,7 +28,7 @@ function goHome() {
 
 async function switchAccount() {
   await authStore.logout()
-  router.push('/login')
+  router.push({ path: '/', query: { auth: 'login' } })
 }
 </script>
 

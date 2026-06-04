@@ -59,7 +59,7 @@ public class CarFeatureScoreServiceImpl implements CarFeatureScoreService {
         loadActiveCar(carId);
         return carFeatureScoreMapper.findByCarId(carId)
                 .map(this::toVO)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "car feature score not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "车型评分不存在"));
     }
 
     private CarFeatureScoreVO recalculateOne(CarModel carModel, int maxSalesVolume) {
@@ -71,7 +71,7 @@ public class CarFeatureScoreServiceImpl implements CarFeatureScoreService {
 
     private CarModel loadActiveCar(Long carId) {
         return carModelMapper.findById(carId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "car model not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "车型不存在"));
     }
 
     private CarFeatureScoreVO toVO(CarFeatureScore score) {

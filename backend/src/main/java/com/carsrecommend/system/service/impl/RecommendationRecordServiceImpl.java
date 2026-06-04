@@ -76,7 +76,7 @@ public class RecommendationRecordServiceImpl implements RecommendationRecordServ
     public RecommendationHistoryDetailVO detail(Long recordId, Long userId) {
         Long resolvedUserId = resolveUserId(userId);
         RecommendRecord record = recommendRecordMapper.findByIdAndUserId(recordId, resolvedUserId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "recommend record not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "推荐记录不存在"));
         return toDetailVO(record);
     }
 
@@ -84,7 +84,7 @@ public class RecommendationRecordServiceImpl implements RecommendationRecordServ
     @Transactional(readOnly = true)
     public PageResult<RecommendationHistoryItemVO> adminHistory(Long userId, Integer page, Integer size) {
         if (userId != null && !userDemandMapper.existsActiveUser(userId)) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "app user not found");
+            throw new BusinessException(ErrorCode.NOT_FOUND, "用户不存在");
         }
         int pageNo = normalizePage(page);
         int pageSize = normalizeSize(size);
@@ -102,7 +102,7 @@ public class RecommendationRecordServiceImpl implements RecommendationRecordServ
     @Transactional(readOnly = true)
     public RecommendationHistoryDetailVO adminDetail(Long recordId) {
         RecommendRecord record = recommendRecordMapper.findById(recordId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "recommend record not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "推荐记录不存在"));
         return toDetailVO(record);
     }
 
@@ -130,7 +130,7 @@ public class RecommendationRecordServiceImpl implements RecommendationRecordServ
         Long currentUserId = AuthContext.currentUserIdOrNull();
         Long resolvedUserId = currentUserId != null ? currentUserId : (userId == null ? DEFAULT_SEED_USER_ID : userId);
         if (!userDemandMapper.existsActiveUser(resolvedUserId)) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "app user not found");
+            throw new BusinessException(ErrorCode.NOT_FOUND, "用户不存在");
         }
         return resolvedUserId;
     }
@@ -140,7 +140,7 @@ public class RecommendationRecordServiceImpl implements RecommendationRecordServ
             return DEFAULT_PAGE;
         }
         if (page < 1) {
-            throw new BusinessException("page must be greater than or equal to 1");
+            throw new BusinessException("页码必须大于或等于 1");
         }
         return page;
     }
@@ -150,7 +150,7 @@ public class RecommendationRecordServiceImpl implements RecommendationRecordServ
             return DEFAULT_SIZE;
         }
         if (size < 1 || size > MAX_SIZE) {
-            throw new BusinessException("size must be between 1 and 100");
+            throw new BusinessException("每页数量必须在 1 到 100 之间");
         }
         return size;
     }

@@ -320,7 +320,7 @@ fallbackScore_i = sum_j(x_ij * subjectiveWeightFromUserDemand_j)
 5. 再按 `reputationScore desc`。
 6. 再按 `popularityScore desc`。
 
-`rankNo` 是前端展示排序的唯一权威。前端不得按 `totalScore`、口碑分、热度分或其他字段重新排序。
+排序完成后，每次推荐最多保留前 30 条并写入 `recommend_item` 快照。`rankNo` 是前端展示排序的唯一权威。前端不得按 `totalScore`、口碑分、热度分或其他字段重新排序。
 
 ## 推荐解释
 
@@ -449,6 +449,7 @@ GET /api/recommend/{recordId}/algorithm-visualization
 - TOPSIS 排序稳定性。
 - 边界兜底计算。
 - `STRICT` 组始终在推荐组前。
+- 每次推荐最多返回并保存 30 条明细。
 - `rankNo` 连续且为前端排序权威。
 - 历史详情读取快照，不重新计算。
 - 用户端推荐标签不包含算法术语或匹配状态。

@@ -10,7 +10,6 @@ import com.carsrecommend.system.dto.CarImageAssetQuery;
 import com.carsrecommend.system.dto.CarImageAuditRequest;
 import com.carsrecommend.system.dto.CarImageUploadRequest;
 import com.carsrecommend.system.entity.CarImageAsset;
-import com.carsrecommend.system.entity.CarModel;
 import com.carsrecommend.system.mapper.CarImageAssetMapper;
 import com.carsrecommend.system.mapper.CarModelMapper;
 import com.carsrecommend.system.service.CarImageAssetService;
@@ -106,10 +105,10 @@ public class CarImageAssetServiceImpl implements CarImageAssetService {
         CarImageAsset asset = findExisting(id);
         AuditStatus targetStatus = request.getAuditStatus();
         if (targetStatus == AuditStatus.PENDING) {
-            throw new BusinessException("auditStatus must be APPROVED or REJECTED");
+            throw new BusinessException("审核状态只能为通过或拒绝");
         }
         if (!AuditStatus.PENDING.getCode().equals(asset.getAuditStatus())) {
-            throw new BusinessException("only pending image assets can be audited");
+            throw new BusinessException("只有待审核图片资源可以审核");
         }
 
         if (targetStatus == AuditStatus.APPROVED) {
@@ -119,24 +118,24 @@ public class CarImageAssetServiceImpl implements CarImageAssetService {
                     AuditStatus.APPROVED.getCode(),
                     null,
                     currentAdminId()) == 0) {
-                throw new BusinessException(ErrorCode.NOT_FOUND, "car image asset not found");
+                throw new BusinessException(ErrorCode.NOT_FOUND, "图片资源不存在");
             }
             if (carModelMapper.updateImageUrl(asset.getCarId(), asset.getPublicUrl()) == 0) {
-                throw new BusinessException(ErrorCode.NOT_FOUND, "car model not found");
+                throw new BusinessException(ErrorCode.NOT_FOUND, "车型不存在");
             }
             return getExisting(asset.getId());
         }
 
         String rejectReason = trimToNull(request.getRejectReason());
         if (!StringUtils.hasText(rejectReason)) {
-            throw new BusinessException("rejectReason is required when auditStatus is REJECTED");
+            throw new BusinessException("拒绝图片时必须填写拒绝原因");
         }
         if (carImageAssetMapper.updateAudit(
                 asset.getId(),
                 AuditStatus.REJECTED.getCode(),
                 rejectReason,
                 currentAdminId()) == 0) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "car image asset not found");
+            throw new BusinessException(ErrorCode.NOT_FOUND, "图片资源不存在");
         }
         return getExisting(asset.getId());
     }
@@ -148,11 +147,11 @@ public class CarImageAssetServiceImpl implements CarImageAssetService {
         carModelMapper.findById(asset.getCarId()).ifPresent(carModel -> {
             if (AuditStatus.APPROVED.getCode().equals(asset.getAuditStatus())
                     && asset.getPublicUrl().equals(carModel.getImageUrl())) {
-                throw new BusinessException("approved image is currently used by the car model");
+                throw new BusinessException("该图片正在作为车型当前图片使用，不能删除");
             }
         });
         if (carImageAssetMapper.softDelete(id) == 0) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "car image asset not found");
+            throw new BusinessException(ErrorCode.NOT_FOUND, "图片资源不存在");
         }
     }
 
@@ -167,12 +166,12 @@ public class CarImageAssetServiceImpl implements CarImageAssetService {
 
     private CarImageAsset findExisting(Long id) {
         return carImageAssetMapper.findById(id)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "car image asset not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "图片资源不存在"));
     }
 
     private void ensureActiveCarExists(Long carId) {
         if (!carModelMapper.existsActiveById(carId)) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "car model not found");
+            throw new BusinessException(ErrorCode.NOT_FOUND, "车型不存在");
         }
     }
 
@@ -184,17 +183,17 @@ public class CarImageAssetServiceImpl implements CarImageAssetService {
 
     private StoredImage storeImage(MultipartFile file, Long carId) {
         if (file == null || file.isEmpty()) {
-            throw new BusinessException("image file is required");
+            throw new BusinessException("请选择要上传的图片文件");
         }
         long maxSize = storageProperties.getCarImageMaxSizeBytes();
         if (file.getSize() > maxSize) {
-            throw new BusinessException("image file size must not exceed 5MB");
+            throw new BusinessException("图片文件大小不能超过 5MB");
         }
 
         try {
             byte[] sourceBytes = file.getBytes();
             if (sourceBytes.length > maxSize) {
-                throw new BusinessException("image file size must not exceed 5MB");
+                throw new BusinessException("图片文件大小不能超过 5MB");
             }
             DecodedImage decodedImage = decodeImage(sourceBytes);
             BufferedImage outputImage = resize(decodedImage.image(), decodedImage.format());
@@ -205,7 +204,7 @@ public class CarImageAssetServiceImpl implements CarImageAssetService {
             Path root = storageRoot();
             Path target = root.resolve(storedFilename).normalize();
             if (!target.startsWith(root)) {
-                throw new BusinessException("invalid image storage path");
+                throw new BusinessException("图片存储路径无效");
             }
             Files.write(target, outputBytes, StandardOpenOption.CREATE_NEW);
             return new StoredImage(
@@ -221,7 +220,7 @@ public class CarImageAssetServiceImpl implements CarImageAssetService {
         } catch (BusinessException exception) {
             throw exception;
         } catch (IOException exception) {
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "failed to store car image");
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "图片保存失败，请稍后重试");
         }
     }
 
@@ -234,23 +233,23 @@ public class CarImageAssetServiceImpl implements CarImageAssetService {
     private DecodedImage decodeImage(byte[] sourceBytes) throws IOException {
         try (ImageInputStream imageInputStream = ImageIO.createImageInputStream(new ByteArrayInputStream(sourceBytes))) {
             if (imageInputStream == null) {
-                throw new BusinessException("unsupported image file");
+                throw new BusinessException("不支持的图片文件");
             }
             Iterator<ImageReader> readers = ImageIO.getImageReaders(imageInputStream);
             if (!readers.hasNext()) {
-                throw new BusinessException("unsupported image file");
+                throw new BusinessException("不支持的图片文件");
             }
             ImageReader reader = readers.next();
             try {
                 String format = normalizeFormat(reader.getFormatName());
                 if (!isSupportedFormat(format)) {
-                    throw new BusinessException("only JPEG and PNG images are allowed");
+                    throw new BusinessException("仅支持 JPEG 和 PNG 图片");
                 }
                 imageInputStream.seek(0);
                 reader.setInput(imageInputStream, true, true);
                 BufferedImage image = reader.read(0);
                 if (image == null || image.getWidth() <= 0 || image.getHeight() <= 0) {
-                    throw new BusinessException("invalid image content");
+                    throw new BusinessException("图片内容无效");
                 }
                 return new DecodedImage(format, image);
             } finally {

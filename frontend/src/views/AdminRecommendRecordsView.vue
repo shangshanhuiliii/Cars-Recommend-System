@@ -176,11 +176,11 @@
                 <div class="explain-grid">
                   <div>
                     <p>推荐理由</p>
-                    <span>{{ item.reasonText }}</span>
+                    <span>{{ displayExplanationText(item.reasonText) }}</span>
                   </div>
                   <div>
                     <p>不足提醒</p>
-                    <span>{{ item.weaknessText }}</span>
+                    <span>{{ displayExplanationText(item.weaknessText) }}</span>
                   </div>
                 </div>
 
@@ -204,6 +204,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { fetchAdminRecommendationDetail, fetchAdminRecommendationHistory } from '@/api/adminRecommendRecords'
+import { displayExplanationText } from '@/utils/recommendPresentation'
 
 const loadingList = ref(false)
 const loadingDetail = ref(false)

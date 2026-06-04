@@ -27,6 +27,6 @@ public enum AuditStatus {
                 return value;
             }
         }
-        throw new IllegalArgumentException("Unsupported auditStatus: " + code);
+        throw new IllegalArgumentException("不支持的审核状态：" + code);
     }
 }

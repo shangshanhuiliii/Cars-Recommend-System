@@ -40,6 +40,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     private static final String NO_STRICT_FALLBACK_MESSAGE =
             "未找到完全匹配车型，系统已根据您的核心偏好提供相近推荐。";
     private static final String EMPTY_RECOMMEND_MESSAGE = "暂未找到合适车型，请调整预算、车型类型或动力类型后重试。";
+    private static final int MAX_RECOMMENDATION_ITEMS = 30;
 
     private final UserDemandMapper userDemandMapper;
     private final RecommendRecordMapper recommendRecordMapper;
@@ -80,9 +81,9 @@ public class RecommendationServiceImpl implements RecommendationService {
     public RecommendationResponseVO generate(RecommendationGenerateRequest request) {
         Long userId = resolveUserId(request.getUserId());
         UserDemand demand = userDemandMapper.findById(request.getDemandId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "user demand not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "用户需求不存在"));
         if (!userId.equals(demand.getUserId())) {
-            throw new BusinessException("demand does not belong to current user");
+            throw new BusinessException("该需求不属于当前用户");
         }
 
         RecommendationCandidateGroups candidates = recommendationCandidateService.generateCandidates(demand);
@@ -100,6 +101,7 @@ public class RecommendationServiceImpl implements RecommendationService {
                 strictItems,
                 recommendationItems,
                 weightSnapshot);
+        scoredItems = limitRecommendationItems(scoredItems);
         String recommendStatus = buildRecommendStatus(scoredItems);
         String fallbackMessage = buildFallbackMessage(scoredItems, recommendStatus);
 
@@ -138,7 +140,7 @@ public class RecommendationServiceImpl implements RecommendationService {
         Long currentUserId = AuthContext.currentUserIdOrNull();
         Long resolvedUserId = currentUserId != null ? currentUserId : (userId == null ? DEFAULT_SEED_USER_ID : userId);
         if (!userDemandMapper.existsActiveUser(resolvedUserId)) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "app user not found");
+            throw new BusinessException(ErrorCode.NOT_FOUND, "用户不存在");
         }
         return resolvedUserId;
     }
@@ -166,6 +168,13 @@ public class RecommendationServiceImpl implements RecommendationService {
         List<ScoredRecommendation> finalItems = new ArrayList<>(strictItems);
         finalItems.addAll(recommendationItems);
         return finalItems;
+    }
+
+    private List<ScoredRecommendation> limitRecommendationItems(List<ScoredRecommendation> scoredItems) {
+        if (scoredItems.size() <= MAX_RECOMMENDATION_ITEMS) {
+            return scoredItems;
+        }
+        return new ArrayList<>(scoredItems.subList(0, MAX_RECOMMENDATION_ITEMS));
     }
 
     private List<ScoredRecommendation> applyTopsisScore(

@@ -53,13 +53,13 @@ public class PasswordHasher {
 
     private byte[] pbkdf2(String rawPassword, byte[] salt, int iterations) {
         if (iterations < 10000) {
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "password hash iterations are too low");
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "密码安全配置异常");
         }
         KeySpec spec = new PBEKeySpec(rawPassword.toCharArray(), salt, iterations, HASH_BYTES * 8);
         try {
             return SecretKeyFactory.getInstance(ALGORITHM).generateSecret(spec).getEncoded();
         } catch (NoSuchAlgorithmException | InvalidKeySpecException exception) {
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "password hash algorithm is not available");
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "密码加密算法不可用");
         }
     }
 

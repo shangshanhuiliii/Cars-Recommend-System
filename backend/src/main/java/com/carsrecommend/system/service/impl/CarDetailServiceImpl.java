@@ -2,6 +2,8 @@ package com.carsrecommend.system.service.impl;
 
 import com.carsrecommend.system.common.BusinessException;
 import com.carsrecommend.system.common.ErrorCode;
+import com.carsrecommend.system.common.PageResult;
+import com.carsrecommend.system.dto.CarPageQuery;
 import com.carsrecommend.system.entity.CarFeatureScore;
 import com.carsrecommend.system.entity.CarModel;
 import com.carsrecommend.system.entity.CarParam;
@@ -14,6 +16,7 @@ import com.carsrecommend.system.vo.CarCompareDimensionVO;
 import com.carsrecommend.system.vo.CarCompareVO;
 import com.carsrecommend.system.vo.CarDetailVO;
 import com.carsrecommend.system.vo.CarFeatureScoreVO;
+import com.carsrecommend.system.vo.CarListItemVO;
 import com.carsrecommend.system.vo.CarModelVO;
 import com.carsrecommend.system.vo.CarOptionVO;
 import com.carsrecommend.system.vo.CarParamVO;
@@ -62,9 +65,20 @@ public class CarDetailServiceImpl implements CarDetailService {
 
     @Override
     @Transactional(readOnly = true)
+    public PageResult<CarListItemVO> pageUserCars(CarPageQuery query) {
+        query.setAuditStatus("APPROVED");
+        long total = carModelMapper.count(query);
+        List<CarListItemVO> records = carModelMapper.page(query).stream()
+                .map(this::toCarListItemVO)
+                .toList();
+        return PageResult.of(records, total, query.getPage(), query.getSize());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public CarDetailVO getUserCarDetail(Long carId) {
         CarModel carModel = carModelMapper.findById(carId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "car model not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "车型不存在"));
         CarDetailVO vo = new CarDetailVO();
         vo.setCarModel(toCarModelVO(carModel));
         vo.setCarParam(carParamMapper.findByCarId(carId).map(this::toCarParamVO).orElse(null));
@@ -116,7 +130,7 @@ public class CarDetailServiceImpl implements CarDetailService {
             return DEFAULT_OPTION_LIMIT;
         }
         if (limit < 1 || limit > MAX_OPTION_LIMIT) {
-            throw new BusinessException("limit must be between 1 and 100");
+            throw new BusinessException("数量限制必须在 1 到 100 之间");
         }
         return limit;
     }
@@ -126,31 +140,31 @@ public class CarDetailServiceImpl implements CarDetailService {
             return DEFAULT_HOME_CAROUSEL_LIMIT;
         }
         if (limit < MIN_HOME_CAROUSEL_LIMIT || limit > MAX_HOME_CAROUSEL_LIMIT) {
-            throw new BusinessException("limit must be between 3 and 12");
+            throw new BusinessException("首页轮播数量必须在 3 到 12 之间");
         }
         return limit;
     }
 
     private List<Long> normalizeCompareIds(List<Long> carIds) {
         if (carIds == null || carIds.isEmpty()) {
-            throw new BusinessException("carIds must contain 1 to 3 cars");
+            throw new BusinessException("请选择 1 到 3 款车型进行对比");
         }
         List<Long> normalizedIds = carIds.stream()
                 .filter(id -> id != null && id > 0)
                 .distinct()
                 .toList();
         if (normalizedIds.size() < MIN_COMPARE_COUNT) {
-            throw new BusinessException("carIds must contain at least 1 car");
+            throw new BusinessException("至少选择 1 款车型");
         }
         if (normalizedIds.size() > MAX_COMPARE_COUNT) {
-            throw new BusinessException("carIds can contain at most 3 cars");
+            throw new BusinessException("最多选择 3 款车型");
         }
         return normalizedIds;
     }
 
     private CarCompareCarVO toCompareCarVO(Long carId) {
         CarModel carModel = carModelMapper.findById(carId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "car model not found: " + carId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "车型不存在：" + carId));
         CarCompareCarVO vo = new CarCompareCarVO();
         vo.setCarId(carModel.getId());
         vo.setBrand(carModel.getBrand());
@@ -198,6 +212,41 @@ public class CarDetailServiceImpl implements CarDetailService {
         vo.setCreateTime(carModel.getCreateTime());
         vo.setUpdateTime(carModel.getUpdateTime());
         return vo;
+    }
+
+    private CarListItemVO toCarListItemVO(CarModel carModel) {
+        CarListItemVO vo = new CarListItemVO();
+        vo.setCarId(carModel.getId());
+        vo.setBrand(carModel.getBrand());
+        vo.setSeries(carModel.getSeries());
+        vo.setModelName(carModel.getModelName());
+        vo.setImageUrl(carModel.getImageUrl());
+        vo.setPriceMin(carModel.getGuidePrice());
+        vo.setPriceMax(carModel.getGuidePrice());
+        vo.setBodyType(carModel.getBodyType());
+        vo.setEnergyType(carModel.getEnergyType());
+        vo.setSeatCount(carModel.getSeats());
+        vo.setSalesVolume(carModel.getSalesVolume());
+        vo.setUserRating(carModel.getUserRating());
+        vo.setSummary("%s%s，指导价%s，%s座".formatted(
+                carModel.getEnergyType(),
+                carModel.getBodyType(),
+                formatWan(carModel.getGuidePrice()),
+                carModel.getSeats()));
+        vo.setKeyTags(List.of(
+                carModel.getEnergyType(),
+                carModel.getBodyType(),
+                carModel.getSeats() + "座"));
+        return vo;
+    }
+
+    private String formatWan(BigDecimal value) {
+        if (value == null) {
+            return "暂无报价";
+        }
+        BigDecimal wan = value.divide(BigDecimal.valueOf(10000), 1, java.math.RoundingMode.HALF_UP)
+                .stripTrailingZeros();
+        return wan.toPlainString() + "万";
     }
 
     private HomeCarouselCarVO toHomeCarouselCarVO(CarModel carModel) {

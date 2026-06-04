@@ -496,3 +496,14 @@ car_feature_score = 120
 - `recommend_feedback(user_id, record_id)` 唯一约束
 
 扩充车型数据时应保持字段常识和类型覆盖，不直接写入推荐结果分数。`total_score` 必须由推荐算法生成。
+## 车型数据维护来源
+
+`seed-data.sql` 仍是本地最小开发数据来源。管理端 JSON 数据源导入能力复用现有 `car_model` 与 `car_param` 表，不新增数据源字段或表；导入按 `brand + series + model_name + launch_year` 匹配未删除车型，新增或更新当前车型资料，不删除旧数据，不修改收藏、对比、反馈、推荐历史或推荐快照。
+
+导入完成后需要通过现有评分重算接口生成或更新 `car_feature_score`，评分表仍只保存由车型基础信息和参数计算出的特征评分。
+
+## Car Display Tables
+
+The car detail display module reads `car_model`, `car_param`, and `car_feature_score`. Detail-page media, masked user review samples, and dealer quote demo data are not maintained in the current schema.
+
+Seed data is local demo data only. It must not contain real private dealer contact data, and it does not affect recommendation ranking, favorites, compare records, feedback, or `car_feature_score`.

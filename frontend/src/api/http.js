@@ -37,9 +37,20 @@ http.interceptors.response.use(
       const currentPath = `${window.location.pathname}${window.location.search}${window.location.hash}`
       if (!currentPath.startsWith('/login') && !currentPath.startsWith('/admin/login')) {
         const { default: router } = await import('@/router')
-        await router.push({
-          path: '/',
-          query: { auth: 'login', redirect: currentPath },
+        const currentRoute = router.currentRoute.value
+        const redirectQuery = { ...currentRoute.query }
+        delete redirectQuery.auth
+        delete redirectQuery.redirect
+        const queryText = new URLSearchParams(redirectQuery).toString()
+        const redirectPath = `${currentRoute.path || window.location.pathname || '/'}${queryText ? `?${queryText}` : ''}${currentRoute.hash || ''}`
+        await router.replace({
+          path: currentRoute.path || window.location.pathname || '/',
+          query: {
+            ...currentRoute.query,
+            auth: currentRoute.path?.startsWith('/admin') || currentRoute.path === '/algorithm-demo' ? 'admin' : 'login',
+            redirect: redirectPath,
+          },
+          hash: currentRoute.hash,
         })
       }
     }

@@ -7,6 +7,7 @@ public class AdminUserBaseVO {
     private Long id;
     private String username;
     private String nickname;
+    private String email;
     private String phone;
     private String status;
     private Boolean deleted;
@@ -35,6 +36,14 @@ public class AdminUserBaseVO {
 
     public void setNickname(String nickname) {
         this.nickname = nickname;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
     }
 
     public String getPhone() {

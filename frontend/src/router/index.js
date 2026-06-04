@@ -8,6 +8,7 @@ import AdminHealthView from '@/views/AdminHealthView.vue'
 import AdminRecommendRecordsView from '@/views/AdminRecommendRecordsView.vue'
 import AdminUsersView from '@/views/AdminUsersView.vue'
 import AlgorithmDemoView from '@/views/AlgorithmDemoView.vue'
+import CarListView from '@/views/CarListView.vue'
 import CarDetailView from '@/views/CarDetailView.vue'
 import CarCompareView from '@/views/CarCompareView.vue'
 import FavoritesView from '@/views/FavoritesView.vue'
@@ -17,6 +18,7 @@ import HomeView from '@/views/HomeView.vue'
 import RecommendDemandView from '@/views/RecommendDemandView.vue'
 import RecommendResultView from '@/views/RecommendResultView.vue'
 import UnauthorizedView from '@/views/UnauthorizedView.vue'
+import UserProfileView from '@/views/UserProfileView.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const router = createRouter({
@@ -32,7 +34,7 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       redirect: (to) => ({
-        path: '/',
+        path: safeRedirect(to.query.redirect) || '/',
         query: buildAuthQuery('login', to.query.redirect),
       }),
     },
@@ -40,15 +42,15 @@ const router = createRouter({
       path: '/admin/login',
       name: 'admin-login',
       redirect: (to) => ({
-        path: '/',
-        query: buildAuthQuery('login', to.query.redirect || '/admin/cars'),
+        path: safeRedirect(to.query.redirect) || '/admin/cars',
+        query: buildAuthQuery('admin', to.query.redirect || '/admin/cars'),
       }),
     },
     {
       path: '/register',
       name: 'register',
       redirect: (to) => ({
-        path: '/',
+        path: safeRedirect(to.query.redirect) || '/',
         query: buildAuthQuery('register', to.query.redirect),
       }),
     },
@@ -70,6 +72,12 @@ const router = createRouter({
       meta: { requiredRole: 'USER', requiredPermission: 'user:recommend' },
     },
     {
+      path: '/cars',
+      name: 'car-list',
+      component: CarListView,
+      meta: { public: true },
+    },
+    {
       path: '/car/:id',
       name: 'car-detail',
       component: CarDetailView,
@@ -79,7 +87,7 @@ const router = createRouter({
       path: '/features',
       name: 'features',
       component: FeatureShowcaseView,
-      meta: { public: true },
+      meta: { requiredRole: 'USER', authPromptOnly: true },
     },
     {
       path: '/compare',
@@ -98,6 +106,12 @@ const router = createRouter({
       name: 'history',
       component: HistoryView,
       meta: { requiredRole: 'USER', requiredPermission: 'user:history' },
+    },
+    {
+      path: '/me',
+      name: 'user-profile',
+      component: UserProfileView,
+      meta: { requiredRole: 'USER' },
     },
     {
       path: '/algorithm-demo',
@@ -155,6 +169,9 @@ router.beforeEach((to) => {
   if (to.name === 'home' && authStore.isAuthenticated && authStore.principalType === 'ADMIN') {
     return '/admin/cars'
   }
+  if ((to.name === 'car-list' || to.name === 'car-detail') && authStore.isAuthenticated && authStore.principalType === 'ADMIN') {
+    return '/admin/cars'
+  }
   if ((to.name === 'login' || to.name === 'admin-login' || to.name === 'register') && authStore.isAuthenticated) {
     return authStore.principalType === 'ADMIN' ? '/admin/cars' : '/'
   }
@@ -162,9 +179,16 @@ router.beforeEach((to) => {
     return true
   }
   if (!authStore.isAuthenticated) {
+    if (to.query.auth === 'login' || to.query.auth === 'register' || to.query.auth === 'admin') {
+      return true
+    }
     return {
-      path: '/',
-      query: buildAuthQuery('login', to.fullPath),
+      path: to.path,
+      query: {
+        ...to.query,
+        ...buildAuthQuery(to.meta.requiredRole === 'ADMIN' ? 'admin' : 'login', to.fullPath),
+      },
+      hash: to.hash,
     }
   }
   if (!authStore.hasRole(to.meta.requiredRole) || !authStore.hasPermission(to.meta.requiredPermission)) {
@@ -178,10 +202,21 @@ router.beforeEach((to) => {
 
 function buildAuthQuery(auth, redirect) {
   const query = { auth }
-  if (typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//')) {
-    query.redirect = redirect
+  const safe = safeRedirect(redirect)
+  if (safe) {
+    query.redirect = safe
   }
   return query
+}
+
+function safeRedirect(value) {
+  if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//')) {
+    return ''
+  }
+  if (value.startsWith('/login') || value.startsWith('/admin/login') || value.startsWith('/register')) {
+    return ''
+  }
+  return value
 }
 
 export default router

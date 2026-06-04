@@ -90,7 +90,7 @@ public class UserFavoriteController {
                     .map(Long::valueOf)
                     .toList();
         } catch (NumberFormatException exception) {
-            throw new BusinessException("carIds must be comma separated numbers");
+            throw new BusinessException("车型 ID 列表必须使用英文逗号分隔");
         }
     }
 }

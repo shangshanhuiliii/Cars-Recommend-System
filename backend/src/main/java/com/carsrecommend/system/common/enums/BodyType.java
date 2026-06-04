@@ -29,6 +29,6 @@ public enum BodyType {
                 return value;
             }
         }
-        throw new IllegalArgumentException("Unsupported bodyType: " + code);
+        throw new IllegalArgumentException("不支持的车型级别：" + code);
     }
 }

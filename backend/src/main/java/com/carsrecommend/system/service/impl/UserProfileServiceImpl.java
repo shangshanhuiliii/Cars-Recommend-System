@@ -121,14 +121,14 @@ public class UserProfileServiceImpl implements UserProfileService {
         Long resolvedUserId = resolveUserId(userId);
         return userDemandMapper.findLatestByUserId(resolvedUserId)
                 .map(this::toVO)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "user demand not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "用户需求不存在"));
     }
 
     @Override
     public UserDemandVO getDemandById(Long id) {
         return userDemandMapper.findById(id)
                 .map(this::toVO)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "user demand not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "用户需求不存在"));
     }
 
     @Override
@@ -136,14 +136,14 @@ public class UserProfileServiceImpl implements UserProfileService {
         Long resolvedUserId = resolveUserId(userId);
         return userDemandMapper.findByIdAndUserId(id, resolvedUserId)
                 .map(this::toVO)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "user demand not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "用户需求不存在"));
     }
 
     private Long resolveUserId(Long userId) {
         Long currentUserId = AuthContext.currentUserIdOrNull();
         Long resolvedUserId = currentUserId != null ? currentUserId : (userId == null ? DEFAULT_SEED_USER_ID : userId);
         if (!userDemandMapper.existsActiveUser(resolvedUserId)) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "app user not found");
+            throw new BusinessException(ErrorCode.NOT_FOUND, "用户不存在");
         }
         return resolvedUserId;
     }
@@ -168,7 +168,7 @@ public class UserProfileServiceImpl implements UserProfileService {
         List<String> values = normalizeTextList(seatOptions);
         for (String value : values) {
             if (!SEAT_OPTION_CODES.contains(value)) {
-                throw new BusinessException(ErrorCode.BAD_REQUEST, "unsupported seatOption: " + value);
+                throw new BusinessException(ErrorCode.BAD_REQUEST, "不支持的座位选项：" + value);
             }
         }
         return values;
@@ -181,7 +181,7 @@ public class UserProfileServiceImpl implements UserProfileService {
         }
         for (String value : values) {
             if (!SCENE_TEMPLATES.containsKey(value)) {
-                throw new BusinessException("unsupported scene: " + value);
+                throw new BusinessException("不支持的用车场景：" + value);
             }
         }
         return values;
@@ -196,7 +196,7 @@ public class UserProfileServiceImpl implements UserProfileService {
         }
         for (String key : source.keySet()) {
             if (WEIGHT_ORDER.stream().noneMatch(dimension -> dimension.key().equals(key))) {
-                throw new BusinessException("unsupported factorWeight: " + key);
+                throw new BusinessException("不支持的关注因素：" + key);
             }
         }
         return normalized;
@@ -230,7 +230,7 @@ public class UserProfileServiceImpl implements UserProfileService {
 
     private void validateBudget(BigDecimal budgetMin, BigDecimal budgetMax) {
         if (budgetMin != null && budgetMax != null && budgetMin.compareTo(budgetMax) > 0) {
-            throw new BusinessException("budgetMin must not be greater than budgetMax");
+            throw new BusinessException("预算下限不能大于预算上限");
         }
     }
 

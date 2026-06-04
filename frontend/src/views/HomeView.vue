@@ -1,73 +1,24 @@
 <template>
   <section class="home-page">
-    <section class="carousel-shell" aria-label="车辆图片轮播">
-      <div v-if="carouselLoading" class="carousel-state">
-        <span class="state-orb" />
-        <strong>正在加载车辆图片</strong>
+    <section class="recommend-orbit" aria-labelledby="recommend-orbit-title">
+      <div class="orbit-copy">
+        <p class="eyebrow">智能购车决策</p>
+        <p>用预算、场景和偏好为您生成可解释推荐</p>
       </div>
 
-      <div v-else-if="carouselError" class="carousel-state carousel-state--error">
-        <strong>车辆轮播暂时不可用</strong>
-        <p>{{ carouselError }}</p>
-        <el-button type="primary" plain @click="loadCarousel">重新加载</el-button>
-      </div>
+      <div class="orbit-stage" aria-label="购车推荐入口与产品能力">
+        <button class="orbit-core" type="button" @click="router.push('/recommend')">
+          <strong>开始推荐</strong>
+        </button>
 
-      <div v-else-if="!carouselCars.length" class="carousel-state">
-        <img src="/images/cars/default-car.svg" alt="" />
-        <strong>暂无可展示车型</strong>
-      </div>
-
-      <el-carousel
-        v-else
-        class="vehicle-carousel"
-        height="clamp(240px, 33vh, 340px)"
-        indicator-position="outside"
-        arrow="always"
-        trigger="click"
-        :interval="5600"
-      >
-        <el-carousel-item v-for="car in carouselCars" :key="car.id">
-          <button
-            class="carousel-slide"
-            type="button"
-            :aria-label="`查看${car.brand}${car.modelName}详情`"
-            @click="goCar(car.id)"
-          >
-            <img class="carousel-slide__image" :src="carImageSrc(car.imageUrl)" :alt="`${car.brand} ${car.modelName}`" @error="fallbackCarImage" />
-            <span class="vehicle-badge">
-              <span class="vehicle-badge__brand">{{ car.brand }}</span>
-              <strong>{{ car.modelName }}</strong>
-              <span class="vehicle-badge__price">{{ formatPrice(car.guidePrice) }}</span>
-              <span class="vehicle-badge__specs">
-                <span>{{ car.bodyType || '车型待补充' }}</span>
-                <span>{{ car.energyType || '动力待补充' }}</span>
-                <span>{{ formatSeats(car.seats) }}</span>
-              </span>
-            </span>
-          </button>
-        </el-carousel-item>
-      </el-carousel>
-    </section>
-
-    <section class="recommend-core" aria-labelledby="recommend-core-title">
-      <p class="eyebrow">核心入口</p>
-      <h1 id="recommend-core-title">开始购车推荐</h1>
-      <p>用预算、场景和偏好找到适合车型。</p>
-      <el-button class="primary-cta" type="primary" size="large" @click="router.push('/recommend')">
-        开始购车推荐
-      </el-button>
-    </section>
-
-    <section class="feature-entry" aria-labelledby="feature-entry-title">
-      <div class="section-heading">
-        <p class="section-label">产品特色</p>
-        <h2 id="feature-entry-title">更少信息噪音，更清楚的购车判断</h2>
-      </div>
-      <div class="feature-grid">
-        <button v-for="feature in featureCards" :key="feature.section" class="feature-card" type="button" @click="goFeature(feature.section)">
-          <span>{{ feature.index }}</span>
+        <button
+          v-for="feature in featureCards"
+          :key="feature.section"
+          :class="['orbit-node', `orbit-node--${feature.position}`]"
+          type="button"
+          @click="goFeature(feature.section)"
+        >
           <strong>{{ feature.title }}</strong>
-          <p>{{ feature.description }}</p>
         </button>
       </div>
     </section>
@@ -75,409 +26,261 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-
-import { fetchHomeCarouselCars } from '@/api/cars'
-import { carImageSrc, fallbackCarImage } from '@/utils/carImage'
 
 const router = useRouter()
 
-const carouselCars = ref([])
-const carouselLoading = ref(false)
-const carouselError = ref('')
-
 const featureCards = [
   {
-    index: '01',
     section: 'demand',
+    position: 'top',
     title: '结构化需求',
-    description: '预算、车型、动力、座位、场景和偏好按步骤整理。',
+    description: '预算、车型、动力、座位和场景按步骤整理',
   },
   {
-    index: '02',
     section: 'result',
+    position: 'right',
     title: '推荐理由',
-    description: '说明车型适合当前需求的关键原因。',
+    description: '说明车型适合当前需求的关键原因',
   },
   {
-    index: '03',
     section: 'weakness',
+    position: 'bottom-right',
     title: '不足提醒',
-    description: '提前看到需要取舍的地方。',
+    description: '提前看到需要取舍的地方',
   },
   {
-    index: '04',
     section: 'decision',
+    position: 'bottom-left',
     title: '候选留存',
-    description: '把关注车型留给后续查看和横向判断。',
+    description: '收藏与对比留给后续横向判断',
   },
   {
-    index: '05',
     section: 'history',
+    position: 'left',
     title: '历史快照',
-    description: '按当时保存的信息回看结果。',
+    description: '按当时保存的信息回看结果',
   },
 ]
 
-onMounted(loadCarousel)
-
-async function loadCarousel() {
-  carouselLoading.value = true
-  carouselError.value = ''
-  try {
-    const response = await fetchHomeCarouselCars(6)
-    carouselCars.value = Array.isArray(response?.data) ? response.data : []
-  } catch (error) {
-    carouselError.value = error?.response?.data?.message || '请稍后再试。'
-    carouselCars.value = []
-  } finally {
-    carouselLoading.value = false
-  }
-}
-
-function goCar(id) {
-  if (id) {
-    router.push(`/car/${id}`)
-  }
-}
-
 function goFeature(section) {
   router.push({ path: '/features', query: { section } })
-}
-
-function formatPrice(value) {
-  const amount = Number(value)
-  if (!Number.isFinite(amount) || amount <= 0) {
-    return '指导价待补充'
-  }
-  const price = amount / 10000
-  return `${Number.isInteger(price) ? price.toFixed(0) : price.toFixed(1)}万`
-}
-
-function formatSeats(seats) {
-  const value = Number(seats)
-  return Number.isFinite(value) && value > 0 ? `${value}座` : '座位待补充'
 }
 </script>
 
 <style scoped>
 .home-page {
-  display: grid;
-  gap: 34px;
-  animation: page-in 520ms ease both;
-}
-
-.carousel-shell {
-  --home-carousel-height: clamp(240px, 33vh, 340px);
-
   position: relative;
   display: grid;
-  min-height: calc(var(--home-carousel-height) + 58px);
-  place-items: center;
-  padding: 22px clamp(10px, 4vw, 52px);
+  min-height: calc(100vh - 76px);
+  overflow: hidden;
+  animation: page-in 520ms ease both;
   isolation: isolate;
 }
 
-.carousel-shell::before,
-.carousel-shell::after {
+.home-page::before,
+.home-page::after {
   position: absolute;
-  z-index: -1;
   content: "";
   pointer-events: none;
 }
 
-.carousel-shell::before {
+.home-page::before {
   inset: 0;
-  border-radius: 34px;
+  z-index: -2;
   background:
-    radial-gradient(circle at 12% 42%, rgba(10, 132, 255, 0.16), transparent 26%),
-    radial-gradient(circle at 88% 35%, rgba(90, 200, 250, 0.14), transparent 24%),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.56), rgba(255, 255, 255, 0.22));
+    radial-gradient(circle at 18% 28%, rgba(125, 211, 252, 0.32), transparent 30%),
+    radial-gradient(circle at 72% 18%, rgba(196, 181, 253, 0.34), transparent 28%),
+    radial-gradient(circle at 68% 76%, rgba(59, 130, 246, 0.24), transparent 34%),
+    radial-gradient(circle at 32% 82%, rgba(45, 212, 191, 0.22), transparent 30%),
+    linear-gradient(135deg, #f8fbff 0%, #eef7ff 44%, #f8fbff 100%);
 }
 
-.carousel-shell::after {
-  top: 50%;
-  left: 50%;
-  width: min(1120px, 92%);
-  height: calc(var(--home-carousel-height) + 18px);
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  border-radius: 34px;
+.home-page::after {
+  inset: -18%;
+  z-index: -1;
   background:
-    linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px),
-    rgba(255, 255, 255, 0.24);
-  background-size: 120px 100%;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.62);
-  backdrop-filter: blur(18px);
-  transform: translate(-50%, -50%);
+    repeating-linear-gradient(
+      108deg,
+      rgba(255, 255, 255, 0.68) 0%,
+      rgba(255, 255, 255, 0.68) 8%,
+      transparent 18%,
+      transparent 24%,
+      rgba(255, 255, 255, 0.6) 34%
+    ),
+    repeating-linear-gradient(
+      108deg,
+      rgba(59, 130, 246, 0.34) 8%,
+      rgba(129, 140, 248, 0.34) 18%,
+      rgba(56, 189, 248, 0.38) 30%,
+      rgba(216, 180, 254, 0.34) 42%,
+      rgba(45, 212, 191, 0.28) 54%,
+      rgba(96, 165, 250, 0.34) 66%
+    );
+  background-position: 50% 50%, 50% 50%;
+  background-size: 240% 240%, 180% 180%;
+  filter: blur(18px) saturate(135%);
+  opacity: 0.82;
+  -webkit-mask-image: radial-gradient(ellipse at 62% 30%, black 14%, rgba(0, 0, 0, 0.72) 54%, transparent 88%);
+  mask-image: radial-gradient(ellipse at 62% 30%, black 14%, rgba(0, 0, 0, 0.72) 54%, transparent 88%);
+  animation: aurora-shift 60s linear infinite;
 }
 
-.vehicle-carousel {
-  z-index: 1;
-  width: min(980px, 100%);
-}
-
-.vehicle-carousel :deep(.el-carousel__container),
-.carousel-slide {
-  border-radius: var(--radius-xl);
-}
-
-.vehicle-carousel :deep(.el-carousel__container) {
-  height: var(--home-carousel-height) !important;
-}
-
-.vehicle-carousel :deep(.el-carousel__arrow) {
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  background: rgba(17, 24, 39, 0.4);
-  backdrop-filter: blur(16px);
-}
-
-.carousel-slide {
-  position: relative;
-  display: block;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.72);
-  background: #111827;
-  box-shadow: 0 28px 70px rgba(17, 24, 39, 0.16);
-  color: #fff;
-  cursor: pointer;
-  text-align: left;
-}
-
-.carousel-slide__image {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transform: scale(1.01);
-  transition: transform 700ms ease;
-}
-
-.carousel-slide::after {
-  position: absolute;
-  inset: auto 0 0;
-  height: 46%;
-  content: "";
-  background: linear-gradient(0deg, rgba(8, 13, 23, 0.58), transparent);
-}
-
-.carousel-slide:hover .carousel-slide__image {
-  transform: scale(1.04);
-}
-
-.vehicle-badge {
-  position: absolute;
-  right: clamp(14px, 3vw, 28px);
-  bottom: clamp(14px, 3vw, 28px);
-  z-index: 1;
+.recommend-orbit {
   display: grid;
-  width: min(320px, calc(100% - 28px));
-  gap: 6px;
-  padding: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  border-radius: 24px;
-  background: rgba(17, 24, 39, 0.42);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(18px) saturate(145%);
+  grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.2fr);
+  gap: clamp(24px, 5vw, 64px);
+  align-items: center;
+  width: min(1240px, calc(100% - 48px));
+  min-height: calc(100vh - 76px);
+  margin: 0 auto;
+  padding: clamp(32px, 6vw, 72px) 0;
 }
 
-.vehicle-badge__brand {
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 0.12em;
-}
-
-.vehicle-badge strong {
-  color: #fff;
-  font-size: clamp(20px, 2.3vw, 28px);
-  line-height: 1.08;
-  letter-spacing: -0.035em;
-}
-
-.vehicle-badge__price {
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 16px;
-  font-weight: 850;
-}
-
-.vehicle-badge__specs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 4px;
-}
-
-.vehicle-badge__specs span {
-  padding: 6px 9px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.13);
-  color: rgba(255, 255, 255, 0.86);
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.carousel-state {
+.orbit-copy {
   display: grid;
-  width: min(980px, 100%);
-  min-height: var(--home-carousel-height);
-  place-items: center;
-  align-content: center;
-  gap: 12px;
-  padding: 36px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  background: rgba(255, 255, 255, 0.68);
-  box-shadow: var(--shadow-card);
-  text-align: center;
-  backdrop-filter: blur(18px);
-}
-
-.carousel-state img {
-  width: min(320px, 80%);
-  opacity: 0.72;
-}
-
-.carousel-state strong {
-  color: var(--color-primary-dark);
-  font-size: 24px;
-}
-
-.carousel-state p {
-  margin: 0;
-  color: var(--color-muted);
-}
-
-.carousel-state--error {
-  border-color: rgba(194, 65, 12, 0.2);
-}
-
-.state-orb {
-  width: 44px;
-  height: 44px;
-  border: 4px solid rgba(10, 132, 255, 0.14);
-  border-top-color: var(--color-primary);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-.recommend-core {
-  display: grid;
-  justify-items: center;
   gap: 16px;
-  padding: clamp(32px, 6vw, 68px);
-  border: 1px solid rgba(255, 255, 255, 0.78);
-  border-radius: var(--radius-xl);
-  background:
-    radial-gradient(circle at 50% 0%, rgba(90, 200, 250, 0.2), transparent 34%),
-    rgba(255, 255, 255, 0.74);
-  box-shadow: var(--shadow-card);
-  text-align: center;
-  backdrop-filter: blur(20px);
 }
 
-.eyebrow,
-.section-label {
+.eyebrow {
   margin: 0;
   color: #0b65c2;
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 0.13em;
+  font-size: 46px;
+  font-weight: 760;
+  line-height: 1;
 }
 
-.recommend-core h1 {
+.orbit-copy h1 {
+  max-width: 420px;
   margin: 0;
   color: var(--color-primary-dark);
-  font-size: clamp(38px, 6vw, 68px);
-  line-height: 1.02;
-  letter-spacing: -0.055em;
+  font-size: 52px;
+  font-weight: 760;
+  line-height: 1.12;
 }
 
-.recommend-core p:not(.eyebrow) {
-  max-width: 560px;
+.orbit-copy p:not(.eyebrow) {
+  max-width: 460px;
   margin: 0;
   color: var(--color-muted);
   font-size: 17px;
-  line-height: 1.75;
+  line-height: 1.8;
 }
 
-.primary-cta {
-  min-width: 178px;
-  min-height: 48px;
-  margin-top: 8px;
-  border-radius: 999px;
-  box-shadow: 0 16px 30px rgba(10, 132, 255, 0.24);
-  font-weight: 850;
+.orbit-stage {
+  position: relative;
+  min-height: 590px;
 }
 
-.feature-entry {
+.orbit-stage::before,
+.orbit-stage::after {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  content: "";
+  border: 1px solid rgba(10, 132, 255, 0.12);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.orbit-stage::before {
+  width: min(500px, 88vw);
+  height: min(500px, 88vw);
+}
+
+.orbit-stage::after {
+  width: min(370px, 72vw);
+  height: min(370px, 72vw);
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.orbit-core,
+.orbit-node {
+  position: absolute;
   display: grid;
-  gap: 18px;
-}
-
-.section-heading {
-  display: grid;
-  gap: 10px;
-}
-
-.section-heading h2 {
-  margin: 0;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 22px 55px rgba(15, 23, 42, 0.1);
   color: var(--color-primary-dark);
-  font-size: clamp(24px, 3vw, 36px);
-  letter-spacing: -0.035em;
-}
-
-.feature-grid {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.feature-card {
-  display: grid;
-  gap: 12px;
-  min-height: 164px;
-  padding: 22px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.72);
-  box-shadow: var(--shadow-soft);
-  color: var(--color-text);
   cursor: pointer;
-  text-align: left;
+  text-align: center;
+  backdrop-filter: blur(18px);
   transition:
     transform 180ms ease,
     box-shadow 180ms ease,
     border-color 180ms ease;
 }
 
-.feature-card:hover {
-  transform: translateY(-4px);
-  border-color: rgba(10, 132, 255, 0.22);
-  box-shadow: 0 20px 48px rgba(17, 24, 39, 0.1);
-}
-
-.feature-card span {
+.orbit-core {
+  top: 50%;
+  left: 50%;
+  z-index: 2;
+  width: clamp(220px, 24vw, 280px);
+  height: clamp(220px, 24vw, 280px);
+  padding: 34px;
+  background:
+    radial-gradient(circle at 35% 22%, rgba(255, 255, 255, 0.96), transparent 30%),
+    linear-gradient(145deg, #d9f0ff, #9dd8ff);
   color: #0b65c2;
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 0.12em;
+  transform: translate(-50%, -50%);
 }
 
-.feature-card strong {
-  color: var(--color-primary-dark);
-  font-size: 20px;
-  letter-spacing: -0.02em;
+.orbit-core:hover {
+  transform: translate(-50%, -50%) scale(1.035);
+  box-shadow: 0 28px 70px rgba(10, 132, 255, 0.16);
 }
 
-.feature-card p {
-  margin: 0;
-  color: var(--color-muted);
-  line-height: 1.7;
+.orbit-core strong {
+  font-size: 46px;
+  font-weight: 760;
+  line-height: 1;
+}
+
+.orbit-node {
+  z-index: 1;
+  width: 138px;
+  height: 138px;
+  padding: 18px;
+}
+
+.orbit-node:hover {
+  border-color: rgba(10, 132, 255, 0.24);
+  transform: translate(var(--x, 0), var(--y, 0)) scale(1.045);
+  box-shadow: 0 26px 66px rgba(10, 132, 255, 0.16);
+}
+
+.orbit-node strong {
+  font-size: 17px;
+  font-weight: 760;
+}
+
+.orbit-node--top {
+  top: -24px;
+  left: 50%;
+  --x: -50%;
+  transform: translateX(-50%);
+}
+
+.orbit-node--right {
+  top: 38%;
+  right: 0;
+}
+
+.orbit-node--bottom-right {
+  right: 12%;
+  bottom: 0;
+}
+
+.orbit-node--bottom-left {
+  bottom: 0;
+  left: 12%;
+}
+
+.orbit-node--left {
+  top: 38%;
+  left: 0;
 }
 
 @keyframes page-in {
@@ -492,57 +295,74 @@ function formatSeats(seats) {
   }
 }
 
-@keyframes spin {
+@keyframes aurora-shift {
+  from {
+    background-position: 50% 50%, 50% 50%;
+  }
+
   to {
-    transform: rotate(360deg);
+    background-position: 350% 50%, 350% 50%;
   }
 }
 
 @media (max-width: 1080px) {
-  .feature-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 820px) {
-  .carousel-shell {
-    --home-carousel-height: clamp(240px, 33vh, 320px);
-
-    min-height: calc(var(--home-carousel-height) + 48px);
-    padding-inline: 0;
-  }
-
-  .vehicle-carousel :deep(.el-carousel__container),
-  .carousel-state {
-    height: var(--home-carousel-height) !important;
-    min-height: var(--home-carousel-height);
-  }
-
-  .vehicle-badge {
-    right: 18px;
-    bottom: 18px;
-  }
-
-  .feature-grid {
+  .recommend-orbit {
     grid-template-columns: 1fr;
+    min-height: auto;
+    width: min(100% - 32px, 1240px);
+  }
+
+  .orbit-copy {
+    justify-items: center;
+    text-align: center;
+  }
+
+  .orbit-stage {
+    min-height: 620px;
+  }
+
+  .orbit-copy h1 {
+    font-size: 46px;
   }
 }
 
-@media (max-width: 560px) {
-  .recommend-core h1 {
+@media (max-width: 720px) {
+  .recommend-orbit {
+    padding: 28px 18px;
+  }
+
+  .orbit-stage {
+    display: grid;
+    min-height: 0;
+    gap: 12px;
+  }
+
+  .orbit-stage::before,
+  .orbit-stage::after {
+    display: none;
+  }
+
+  .orbit-core,
+  .orbit-node {
+    position: static;
+    width: 100%;
+    height: auto;
+    min-height: 104px;
+    border-radius: 24px;
+    transform: none;
+  }
+
+  .orbit-core:hover,
+  .orbit-node:hover {
+    transform: translateY(-2px);
+  }
+
+  .orbit-core strong {
+    font-size: 30px;
+  }
+
+  .orbit-copy h1 {
     font-size: 34px;
-  }
-
-  .recommend-core p:not(.eyebrow) {
-    font-size: 15px;
-  }
-
-  .vehicle-badge strong {
-    font-size: 24px;
-  }
-
-  .vehicle-badge__price {
-    font-size: 16px;
   }
 }
 </style>

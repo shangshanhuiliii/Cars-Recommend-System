@@ -32,7 +32,7 @@ public final class AuthContext {
     public static Long requireUserId() {
         AuthPrincipal principal = CURRENT.get();
         if (principal == null || principal.principalType() != PrincipalType.USER) {
-            throw new BusinessException(ErrorCode.FORBIDDEN, "USER principal is required");
+            throw new BusinessException(ErrorCode.FORBIDDEN, "需要普通用户身份");
         }
         return principal.id();
     }
@@ -40,7 +40,7 @@ public final class AuthContext {
     public static Long requireAdminId() {
         AuthPrincipal principal = CURRENT.get();
         if (principal == null || principal.principalType() != PrincipalType.ADMIN) {
-            throw new BusinessException(ErrorCode.FORBIDDEN, "ADMIN principal is required");
+            throw new BusinessException(ErrorCode.FORBIDDEN, "需要管理员身份");
         }
         return principal.id();
     }

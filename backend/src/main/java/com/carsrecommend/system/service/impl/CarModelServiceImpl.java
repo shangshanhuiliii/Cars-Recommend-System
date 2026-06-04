@@ -41,7 +41,7 @@ public class CarModelServiceImpl implements CarModelService {
     public CarModelVO getById(Long id) {
         return carModelMapper.findById(id)
                 .map(this::toVO)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "car model not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "车型不存在"));
     }
 
     @Override
@@ -56,7 +56,7 @@ public class CarModelServiceImpl implements CarModelService {
         CarModel carModel = toEntity(request);
         carModel.setId(id);
         if (carModelMapper.update(carModel) == 0) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "car model not found");
+            throw new BusinessException(ErrorCode.NOT_FOUND, "车型不存在");
         }
         return getById(id);
     }
@@ -65,7 +65,7 @@ public class CarModelServiceImpl implements CarModelService {
     public void softDelete(Long id) {
         ensureActiveCarExists(id);
         if (carModelMapper.softDelete(id) == 0) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "car model not found");
+            throw new BusinessException(ErrorCode.NOT_FOUND, "车型不存在");
         }
     }
 
@@ -78,14 +78,14 @@ public class CarModelServiceImpl implements CarModelService {
 
     private void ensureActiveCarExists(Long id) {
         if (!carModelMapper.existsActiveById(id)) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "car model not found");
+            throw new BusinessException(ErrorCode.NOT_FOUND, "车型不存在");
         }
     }
 
     private void validatePageQuery(CarPageQuery query) {
         if (query.getMinPrice() != null && query.getMaxPrice() != null
                 && query.getMinPrice().compareTo(query.getMaxPrice()) > 0) {
-            throw new BusinessException("minPrice must not be greater than maxPrice");
+            throw new BusinessException("最低价格不能大于最高价格");
         }
         if (StringUtils.hasText(query.getBodyType())) {
             BodyType.fromCode(query.getBodyType().trim());
@@ -93,7 +93,7 @@ public class CarModelServiceImpl implements CarModelService {
         if (StringUtils.hasText(query.getEnergyType())) {
             EnergyType energyType = EnergyType.fromCode(query.getEnergyType().trim());
             if (!energyType.isCarModelType()) {
-                throw new BusinessException("car model energyType must not be NEW_ENERGY");
+                throw new BusinessException("车型动力类型不能保存为新能源，请选择纯电、插混或增程");
             }
         }
         if (StringUtils.hasText(query.getAuditStatus())) {

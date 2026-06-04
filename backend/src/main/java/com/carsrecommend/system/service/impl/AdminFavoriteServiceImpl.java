@@ -45,7 +45,7 @@ public class AdminFavoriteServiceImpl implements AdminFavoriteService {
     @Transactional(readOnly = true)
     public PageResult<AdminFavoriteCarVO> cars(Integer page, Integer size, String keyword, Long userId) {
         if (userId != null && appUserMapper.findByIdForAdmin(userId).isEmpty()) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "app user not found");
+            throw new BusinessException(ErrorCode.NOT_FOUND, "用户不存在");
         }
         int pageNo = normalizePage(page);
         int pageSize = normalizeSize(size);
@@ -93,7 +93,7 @@ public class AdminFavoriteServiceImpl implements AdminFavoriteService {
     @Transactional(readOnly = true)
     public PageResult<AdminFavoriteUserVO> users(Long carId, Integer page, Integer size) {
         if (carId == null || carId <= 0 || !carModelMapper.existsActiveById(carId)) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "car model not found");
+            throw new BusinessException(ErrorCode.NOT_FOUND, "车型不存在");
         }
         int pageNo = normalizePage(page);
         int pageSize = normalizeSize(size);
@@ -179,7 +179,7 @@ public class AdminFavoriteServiceImpl implements AdminFavoriteService {
             return DEFAULT_PAGE;
         }
         if (page < 1) {
-            throw new BusinessException("page must be greater than or equal to 1");
+            throw new BusinessException("页码必须大于或等于 1");
         }
         return page;
     }
@@ -189,7 +189,7 @@ public class AdminFavoriteServiceImpl implements AdminFavoriteService {
             return DEFAULT_SIZE;
         }
         if (size < 1 || size > MAX_SIZE) {
-            throw new BusinessException("size must be between 1 and 100");
+            throw new BusinessException("每页数量必须在 1 到 100 之间");
         }
         return size;
     }

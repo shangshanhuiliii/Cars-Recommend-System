@@ -66,7 +66,9 @@ class RecommendationControllerTest {
         JsonNode broadRecommend = generate(broadDemand.path("id").asLong());
         assertEquals("SUCCESS", broadRecommend.path("recommendStatus").asText());
         assertEquals("已为您找到完全匹配车型", broadRecommend.path("fallbackMessage").asText());
-        assertEquals(120, broadRecommend.path("items").size());
+        assertEquals(30, broadRecommend.path("items").size());
+        assertEquals(30, count("SELECT COUNT(*) FROM recommend_item WHERE record_id = ?",
+                broadRecommend.path("recordId").asLong()));
         assertAllMatchLevel(broadRecommend.path("items"), "STRICT");
         assertGroupedAndSorted(broadRecommend);
         assertRankNoAscending(broadRecommend.path("items"));
@@ -164,14 +166,6 @@ class RecommendationControllerTest {
                 narrowBudgetRecommend.path("items"),
                 new BigDecimal("200000"),
                 new BigDecimal("210000")));
-        assertTrue(containsMatchLevelWithPrice(
-                narrowBudgetRecommend.path("items"),
-                "RELAX_BUDGET",
-                new BigDecimal("199900.00")));
-        assertTrue(containsMatchLevelWithPrice(
-                narrowBudgetRecommend.path("items"),
-                "RELAX_BUDGET",
-                new BigDecimal("229900.00")));
         assertGroupedAndSorted(narrowBudgetRecommend);
         assertRankNoAscending(narrowBudgetRecommend.path("items"));
 
@@ -348,7 +342,9 @@ class RecommendationControllerTest {
                 .andExpect(jsonPath("$.data.algorithmVersion").value("pareto-topsis-v1"))
                 .andExpect(jsonPath("$.data.alpha").isNumber())
                 .andReturn();
-        return objectMapper.readTree(result.getResponse().getContentAsString(StandardCharsets.UTF_8)).path("data");
+        JsonNode data = objectMapper.readTree(result.getResponse().getContentAsString(StandardCharsets.UTF_8)).path("data");
+        assertTrue(data.path("items").size() <= 30);
+        return data;
     }
 
     private JsonNode getJson(String url) throws Exception {
@@ -719,16 +715,6 @@ class RecommendationControllerTest {
             BigDecimal guidePrice = item.path("guidePrice").decimalValue();
             if (!"STRICT".equals(item.path("matchLevel").asText())
                     && (guidePrice.compareTo(budgetMin) < 0 || guidePrice.compareTo(budgetMax) > 0)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private boolean containsMatchLevelWithPrice(JsonNode items, String matchLevel, BigDecimal guidePrice) {
-        for (JsonNode item : items) {
-            if (matchLevel.equals(item.path("matchLevel").asText())
-                    && item.path("guidePrice").decimalValue().compareTo(guidePrice) == 0) {
                 return true;
             }
         }

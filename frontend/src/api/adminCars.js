@@ -20,6 +20,12 @@ export function deleteAdminCar(id) {
   return http.delete(`/admin/cars/${id}`)
 }
 
+export function importAdminCarDataSource(file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return http.post('/admin/cars/data-source/import', formData)
+}
+
 export function fetchAdminCarParam(id) {
   return http.get(`/admin/cars/${id}/param`)
 }

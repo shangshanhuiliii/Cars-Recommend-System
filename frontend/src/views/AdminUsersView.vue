@@ -40,8 +40,8 @@
               @clear="reloadFirstPage"
             />
             <el-select v-model="query.status" clearable placeholder="全部状态" @change="reloadFirstPage">
-              <el-option label="ACTIVE" value="ACTIVE" />
-              <el-option label="DISABLED" value="DISABLED" />
+              <el-option label="启用" value="ACTIVE" />
+              <el-option label="禁用" value="DISABLED" />
             </el-select>
             <el-button type="primary" :loading="loadingList" @click="reloadFirstPage">查询</el-button>
           </div>
@@ -58,12 +58,12 @@
             <el-table-column label="用户">
               <template #default="{ row }">
                 <strong>{{ row.nickname || row.username }}</strong>
-                <p class="muted-line">{{ row.username }} · {{ row.phone || '未填写手机号' }}</p>
+                <p class="muted-line">{{ row.username }} · {{ row.email || '未填写邮箱' }} · {{ row.phone || '未填写手机号' }}</p>
               </template>
             </el-table-column>
             <el-table-column prop="status" label="状态" width="120">
               <template #default="{ row }">
-                <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'warning'">{{ row.status }}</el-tag>
+                <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'warning'">{{ userStatusLabel(row.status) }}</el-tag>
               </template>
             </el-table-column>
             <el-table-column prop="recommendRecordCount" label="推荐" width="90" />
@@ -119,10 +119,11 @@
               <div>
                 <p class="eyebrow">用户 #{{ detail.user.id }}</p>
                 <h2>{{ detail.user.nickname || detail.user.username }}</h2>
-                <p class="muted-line">{{ detail.user.username }} · {{ detail.user.phone || '未填写手机号' }}</p>
+                <p class="muted-line">{{ detail.user.username }}</p>
+                <p class="muted-line">{{ detail.user.email || '未填写邮箱' }} · {{ detail.user.phone || '未填写手机号' }}</p>
               </div>
               <el-tag :type="detail.user.status === 'ACTIVE' ? 'success' : 'warning'" size="large">
-                {{ detail.user.status }}
+                {{ userStatusLabel(detail.user.status) }}
               </el-tag>
             </div>
 
@@ -267,7 +268,7 @@ async function toggleStatus(row) {
     const nextStatus = row.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE'
     const response = await updateAdminUserStatus(row.id, nextStatus)
     row.status = response.data.status
-    actionMessage.value = `用户 ${row.username} 已更新为 ${response.data.status}`
+    actionMessage.value = `用户 ${row.username} 已更新为${userStatusLabel(response.data.status)}状态`
     if (detail.value?.user?.id === row.id) {
       detail.value.user.status = response.data.status
     }
@@ -289,6 +290,12 @@ function statusLabel(value) {
   if (value === 'SUCCESS') return '完全匹配'
   if (value === 'FALLBACK') return '含补充推荐'
   if (value === 'EMPTY') return '暂无结果'
+  return value || '未知'
+}
+
+function userStatusLabel(value) {
+  if (value === 'ACTIVE') return '启用'
+  if (value === 'DISABLED') return '禁用'
   return value || '未知'
 }
 </script>

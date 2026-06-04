@@ -29,4 +29,5 @@ public class CarDetailVO {
     public void setCarFeatureScore(CarFeatureScoreVO carFeatureScore) {
         this.carFeatureScore = carFeatureScore;
     }
+
 }

@@ -100,15 +100,13 @@ util         评分、解析、权重归一化等工具
 - `CarFeatureScoreService`
 - `UserProfileService`
 - `RecommendationService`
-- `RecommendationReasonService`
-- `FallbackRecommendationService`
 - `RecommendationRecordService`
 - `DemandTextParseService`
 
 ## 6. 前端规则
 
 - 前端实现以 `docs/FRONTEND.md` 为准。
-- 未登录中间导航只显示首页，登录入口位于右上角；产品前端统一使用首页登录 / 注册弹窗，旧 `/login` 和 `/admin/login` 路由仅作为兼容跳转入口，不再作为独立产品页面。
+- 产品前端使用登录 / 注册浮窗承载认证。未登录用户访问需要身份的页面时，保持当前背景页面和目标地址，通过 `auth` 查询参数打开浮窗并保留合法 `redirect`，不得强制把背景切换成首页。`/login`、`/register` 和 `/admin/login` 只作为兼容入口触发浮窗。
 - 普通用户注册只能创建 `USER` 账号；管理员登录后默认进入 `/admin/cars`，管理员不显示首页入口，不能进入首页，右上角名称固定显示“管理员”。
 - 推荐结果页必须展示综合推荐分、推荐标签、推荐理由、不足提醒、维度评分和查看详情入口。
 - 用户端不展示 TOPSIS、Pareto、熵权等复杂术语。

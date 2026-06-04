@@ -28,6 +28,10 @@ public class CarPageQuery {
 
     private String auditStatus;
 
+    private String sortBy;
+
+    private String sortOrder;
+
     public Integer getPage() {
         return page == null ? 1 : page;
     }
@@ -90,5 +94,21 @@ public class CarPageQuery {
 
     public void setAuditStatus(String auditStatus) {
         this.auditStatus = auditStatus;
+    }
+
+    public String getSortBy() {
+        return sortBy;
+    }
+
+    public void setSortBy(String sortBy) {
+        this.sortBy = sortBy;
+    }
+
+    public String getSortOrder() {
+        return sortOrder;
+    }
+
+    public void setSortOrder(String sortOrder) {
+        this.sortOrder = sortOrder;
     }
 }

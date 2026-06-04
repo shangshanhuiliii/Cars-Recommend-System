@@ -40,7 +40,7 @@ util         评分、解析、权重归一化等工具
 
 - 车型管理：维护 `car_model`、`car_param`，并提供车型详情、品牌选项和车型选项。
 - 图片资源管理：管理端上传、压缩、审核和软删除车型图片资源，审核通过后更新 `car_model.image_url`。
-- 登录认证：产品前端统一使用首页登录 / 注册弹窗，后端 `POST /api/auth/login` 根据账号密码识别 `app_user` 或 `admin` 并返回带 `principalType` 的 HS256 JWT；旧 `/login` 和 `/admin/login` 仅作为兼容跳转入口。普通用户注册只写入 `app_user`，管理员登录后进入 `/admin/cars`；`AuthInterceptor` 统一校验 token、角色和接口权限，并对未归类 `/api/**` 采用默认拒绝的 fail-closed 策略。
+- 登录认证：产品前端使用全局登录 / 注册浮窗承载普通用户登录、普通用户注册和管理员登录模式；未登录访问需要身份的业务路由时，前端保留目标路径作为背景和合法 `redirect`，通过路由状态打开浮窗，不强制切换到首页。普通用户模式调用 `POST /api/auth/user/login`，管理员模式调用 `POST /api/auth/admin/login`，后端也保留 `POST /api/auth/login` 作为可自动识别 `app_user` 或 `admin` 的统一登录接口。普通用户注册只写入 `app_user`；普通用户注册或登录后进入合法 USER redirect 或 `/`，管理员登录后进入合法 ADMIN redirect 或 `/admin/cars`；`AuthInterceptor` 统一校验 token、角色和接口权限，并对未归类 `/api/**` 采用默认拒绝的 fail-closed 策略。
 - 管理端用户管理：管理员查看普通用户状态、统计数字、最近需求和推荐历史入口，并维护 `app_user.status`；收藏车型和反馈记录拆分到独立只读页面。
 - 车型评分：根据车型参数生成 `car_feature_score`。
 - 用户需求：保存结构化需求，生成画像文本和主观权重。
@@ -65,21 +65,24 @@ util         评分、解析、权重归一化等工具
 - `frontend/src/styles`：全局样式。
 - `frontend/scripts`：前端验证脚本。
 
+前端根布局按身份和路由分流：普通用户端继续使用顶部导航和产品化页面风格；管理员进入 `/admin/**` 或 `/algorithm-demo` 时使用管理端左侧侧边栏布局。管理端侧边栏集中维护车型管理、用户管理、收藏车型、反馈记录、推荐记录、运营概览、系统健康检查和算法可视化入口，主内容区使用后台系统面板和表格风格。该布局分流只影响前端展示，不改变接口、数据库、推荐算法或认证权限边界。
+
 ## 路由结构
 
 | 路由 | 页面 | 边界 |
 | --- | --- | --- |
-| `/` | 首页 | 面向普通用户的产品首页，由数据库随机车辆图片轮播、唯一核心购车推荐入口和特色介绍跳转组成；轮播点击进入车型详情，不放推荐、历史、收藏或对比功能入口。 |
-| `/register` | 兼容注册入口 | 产品前端注册由首页弹窗完成，只创建普通 `USER` 账号。 |
+| `/` | 首页 | USER 路由；面向普通用户的产品首页，由数据库随机车辆图片轮播、唯一核心购车推荐入口和特色介绍跳转组成；轮播点击进入车型详情，不放推荐、历史、收藏或对比功能入口。 |
+| `/login` | 登录浮窗入口 | 兼容入口；重定向到合法 `redirect` 背景或首页，并通过 `auth=login` 打开认证浮窗。 |
+| `/register` | 注册浮窗入口 | 兼容入口；通过 `auth=register` 打开注册浮窗，只创建普通 `USER` 账号。 |
 | `/recommend` | 购车需求页 | 产品化结构化需求表单，不展示自然语言解析入口。 |
-| `/recommend/result/:recordId` | 推荐结果页 | 读取推荐详情，车名可点击进入 `/car/{id}?recordId={recordId}`，按 `rankNo` 展示。 |
-| `/car/:id` | 车型详情页 | 独立车型详情页，展示横屏大图、基础信息、参数和特征评分。 |
-| `/features` | 特色介绍页 | 公开产品介绍页，集中说明结构化需求、推荐结果、车型详情、收藏对比和历史回看，不展示用户端复杂算法术语。 |
+| `/recommend/result/:recordId` | 推荐结果页 | 读取推荐详情，车名可点击进入 `/car/{id}?recordId={recordId}`，按 `rankNo` 展示，并可在当前推荐车型中进行价格从低到高演示。 |
+| `/car/:id` | 车型详情页 | USER 路由；展示横屏大图、基础信息、参数和特征评分。 |
+| `/features` | 特色介绍页 | USER 路由；集中说明结构化需求、推荐结果、车型详情、收藏对比和历史回看，不展示用户端复杂算法术语。 |
 | `/history` | 推荐历史页 | 展示当前用户推荐历史列表。 |
-| `/login` | 兼容登录路由 | 重定向到 `/?auth=login` 并透传合法 redirect，不再作为独立产品页。 |
-| `/admin/login` | 兼容管理员登录路由 | 重定向到 `/?auth=login&redirect=/admin/cars` 或合法 admin redirect，不再作为独立产品页。 |
+| `/admin/login` | 管理员登录浮窗入口 | 兼容入口；通过 `auth=admin` 打开管理员登录模式，登录后进入合法 admin redirect 或 `/admin/cars`。 |
 | `/compare` | 车型对比页 | 读取当前 USER 后端持久化对比列表，只读比较 1-3 款车型，不影响推荐排序。 |
 | `/favorites` | 我的收藏页 | 展示收藏车型，收藏不参与推荐排序。 |
+| `/me` | 我的页面 | 当前登录 USER 的个人资料维护页，可保存昵称、邮箱和手机号，不接受 `userId` 参数。 |
 | `/algorithm-demo` | 算法可视化页面 | 管理端导航中的只读工具页，展示推荐快照中的权重、矩阵、Pareto 和 TOPSIS 过程。 |
 | `/admin/cars` | 管理端车型管理 | 维护车型、参数和评分。 |
 | `/admin/users` | 管理端用户管理 | 查看普通用户状态、统计数字、最近需求和推荐入口，支持启用 / 禁用。 |
@@ -94,7 +97,8 @@ util         评分、解析、权重归一化等工具
 推荐生成数据流：
 
 ```text
-USER 登录 -> 前端保存 token -> 默认进入首页 /
+未登录访问业务路由 -> 保留当前路径并打开登录 / 注册浮窗
+-> USER 登录或注册 -> 前端保存 token -> 进入合法 redirect 或默认首页 /
 -> 用户从首页进入 /recommend 并填写结构化需求
 -> Authorization: Bearer <token>
 -> POST /api/user/demand（userId 来自 JWT）
@@ -127,8 +131,8 @@ ADMIN 登录 -> /algorithm-demo
 认证与权限数据流：
 
 ```text
-POST /api/auth/login
--> 后端按 username 查询 app_user 和 admin
+POST /api/auth/user/login 或 POST /api/auth/admin/login
+-> 后端按登录模式查询 app_user 或 admin
 -> PasswordHasher 校验 PBKDF2 hash 并识别 USER / ADMIN
 -> JwtTokenService 签发带 principalType 的 HS256 token
 -> 前端保存 token / principal / permissions / menus
@@ -139,7 +143,7 @@ POST /api/auth/login
 -> 未归类 /api/** 默认拒绝，新增 API 必须显式归类为 public / USER / ADMIN
 ```
 
-旧 `POST /api/auth/user/login` 与 `POST /api/auth/admin/login` 保留兼容；产品前端不再展示独立 `/login` 或 `/admin/login` 页面。
+`POST /api/auth/login` 作为统一登录接口保留；产品前端使用全局登录 / 注册浮窗承载普通用户登录、普通用户注册和管理员登录模式。公开后端接口只用于登录注册、健康检查、车辆图片和必要车型资源加载，不代表前端存在游客产品身份。
 
 用户注册与管理数据流：
 
@@ -182,6 +186,18 @@ ADMIN 登录 -> /admin/cars
 
 - 推荐算法只在后端执行。
 - 用户端推荐结果页展示用户可理解的分数、标签、理由、不足和维度评分。
+- 推荐结果页的“价格从低到高演示”只作为当前推荐车型的辅助查看视图，不覆盖推荐记录中的 `rankNo` 权威排序。
 - 管理端和算法可视化页面可以展示权重、候选、Pareto、TOPSIS 等算法细节。
 - 收藏和反馈不改变 `pareto-topsis-v1` 的排序结果。
 - 推荐历史以保存快照为准，当前评分规则变化不会覆盖历史结果。
+## 车型数据源导入链路
+
+车型种子数据仍用于本地最小开发和验证，但车型维护不再只依赖 `seed-data.sql`。管理端通过 `POST /api/admin/cars/data-source/import` 上传结构化 JSON 文件，后端 `CarDataSourceImportService` 负责解析、校验和 upsert。
+
+导入链路为：
+
+```text
+ADMIN 上传 JSON -> Controller -> CarDataSourceImportService -> car_model / car_param -> 管理端摘要与错误列表 -> 管理员触发车型评分重算
+```
+
+导入只维护车型基础信息和车型参数，不触碰收藏、对比、反馈、推荐历史和推荐明细快照。自然键匹配规则为 `brand + series + modelName + launchYear`；同一文件内重复自然键会跳过并进入导入问题列表。新增或更新车型后不会自动改写 `car_feature_score`，管理员需要通过现有评分重算接口生成最新评分。

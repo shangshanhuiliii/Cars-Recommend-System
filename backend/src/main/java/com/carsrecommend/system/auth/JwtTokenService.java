@@ -69,25 +69,25 @@ public class JwtTokenService {
 
     public AuthPrincipal parse(String token) {
         if (!StringUtils.hasText(token)) {
-            throw unauthorized("missing token");
+            throw unauthorized("登录已失效，请重新登录");
         }
         String[] parts = token.split("\\.");
         if (parts.length != 3) {
-            throw unauthorized("invalid token");
+            throw unauthorized("登录状态无效，请重新登录");
         }
         String expectedSignature = sign(parts[0] + "." + parts[1]);
         if (!constantTimeEquals(expectedSignature, parts[2])) {
-            throw unauthorized("invalid token signature");
+            throw unauthorized("登录状态无效，请重新登录");
         }
         try {
             JsonNode header = objectMapper.readTree(URL_DECODER.decode(parts[0]));
             if (!"HS256".equals(header.path("alg").asText())) {
-                throw unauthorized("unsupported token algorithm");
+                throw unauthorized("登录状态无效，请重新登录");
             }
             JsonNode payload = objectMapper.readTree(URL_DECODER.decode(parts[1]));
             long exp = payload.path("exp").asLong(0L);
             if (exp <= Instant.now().getEpochSecond()) {
-                throw unauthorized("token expired");
+                throw unauthorized("登录已过期，请重新登录");
             }
             Long id = payload.path("id").isNumber()
                     ? payload.path("id").asLong()
@@ -100,7 +100,7 @@ public class JwtTokenService {
                     payload.path("role").asText(),
                     payload.path("displayName").asText());
         } catch (IllegalArgumentException | IOException exception) {
-            throw unauthorized("invalid token");
+            throw unauthorized("登录状态无效，请重新登录");
         }
     }
 
@@ -108,7 +108,7 @@ public class JwtTokenService {
         try {
             return URL_ENCODER.encodeToString(objectMapper.writeValueAsBytes(value));
         } catch (JsonProcessingException exception) {
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "failed to create token");
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "登录凭证生成失败，请稍后重试");
         }
     }
 
@@ -118,7 +118,7 @@ public class JwtTokenService {
             mac.init(new SecretKeySpec(secretBytes(), HMAC_ALGORITHM));
             return URL_ENCODER.encodeToString(mac.doFinal(signingInput.getBytes(StandardCharsets.UTF_8)));
         } catch (Exception exception) {
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "failed to sign token");
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "登录凭证签名失败，请稍后重试");
         }
     }
 

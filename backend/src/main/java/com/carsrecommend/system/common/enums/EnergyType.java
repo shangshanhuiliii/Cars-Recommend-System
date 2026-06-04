@@ -39,6 +39,6 @@ public enum EnergyType {
                 return value;
             }
         }
-        throw new IllegalArgumentException("Unsupported energyType: " + code);
+        throw new IllegalArgumentException("不支持的动力类型：" + code);
     }
 }
